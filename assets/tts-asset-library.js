@@ -43,7 +43,7 @@ export async function loadCardImage(id){
  if(!(blob instanceof Blob))return null;
  const url=URL.createObjectURL(blob);urls.set(id,url);return url;
 }
-export async function clearLocalCards(){await transact('readwrite',s=>s.clear());releaseUrls();available.clear();}
+export async function clearLocalCards(){await transact('readwrite',store=>{for(const card of CARD_REFERENCE)store.delete(card.id);});releaseUrls();available.clear();}
 function compress(canvas){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Cannot encode image.')),'image/webp',0.83));}
 function canvasFrom(bitmap,index){
  const canvas=document.createElement('canvas');canvas.width=450;canvas.height=630;
