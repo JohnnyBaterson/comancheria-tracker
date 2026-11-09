@@ -1,6 +1,6 @@
 const CACHE_PREFIX='comancheria-table-companion-';
-const CACHE=CACHE_PREFIX+'v0.51.0-public-no-card-art';
-const ASSETS=['./','./index.html','./assets/style.css','./assets/app.js','./assets/engine.js','./assets/board-layout.js','./assets/board-analysis.js','./assets/map-evidence.js','./assets/map-fact-checks.js','./assets/map-topology-audit.js','./assets/save-safety.js','./assets/card-reference.js','./assets/war-card-effects.js','./assets/icon.svg','./manifest.webmanifest'];
+const CACHE=CACHE_PREFIX+'v0.52.0-local-tts-assets';
+const ASSETS=['./','./index.html','./assets/style.css','./assets/app.js','./assets/engine.js','./assets/board-layout.js','./assets/board-analysis.js','./assets/map-evidence.js','./assets/map-fact-checks.js','./assets/map-topology-audit.js','./assets/save-safety.js','./assets/card-reference.js','./assets/tts-asset-library.js','./assets/war-card-effects.js','./assets/icon.svg','./manifest.webmanifest'];
 const KNOWN=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
