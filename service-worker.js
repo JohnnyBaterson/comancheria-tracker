@@ -1,8 +1,22 @@
-const CACHE='comancheria-table-companion-v0.1.0';
-const ASSETS=['./','./index.html','./assets/style.css','./assets/app.js','./assets/engine.js','./assets/icon.svg','./manifest.webmanifest'];
-self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
-self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
+const CACHE_PREFIX='comancheria-table-companion-';
+const CACHE=CACHE_PREFIX+'v0.51.0-public-no-card-art';
+const ASSETS=['./','./index.html','./assets/style.css','./assets/app.js','./assets/engine.js','./assets/board-layout.js','./assets/board-analysis.js','./assets/map-evidence.js','./assets/map-fact-checks.js','./assets/map-topology-audit.js','./assets/save-safety.js','./assets/card-reference.js','./assets/war-card-effects.js','./assets/icon.svg','./manifest.webmanifest'];
+const KNOWN=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
- if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;
- event.respondWith(fetch(event.request).then(response=>{if(response.ok){const saved=response.clone();caches.open(CACHE).then(c=>c.put(event.request,saved));}return response;}).catch(()=>caches.match(event.request).then(r=>r||caches.match('./index.html'))));
+ const req=event.request,url=new URL(req.url);
+ if(req.method!=='GET'||url.origin!==self.location.origin)return;
+ const known=KNOWN.has(url.href);
+ const navigation=req.mode==='navigate'&&url.pathname===new URL('./',self.registration.scope).pathname;
+ if(!known&&!navigation)return;
+ event.respondWith(fetch(req).then(response=>{
+  if(response.ok&&response.type==='basic'&&known){const clone=response.clone();event.waitUntil(caches.open(CACHE).then(cache=>cache.put(req,clone)));}
+  return response;
+ }).catch(async()=>{
+  const cached=await caches.match(req);
+  if(cached)return cached;
+  if(navigation)return caches.match(new URL('./index.html',self.registration.scope).href);
+  return Response.error();
+ }));
 });

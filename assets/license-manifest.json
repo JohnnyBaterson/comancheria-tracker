@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "policy": "Public-safe distribution: no unapproved image assets bundled.",
+  "images": [
+    {
+      "path": "assets/icon.svg",
+      "kind": "app-icon",
+      "source": "Original Comanchería Table Companion app icon",
+      "rightsHolder": "Comanchería Table Companion contributors",
+      "license": "MIT",
+      "redistributionApproved": true,
+      "alt": "Abstract geometric emblem for an unofficial board game companion"
+    }
+  ]
+}
