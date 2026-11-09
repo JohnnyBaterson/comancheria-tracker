@@ -101,3 +101,33 @@ export async function importLocalCards(files){
  return {imported,sheetsFound,individualsFound,total:available.size};
 }
 // File input and IndexedDB only; no image upload, network fetch, or save-game import.
+
+const BOARD_KEY='board-reference';
+let currentBoardUrl=null;
+function releaseBoardUrl(){if(currentBoardUrl){URL.revokeObjectURL(currentBoardUrl);currentBoardUrl=null;}}
+export function boardImageUrl(){return currentBoardUrl;}
+export async function refreshLocalBoard(){
+ const blob=await transact('readonly',store=>store.get(BOARD_KEY));
+ releaseBoardUrl();
+ if(blob instanceof Blob)currentBoardUrl=URL.createObjectURL(blob);
+ return Boolean(currentBoardUrl);
+}
+export async function storeLocalBoard(file){
+ const image=await decode(file);
+ if(!image)throw new Error('Choose a PNG, JPEG or WebP image smaller than 45 MB.');
+ try{
+  if(image.width<500||image.height<300)throw new Error('The selected image is too small to be a board reference.');
+  const scale=Math.min(1,2600/Math.max(image.width,image.height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);
+  canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+  const blob=await compress(canvas);
+  await transact('readwrite',store=>store.put(blob,BOARD_KEY));
+  releaseBoardUrl();currentBoardUrl=URL.createObjectURL(blob);
+ }finally{image.close?.();}
+ return currentBoardUrl;
+}
+export async function clearLocalBoard(){
+ await transact('readwrite',store=>store.delete(BOARD_KEY));
+ releaseBoardUrl();
+}
