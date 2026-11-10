@@ -74,3 +74,9 @@ export function mapEdgesForDisplay(edges){
   // this module never manufactures adjacency from visual distance.
   return edges.filter(edge=>MAP_POSITIONS[edge.a]&&MAP_POSITIONS[edge.b]);
 }
+
+// UI anchor points traced from user-supplied Comanchería TTS board texture.
+// Visual-only; movement and enemy connection legality still require state.edges.
+export const TTS_BOARD_POSITIONS=Object.freeze({"UA-1":[195,220],"UA-2":[299,232],"UA-3":[258,300],"UA-4":[328,287],"UA-5":[385,251],"UA-6":[451,235],"LA-1":[619,424],"LA-2":[621,374],"LA-3":[553,345],"LA-4":[497,333],"LA-5":[428,330],"LA-6":[466,287],"LE-1":[197,301],"LE-2":[184,405],"LE-3":[234,354],"LE-4":[222,479],"LE-5":[266,529],"LE-6":[312,471],"RG-1":[124,424],"RG-2":[134,480],"RG-3":[171,543],"RG-4":[204,595],"RG-5":[278,638],"RG-6":[310,594],"RR-1":[640,527],"RR-2":[572,491],"RR-3":[546,431],"RR-4":[479,413],"RR-5":[397,394],"RR-6":[371,323],"BC-1":[525,546],"BC-2":[453,513],"BC-3":[396,455],"BC-4":[479,598],"BC-5":[374,550],"BC-6":[384,619],"PD":[309,392],"N":[452,174],"W":[136,356],"S":[127,647],"E1":[678,413],"E2":[535,204],"RESERVATION":[549,277]});
+export function boardImagePosition(id){return TTS_BOARD_POSITIONS[id]||boardPosition(id);}
+
