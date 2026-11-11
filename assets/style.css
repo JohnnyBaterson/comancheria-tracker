@@ -223,3 +223,77 @@ body{background:radial-gradient(ellipse at 70% 0%,#25362c 0,#0d1715 48%)}
 .move-valid-cost{pointer-events:none}.move-valid-cost circle{fill:#124525;stroke:#caffd9;stroke-width:2}.move-valid-cost text{fill:white;font:800 16px sans-serif}
 .legend-valid,.legend-blocked{display:inline-block;width:13px;height:13px;border:3px solid #7cffa9;border-radius:50%;vertical-align:middle}.legend-blocked{border-color:#f1a3a3;border-style:dashed}
 .blocked-moves{font-size:12px;border-top:1px solid rgba(255,255,255,.15);padding-top:7px}.blocked-moves p{margin:6px 0;color:var(--muted,#c9c6bf)}
+
+/* Scenario setup: deliberate new-game entry, not an admin submenu. */
+.scenario-start-screen{max-width:1040px;margin:4vh auto 0}
+.setup-scenario-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin:20px 0}
+.setup-scenario-choice{display:flex;flex-direction:column;gap:6px;padding:18px;border:1px solid var(--border,#5e625e);border-radius:14px;cursor:pointer;background:rgba(255,255,255,.035)}
+.setup-scenario-choice:has(input:checked){border-color:var(--gold,#d7b36a);background:rgba(215,179,106,.12)}
+.setup-scenario-choice input{accent-color:var(--gold,#d7b36a)}
+.setup-scenario-name{font-weight:750;font-size:1.08rem}
+.setup-progress{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.setup-picker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0}
+.setup-table-wrap{overflow-x:auto;margin:12px 0}
+.setup-quantity{width:70px;max-width:100%}
+.setup-checklist{margin-top:18px;padding:12px;border:1px solid var(--border,#5e625e);border-radius:12px}
+.setup-checklist summary{cursor:pointer;font-weight:700;margin-bottom:8px}
+@media (max-width:650px){.scenario-start-screen{margin:0}.setup-scenario-cards{grid-template-columns:1fr}}
+
+/* v0.61 — game-first tabletop. Administrative tools remain under on-board drawers. */
+.game-first-shell{display:block;min-height:100vh}
+.game-main{width:min(1920px,100%);max-width:none;margin:0 auto;padding:clamp(12px,2vw,28px)}
+.tabletop-top{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+.tabletop-top h1{font-size:clamp(1.6rem,3vw,2.5rem);margin:2px 0}
+.tabletop-top .mast-actions{display:flex;flex-wrap:wrap;gap:8px}
+.game-home{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 15%,#314638,#14211f 65%);color:#f4eedf}
+.game-home-inner{max-width:720px;text-align:center}
+.game-home h1{font-size:clamp(2.5rem,7vw,5rem);line-height:1.05;margin:18px auto}
+.game-home p{font-size:1.05rem;line-height:1.6}
+.game-home .home-choices{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:26px auto}
+.board-command-drawers{display:grid;gap:12px;margin:20px 0}
+.board-drawer{background:var(--panel,#20302c);border:1px solid var(--border,#596760);border-radius:14px;padding:14px;scroll-margin-top:12px}
+.board-drawer>summary{font-weight:750;cursor:pointer;padding:5px 0;font-size:1.05rem}
+.board-drawer[open]>summary{margin-bottom:16px;border-bottom:1px solid var(--border,#596760);padding-bottom:12px}
+.board-drawer .panel{margin-bottom:12px}
+@media(max-width:700px){.game-main{padding:10px}.game-home .home-choices{flex-direction:column}.tabletop-top .mast-actions{width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.game-event-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid #b29e5f;border-radius:14px;padding:18px 22px;margin:0 0 16px;background:linear-gradient(115deg,#283a31,#344133);box-shadow:0 8px 28px #0002}
+.game-event-notice p{margin:7px 0 0;font-size:1.05rem;color:#f2eee2}
+
+/* v0.70: player-first turn director */
+.next-action-banner{border:1px solid #938354;background:linear-gradient(120deg,#27392f,#1b292a);padding:20px 24px;border-radius:14px;margin:12px 0 18px;box-shadow:0 8px 24px #0002}
+.next-action-banner.player{border-color:#bc934f}.next-action-banner.evidence{border-color:#c47959}
+.next-action-head{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}.next-action-head strong{font-size:1.2rem}
+.next-action-banner p{margin:10px 0 16px;max-width:76ch;line-height:1.55}
+.next-action-banner .form-end{display:flex;justify-content:flex-start;flex-wrap:wrap;gap:9px}
+@media(max-width:650px){.next-action-banner{padding:15px}.next-action-head{display:block}.next-action-head strong{display:block;margin-top:7px}}
+
+/* v0.74: animated, accessible, rights-safe reveal of genuine engine card draws */
+.card-reveal-shade{position:fixed;inset:0;z-index:9999;background:rgba(7,13,12,.88);backdrop-filter:blur(8px);display:grid;place-items:center;padding:18px;overflow:auto;animation:cardVeil .22s ease-out}
+.card-reveal-dialog{width:min(440px,100%);max-height:calc(100dvh - 36px);overflow:auto;background:linear-gradient(155deg,#32453b,#162623);border:2px solid #c8ad6d;box-shadow:0 22px 90px #000a,0 0 55px #bd955245;border-radius:20px;text-align:center;padding:clamp(14px,3vw,24px);color:#faf2de;animation:cardEnter .55s cubic-bezier(.17,1.15,.29,1)}
+.card-reveal-eyebrow{font-weight:800;letter-spacing:.18em;color:#e7cb8e;font-size:.76rem;margin:0 0 12px}
+.card-reveal-face{width:min(225px,75%);height:290px;margin:0 auto 16px;box-shadow:0 13px 32px #0009;border:4px solid #c6ad73;border-radius:12px;overflow:hidden;background:#dacba3;transform-origin:50% 50%;animation:cardFlip .65s ease both}
+.card-reveal-face img{width:100%;height:100%;object-fit:contain;background:#151e1d}
+.card-reveal-placeholder{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;background:radial-gradient(ellipse at center,#5a593d,#25392d 72%);color:#f2e7bf}
+.card-reveal-placeholder span{text-transform:uppercase;letter-spacing:.18em;font-size:.8rem}.card-reveal-placeholder strong{font-size:4rem;line-height:1;font-family:Georgia,serif}.card-reveal-placeholder small{font-size:.7rem;opacity:.8}
+.card-reveal-dialog h2{font-size:1.22rem;margin:0 0 8px}.card-reveal-dialog p{font-size:.87rem;line-height:1.55;max-width:38ch;margin:0 auto 18px}.card-reveal-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.card-reveal-footer small{font-size:.7rem;opacity:.8;text-align:left}
+@keyframes cardVeil{from{opacity:0}to{opacity:1}}@keyframes cardEnter{from{opacity:0;transform:translateY(35px) scale(.93)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes cardFlip{from{transform:perspective(800px) rotateY(-80deg) scale(.82);opacity:.3}to{transform:perspective(800px) rotateY(0deg) scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.card-reveal-shade,.card-reveal-dialog,.card-reveal-face{animation:none!important}}
+
+/* v0.77: cards have visible, stable destinations on the persistent playing board. */
+.board-card-zones{margin:12px 0 18px;padding:12px;background:#1c2d28;border:1px solid #8e865b;border-radius:14px;color:#f2e8cb}
+.board-card-zones-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.board-card-zones-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.board-card-zone{border:1px solid #806f4b;background:#14251f;border-radius:10px;padding:10px;min-height:96px}
+.board-card-zone h3{font-size:.82rem;margin:0 0 7px;color:#e8d2a0}.board-card-zone h3 small{opacity:.65;margin-left:4px}
+.board-card-stack{display:flex;gap:6px;flex-wrap:wrap;max-height:150px;overflow:auto;align-content:flex-start}
+.board-card-slot{border:1px solid #bb995f;border-radius:5px;background:linear-gradient(145deg,#4c593d,#283a33);padding:5px 7px;min-width:66px;max-width:125px;font-size:.7rem;display:flex;flex-direction:column;gap:2px}
+.board-card-code{font-weight:800;color:#fae5b3}.board-card-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-reveal-face[data-reveal-flight-source]{cursor:pointer;outline-offset:6px}
+.card-reveal-face[data-reveal-flight-source]:focus-visible{outline:3px solid #f0d590}
+@media(max-width:850px){.board-card-zones-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.board-card-zones{padding:8px}.board-card-zones-grid{gap:6px}.board-card-zone{padding:7px}}
+@media(prefers-reduced-motion:reduce){.board-card-slot{transition:none!important}}
+
+.board-card-thumbnail{display:block;width:100%;height:72px;object-fit:contain;background:#1b2520;border-radius:3px;margin-bottom:3px}

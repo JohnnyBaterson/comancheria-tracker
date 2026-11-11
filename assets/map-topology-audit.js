@@ -1,7 +1,7 @@
 /** Exhaustive node audit of the currently recorded graph. This module never
  * invents missing map lines or certifies the publisher's board topology. */
 import {SPACES} from './engine.js';
-import {MAP_EVIDENCE_EDGES} from './map-evidence.js';
+import {MAP_EVIDENCE_EDGES,mapConnectionMatches,mapConnectionReconciliation} from './map-evidence.js';
 
 export const MAP_REFERENCE_URL='https://s3-us-west-2.amazonaws.com/gmtwebsiteassets/comancheria/Comancheria_Map-72.jpg';
 const canonical=(a,b)=>[a,b].sort().join('|');
@@ -19,13 +19,10 @@ export function topologyReport(state){
   edgeKeys.add(key);
   adjacent.get(edge.a).push(edge);adjacent.get(edge.b).push(edge);
  }
- const supportedBySource=[];const sourceConflicts=[];const missingSource=[];
- for(const expected of MAP_EVIDENCE_EDGES){
-  const actual=(state.edges||[]).find(e=>canonical(e.a,e.b)===canonical(expected.a,expected.b));
-  if(!actual){missingSource.push(expected);continue;}
-  if(actual.kind!==expected.kind||(colorOf(actual)&&colorOf(expected)&&colorOf(actual)!==colorOf(expected)))sourceConflicts.push({expected,actual});
-  else supportedBySource.push(expected);
- }
+ const sourceAudit=mapConnectionReconciliation(state.edges||[]);
+ const supportedBySource=sourceAudit.matching;
+ const missingSource=sourceAudit.missing;
+ const sourceConflicts=[...sourceAudit.conflicts,...sourceAudit.upgradeColor.map(x=>({...x,reason:'Enemy color not recorded'}))];
  const visited=new Set(),connectedComponents=[];
  for(const id of ids){
   if(visited.has(id))continue;
@@ -48,7 +45,8 @@ export function topologyReport(state){
   // did not certify Enemy Connection colors.
   const legacySignature=touching.map(e=>`${e.a===space.id?e.b:e.a}:${e.kind}`).sort().join('|');
   const old=reviewed[space.id];
-  const status=!old?'unreviewed':old.signature!==legacySignature?'stale':'legacy-review';
+  const currentSignature=touching.map(e=>`${e.a===space.id?e.b:e.a}:${e.kind}:${[...(e.enemyFor||[])].sort().join('+')||'white'}`).sort().join('|');
+  const status=!old?'unreviewed':old.signature===currentSignature?'reviewed':old.signature===legacySignature?'legacy-review':'stale';
   return {id:space.id,name:space.name,territory:space.territory||null,
    degree:touching.length,neighbors:touching.map(e=>e.a===space.id?e.b:e.a).sort(),
    colorEdges:touching.filter(e=>colorOf(e)).length,uncoloredEdges:touching.filter(e=>!colorOf(e)).length,
@@ -56,7 +54,7 @@ export function topologyReport(state){
  });
  const groups=Object.groupBy(spaces,x=>x.territory||'Special');
  const territories=Object.entries(groups).map(([name,rows])=>({name,total:rows.length,linked:rows.filter(r=>r.degree>0).length,
-  reviewed:rows.filter(r=>r.status==='legacy-review').length,isolated:rows.filter(r=>r.degree===0).map(r=>r.id)}));
+  reviewed:rows.filter(r=>r.status==='reviewed').length,isolated:rows.filter(r=>r.degree===0).map(r=>r.id)}));
  const isolated=spaces.filter(x=>x.degree===0).map(x=>x.id);
  const colored={};
  for(const color of ['West','South','East']){

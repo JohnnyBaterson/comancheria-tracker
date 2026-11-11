@@ -1,1 +1,18 @@
-{"name":"Comanchería · Table Companion","short_name":"Comanchería","start_url":"./","scope":"./","display":"standalone","background_color":"#172321","theme_color":"#172321","description":"Local-first digital tabletop with partial rule automation","icons":[{"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{
+  "name": "Comanchería · Table Companion",
+  "short_name": "Comanchería",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#172321",
+  "theme_color": "#172321",
+  "description": "Local-first digital tabletop with guided player actions, animated card reveals and partial rules automation",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -7,7 +7,7 @@
  * This is not an assurance of complete official movement-line coverage:
  * ambiguous obscured routes remain separate candidates until checked.
  */
-export const MAP_EVIDENCE_VERSION=5;
+export const MAP_EVIDENCE_VERSION=6;
 export const MAP_EVIDENCE_SOURCE='User-provided photograph of the authentic Comanchería game board (9 Nov 2026); cross-checked with GMT Living Playbook';
 export const MAP_EVIDENCE_URL='https://gmtwebsiteassets.s3.us-west-2.amazonaws.com/comancheria/Comancheria_LivingPlaybook_Low-Res.pdf';
 export const FINAL_MAP_URL='https://www.gmtgames.com/p-789-comanchera-mounted-map.aspx';
@@ -76,3 +76,30 @@ export const MAP_EVIDENCE_EDGES=Object.freeze([
 /** Every plausible nearby pair was checked against the full uploaded board photo;
  * these two formerly uncertain pairs have no joining printed line. */
 export const MAP_CONNECTION_CANDIDATES=Object.freeze([]);
+
+/** Compare physical connection type AND full Enemy-color membership.
+ * An uncolored solid is not equivalent to a green/blue/yellow Enemy line. */
+export function mapConnectionMatches(actual,source){
+ if(!actual||!source)return false;
+ if(actual.kind!==source.kind)return false;
+ const a=Array.isArray(actual.enemyFor)?[...actual.enemyFor].sort():[];
+ const b=Array.isArray(source.enemyFor)?[...source.enemyFor].sort():[];
+ return a.length===b.length&&a.every((color,index)=>color===b[index]);
+}
+export function mapConnectionReconciliation(current,source=MAP_EVIDENCE_EDGES){
+ const key=e=>[e.a,e.b].sort().join('|');
+ const byKey=new Map((current||[]).map(e=>[key(e),e]));
+ const missing=[],upgradeColor=[],conflicts=[],matching=[];
+ for(const expected of source){
+  const actual=byKey.get(key(expected));
+  if(!actual){missing.push(expected);continue;}
+  if(mapConnectionMatches(actual,expected)){matching.push(expected);continue;}
+  // A recorded solid without color metadata is geometrically correct but
+  // not safe for colored Enemy traversal until upgraded from photo evidence.
+  if(actual.kind===expected.kind&&expected.enemyFor?.length&&!actual.enemyFor?.length){
+   upgradeColor.push({actual,expected});continue;
+  }
+  conflicts.push({actual,expected});
+ }
+ return {missing,upgradeColor,conflicts,matching};
+}
