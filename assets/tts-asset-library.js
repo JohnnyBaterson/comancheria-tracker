@@ -3,6 +3,7 @@
  * User-selected File objects never leave the browser; no network fetches.
  */
 import {TTS_COUNTER_TILES} from './tts-source-manifest.js';
+import {physicalCounterFaceIndex} from './physical-counter-catalog.js';
 export const BOARD_SOURCE='httpssteamusercontentaakamaihdnetugc2472003190194663224B1953E94B1F2BBDC2032586C242EB348DA856669.png';
 export const SHEETS=[
  ['Culture','httpssteamusercontentaakamaihdnetugc24742543565242199082AABB0D9657E2B3DE5614A7F580119EE72D16F83.png',24,1],
@@ -13,10 +14,10 @@ export const SHEETS=[
  ['Development','httpssteamusercontentaakamaihdnetugc2474254356524226240EC4E943BE67990B4947908B9CA28533E225FE58F.png',21,64]
 ];
 export const HISTORY_SOURCES=[
- ['history-source-01','httpssteamusercontentaakamaihdnetugc24742543565242258522E645D57A11F5735B6AB26A87C6F394D4483BDB9.png'],
- ['history-source-02','httpssteamusercontentaakamaihdnetugc2474254356524226005B3AF4017AA4F045AAB0389FB01BAC8265452EA5F.png'],
- ['history-source-03','httpssteamusercontentaakamaihdnetugc24742543565242269426F36D3F82A8815B20332CF46654D606C2ED5CE3D.png'],
- ['history-source-04','httpssteamusercontentaakamaihdnetugc2474254356524227093BF12AA34C29BAAF2FD56562A2516C903A0920820.png']
+ ['history-card-01','httpssteamusercontentaakamaihdnetugc2474254356524250797BC0108600A630F000C33284A2C93229469BCA66D.png'],
+ ['history-card-02','httpssteamusercontentaakamaihdnetugc2474254356524251374371D46AD143EBDB3F01BA408A434697836750E3F.png'],
+ ['history-card-03','httpssteamusercontentaakamaihdnetugc2474254356524226005B3AF4017AA4F045AAB0389FB01BAC8265452EA5F.png'],
+ ['history-card-04','httpssteamusercontentaakamaihdnetugc2474254356524227093BF12AA34C29BAAF2FD56562A2516C903A0920820.png']
 ];
 export const CARD_REFERENCE=[
  ...SHEETS.flatMap(([kind,sourceSheet,count,first])=>Array.from({length:count},(_,i)=>({id:kind.toLowerCase()+'-'+String(first+i).padStart(2,'0'),kind,label:kind==='Development'?'Development #'+String(first+i).padStart(2,'0'):kind+' sheet position '+(first+i),sourceSheet,sheetIndex:i+1}))),
@@ -90,6 +91,34 @@ export async function unassignCounterArt(type){
  await tx('readwrite',store=>store.delete('counter-map:'+type));counterMappings.delete(type);
 }
 
+// Owner-supplied TTS counter tiles, ordered by the verified front/back faces.
+// 1–6, 1–F, 2–5, 2–F, 3–4, 3–F. Never distributed in source code.
+const BAND_COUNTER_TILES=Object.freeze({
+  1:Object.freeze({front:TTS_COUNTER_TILES[82],back:TTS_COUNTER_TILES[83]}),
+  2:Object.freeze({front:TTS_COUNTER_TILES[84],back:TTS_COUNTER_TILES[85]}),
+  3:Object.freeze({front:TTS_COUNTER_TILES[86],back:TTS_COUNTER_TILES[87]})
+});
+export function bandCounterArtUrl(strength,finished=false){
+ const filename=BAND_COUNTER_TILES[strength]?.[finished?'back':'front'];
+ return filename?urls.get('counter:'+filename)||null:null;
+}
+export async function loadBandCounterArt(){
+ const names=[...new Set(Object.values(BAND_COUNTER_TILES).flatMap(x=>[x.front,x.back]))];
+ await Promise.all(names.filter(name=>counterNames.has(name)).map(name=>imageForKey('counter:'+name)));
+}
+/** Automatic physical-face artwork by the exact original source tile number.
+ * No guesses from piece colors, position, or mutable physical stock counts. */
+export function physicalCounterImageUrlByIndex(index){
+ const filename=Number.isInteger(index)&&index>=1&&index<=TTS_COUNTER_TILES.length?TTS_COUNTER_TILES[index-1]:null;
+ return filename?urls.get('counter:'+filename)||null:null;
+}
+export function physicalCounterArtUrl(piece){return physicalCounterImageUrlByIndex(physicalCounterFaceIndex(piece));}
+
+export async function loadPhysicalCounterArt(){
+ const filenames=TTS_COUNTER_TILES.filter(name=>counterNames.has(name));
+ await Promise.all(filenames.map(name=>imageForKey('counter:'+name)));
+ return filenames.length;
+}
 export function cardImageUrl(id){return urls.get(id)||null;}
 export function boardImageUrl(){return boardUrl;}
 export function lastAssetReport(){return lastReport;}
@@ -158,7 +187,8 @@ export async function importLocalCards(files,onProgress=()=>{}){
   }catch(err){status.errors.push('Board ('+Math.round(boardFile.size/1024/1024)+' MB): '+err.message+'; try a browser with large-image decoding support.');}finally{image?.close?.();}
  }
  progress();
- // Identified counter-sized source files are reference tiles only: their gameplay meaning is not guessed.
+ // All 184 source tiles have verified face identities in physical-counter-catalog.js.
+ // This indexes artwork only, NOT the quantity of physical duplicate tokens in the box.
  for(const name of TTS_COUNTER_TILES){
   const file=names.get(name.toLowerCase());if(!file)continue;
   let image=null;

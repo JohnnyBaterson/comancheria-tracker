@@ -1,0 +1,249 @@
+/* v1.32 first board-native, fixed viewport surface. The game state remains in engine.js. */
+html:has(.tt-surface),body:has(.tt-surface){height:100%;overflow:hidden;overscroll-behavior:none}
+body:has(.tt-surface){margin:0;background:#0c1712}
+.tt-surface{--tt-edge:#806d49;--tt-ivory:#f0dfb6;--tt-green:#1a3026;position:fixed;inset:0;display:grid;grid-template-rows:clamp(60px,9vh,85px) minmax(0,1fr) clamp(115px,18vh,155px);gap:9px;padding:10px 13px;overflow:hidden;background:radial-gradient(ellipse at center,#30402f 0%,#131f18 65%,#09130e 100%);color:var(--tt-ivory);font-family:system-ui,sans-serif;z-index:5}
+.tt-surface *{box-sizing:border-box}
+.tt-surface button{cursor:pointer}
+.tt-header,.tt-stage,.tt-bottom{min-height:0;min-width:0}
+.tt-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 15px;border:1px solid #766746;border-radius:12px;background:linear-gradient(110deg,#2c392a,#15241e);box-shadow:0 8px 25px #0005}
+.tt-brand{display:flex;gap:10px;align-items:center;min-width:0}
+.tt-brand-mark{font:36px Georgia,serif;color:#dabb7c}
+.tt-brand strong{display:block;font:clamp(16px,1.8vw,26px) Georgia,serif;letter-spacing:.14em}
+.tt-brand small{display:block;color:#c3b99d;font-size:11px}
+.tt-tracks{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+.tt-tracks span{border:1px solid #6c7457;border-radius:7px;padding:6px 11px;color:#bfcab8;font-size:11px;white-space:nowrap}
+.tt-tracks b{font:24px Georgia,serif;color:#f7d49a;margin-left:5px}
+.tt-tools{display:flex;gap:5px}.tt-tools button{height:35px;min-width:37px;border:1px solid #857957;border-radius:7px;background:#25352b;color:#f5d9a5;font-size:20px}
+.tt-tools button:disabled{opacity:.35;cursor:not-allowed}
+.tt-stage{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(260px,.72fr);gap:10px}
+.tt-map{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid #827353;border-radius:12px;background:radial-gradient(ellipse at center,#3d4d39,#1b2b23 80%);box-shadow:inset 0 0 65px #0008}
+.tt-map .map-toolbar{display:none}.tt-map .world-map-scroller{height:100%;width:100%;max-width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;border:0;box-shadow:none;background:transparent}
+.tt-map .world-board{width:100%;height:100%;max-height:100%;aspect-ratio:auto;object-fit:contain;min-height:0}
+.tt-map-caption{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);white-space:nowrap;max-width:95%;overflow:hidden;text-overflow:ellipsis;pointer-events:none;border:1px solid #806d49a0;border-radius:30px;background:#17251fdb;color:#eee2c3;font-size:10px;padding:5px 14px}
+.tt-map .map-node{transition:filter .2s ease,opacity .2s ease}.tt-map .map-node:hover{filter:drop-shadow(0 0 12px #ffe1a3)}
+.tt-east{display:grid;grid-template-rows:auto minmax(0,1fr) minmax(96px,.65fr);gap:9px;min-height:0;overflow:hidden}
+.tt-chapter{padding:14px 15px 9px;border:1px solid #766744;border-radius:11px;background:#263629;min-height:0}
+.tt-chapter>span,.tt-selection>span,.tt-rail-label,.tt-event>span{font-size:10px;font-weight:800;color:#c9ac78;letter-spacing:.12em}
+.tt-chapter h2{font:clamp(18px,1.6vw,25px) Georgia,serif;color:#f6dcaa;margin:5px 0}.tt-chapter p{font-size:clamp(10px,.85vw,12px);line-height:1.45;color:#d3dccd;margin:0;max-height:5.8em;overflow:hidden}
+.tt-choice-deck{min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));grid-auto-rows:minmax(95px,1fr);gap:7px;scrollbar-width:thin;align-content:start}
+.tt-decision{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-width:0;padding:9px;border:1px solid #a28a5b;border-radius:11px;background:linear-gradient(150deg,#665135,#332d24 72%);color:#f7e5bd;box-shadow:inset 0 0 0 2px #0003,0 4px 12px #0005;transform-origin:bottom center;animation:tt-deal .32s both;transition:transform .16s ease,filter .16s ease}
+.tt-decision:nth-child(2){animation-delay:60ms}.tt-decision:nth-child(3){animation-delay:120ms}.tt-decision:nth-child(4){animation-delay:180ms}
+.tt-decision:hover,.tt-decision:focus-visible{transform:translateY(-5px) scale(1.025);filter:brightness(1.15);outline:2px solid #e9cc91;outline-offset:1px}
+.tt-decision-primary{background:linear-gradient(145deg,#526c44,#293b2b)}.tt-decision-symbol{font:26px Georgia,serif;color:#f0c77c}
+.tt-decision strong{font-size:12px;overflow-wrap:anywhere}.tt-decision small{font-size:10px;color:#dfd3b6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tt-selection{padding:9px 11px;border:1px solid #657556;border-radius:10px;background:#18281f;min-height:0;overflow:auto;scrollbar-width:thin}
+.tt-selection>strong{display:block;margin:4px 0 6px;font:18px Georgia,serif}.tt-piece-list{display:flex;flex-wrap:wrap;gap:5px}.tt-piece{background:#334735;color:#f0dbb7;border:1px solid #75805c;border-radius:6px;padding:4px 7px;font-size:11px}.tt-piece-selected{border-color:#ffd591;box-shadow:0 0 8px #f6c47788}
+.tt-piece-actions{font-size:11px}.tt-piece-actions .board-counter-selection{padding:5px;margin:5px 0}.tt-piece-actions .counter-action-buttons{display:flex;flex-wrap:wrap}.tt-piece-actions .notice{display:none}.tt-piece-actions .btn{padding:5px 8px;font-size:10px}
+.tt-small-button{border:1px solid #b39c6e;background:#3d4430;color:#efddb7;border-radius:8px;padding:9px;font-size:12px}
+.tt-evidence{grid-column:1/-1;text-align:center;align-self:center;color:#d7d1b3;font-size:12px}.tt-evidence>span{font:34px Georgia,serif;color:#d7b675}
+.tt-bottom{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(240px,.55fr);gap:9px}
+.tt-card-rail,.tt-event{display:flex;min-width:0;align-items:center;gap:7px;overflow:hidden;padding:8px 12px;border:1px solid #6b6444;border-radius:10px;background:linear-gradient(120deg,#26382b,#17251d)}
+.tt-rail-label{flex:none;max-width:80px}.tt-card{min-width:71px;width:clamp(72px,7vw,112px);height:100%;max-height:133px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#6b5036,#372f28);border:1px solid #ad9569;border-radius:6px;color:#fae8c9;padding:5px;transition:transform .2s ease;overflow:hidden}.tt-card:hover{transform:translateY(-7px)}.tt-card strong{font-size:10px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.tt-card small,.tt-card-type{font-size:8px;opacity:.85}.tt-card img{height:45%;width:100%;object-fit:contain}.tt-card-glyph{font:28px Georgia,serif;color:#e0b87a}.tt-empty-cards{font:italic 12px Georgia,serif;color:#b7bca9}
+.tt-event{display:flex;flex-direction:column;justify-content:center;align-items:flex-start}.tt-event strong{font:13px/1.4 Georgia,serif;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.tt-details-scrim{position:absolute;inset:0;z-index:25;display:grid;place-items:center;background:#020b08bc;backdrop-filter:blur(3px)}.tt-details{width:min(860px,94vw);height:min(84vh,780px);background:#15251d;border:2px solid #b49a65;border-radius:13px;display:flex;flex-direction:column;box-shadow:0 20px 90px #000a}.tt-details>header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #716846;padding:12px 16px}.tt-details>header button{background:transparent;color:#fff1d5;border:0;font-size:22px}.tt-details-body{min-height:0;overflow:auto;padding:12px}.tt-details-body .board-command-drawers{display:block}.tt-details-body .board-drawer{max-height:none}
+.tt-surface .modal-bg{z-index:30}
+@keyframes tt-deal{from{opacity:0;transform:translateY(15px) rotate(-2deg)}to{opacity:1;transform:translateY(0) rotate(0)}}
+@media(max-width:1000px){.tt-stage{grid-template-columns:minmax(0,1.5fr) minmax(230px,.8fr)}.tt-tracks span{padding:3px 6px}.tt-tracks b{font-size:19px}.tt-surface{padding:6px;gap:6px}.tt-chapter p{max-height:4.1em}}
+@media(max-width:700px){.tt-stage{grid-template-columns:minmax(0,1fr) 200px}.tt-tracks{gap:2px}.tt-tracks span{font-size:9px;padding:3px}.tt-tracks b{font-size:14px}.tt-brand small{display:none}.tt-brand strong{font-size:13px}.tt-brand-mark{display:none}.tt-bottom{grid-template-columns:minmax(0,1fr) 160px}.tt-card{min-width:55px;width:55px}.tt-rail-label{display:none}}
+@media(prefers-reduced-motion:reduce){.tt-surface *, .tt-surface *::before,.tt-surface *::after{animation:none!important;transition:none!important}}
+/* Setup is a separate pre-game overlay until it is migrated to clickable setup pieces. */
+.tabletop-setup{height:100dvh;overflow:auto;padding:18px}
+/* Prevent the legacy map's minimum-width rule from clipping a fixed tabletop. */
+.tt-map svg.world-board{min-width:0!important;max-width:100%;max-height:100%;flex:none}
+.tt-map .map-legend,.tt-map .map-mobile-tip,.tt-map .world-map-scroller>.notice{display:none}
+.tt-map .world-map-scroller{min-height:0;min-width:0}
+.tt-more{grid-column:1/-1;padding:8px;background:#273a2c;color:#efdcac;border:1px solid #ac925e;border-radius:9px;font-weight:700;font-size:12px}
+.tt-all-choices{width:min(960px,95vw);max-height:90vh;background:#1c3025;border:2px solid #9e8656;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}.tt-all-choices header{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #85704c}.tt-all-choices header button{background:transparent;color:#f0dfa8;border:0;font-size:24px}.tt-all-choice-grid{padding:16px;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));grid-auto-rows:minmax(90px,1fr);gap:10px;overflow:auto}
+.tt-event-splash{position:absolute;inset:0;z-index:17;background:#101b15c7;display:grid;place-items:center;animation:tt-fade .25s}.tt-event-panel{width:min(550px,85vw);padding:30px;text-align:center;background:linear-gradient(135deg,#3a4b33,#16241b);border:2px solid #c8a66a;border-radius:15px;box-shadow:0 30px 70px #0009;animation:tt-rise .4s both}.tt-event-panel span{font-size:12px;letter-spacing:.2em;color:#edd19b}.tt-event-panel h2{font:clamp(20px,3vw,33px) Georgia,serif;margin:17px 0 25px}.tt-event-panel button{border:1px solid #dcc18e;background:#5e5138;color:#fff1cb;border-radius:9px;padding:11px 20px}
+@keyframes tt-fade{from{opacity:0}to{opacity:1}}@keyframes tt-rise{from{opacity:0;transform:translateY(25px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* v1.33: persistent tabletop-mounted physical instruction rack */
+.tt-map{display:grid;grid-template-rows:minmax(0,1fr) clamp(155px,27vh,234px);gap:5px;padding:5px 6px 8px}
+.tt-map-board{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden}
+.tt-map-board>.world-map-scroller{height:100%!important;width:100%!important}
+.tt-map-caption{display:none}
+.tt-instruction-rack{position:relative;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;padding:5px 7px;border:1px solid #927b54;border-radius:8px;background:linear-gradient(100deg,#283629,#15241d);box-shadow:inset 0 1px 8px #0006}
+.tt-rack-heading{display:flex;justify-content:space-between;gap:7px;align-items:center;line-height:1.1}
+.tt-rack-heading strong{font:700 clamp(9px,.85vw,12px) Georgia,serif;letter-spacing:.08em;color:#f3d79e}
+.tt-rack-heading>span{font-size:9px;color:#bfc3ac;text-align:right}
+.tt-rack-head,.tt-rack-row{display:grid;grid-template-columns:24px repeat(5,minmax(0,1fr));gap:3px;min-height:0}
+.tt-rack-head{font-size:9px;text-align:center;line-height:1.3;color:#e7d3a5}
+.tt-rack-head b{font-size:clamp(8px,.75vw,10px);font-weight:650;white-space:nowrap}
+.tt-rack-head .tt-active-column{color:#ffe394;text-shadow:0 0 8px #e6bf66}
+.tt-rack-row{flex:1;max-height:28px}
+.tt-rack-die{display:flex;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:800;background:#e0cba4;color:#263127;border-radius:3px}
+.tt-rack-die small{font-size:8px}
+.tt-instruction-slot{border:1px dashed #64765b;border-radius:3px;min-width:0;min-height:0;display:grid;place-items:center;background:#0c1d15;overflow:hidden}
+.tt-inactive-slot{background:#322d21;border-color:#9c7f54}
+.tt-slot-vacant{color:#647766;line-height:1}
+.tt-instruction{display:flex;align-items:center;justify-content:center;gap:3px;width:100%;height:100%;min-width:0;min-height:0;border:1px solid #beaa75;border-radius:3px;padding:1px;background:linear-gradient(145deg,#8d7954,#423d2d);color:#fff3d9;cursor:pointer;overflow:hidden;transform-style:preserve-3d}
+.tt-instruction.tt-reverse{background:linear-gradient(145deg,#365a59,#203d3b);border-color:#80bbb6}
+.tt-instruction:hover,.tt-instruction:focus-visible,.tt-instruction-focused{outline:2px solid #f3d58a;outline-offset:-2px;filter:brightness(1.25)}
+.tt-counter-face{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;flex:1;height:100%}
+.tt-counter-face img{max-width:100%;max-height:100%;object-fit:contain}
+.tt-counter-proxy{display:flex;align-items:center;gap:2px;min-width:0;justify-content:center}
+.tt-counter-proxy b{font-size:clamp(7px,.73vw,10px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tt-counter-proxy small{font-size:8px;white-space:nowrap}
+.tt-counter-stamp{font-size:7px;white-space:nowrap;color:#f0deb6}
+.tt-rack-board-note{display:flex;justify-content:space-between;align-items:center;gap:5px;line-height:1;font-size:9px;color:#d5d9c1}
+.tt-rack-board-note strong{color:#ecd49d}
+.tt-rack-inspector{position:absolute;right:6px;bottom:6px;max-width:75%;background:#182d24ee;border:1px solid #c4a66e;padding:4px 7px;border-radius:5px;display:grid;gap:2px;font-size:10px;box-shadow:0 2px 8px #0008;z-index:2}
+.tt-rack-inspector span{font-size:9px}
+.tt-rack-warning{margin:1px 0;color:#ffd2bd;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tt-map-ally-marker .tt-instruction-map{height:100%;width:100%;padding:0;display:flex;flex-direction:column;position:relative}
+.tt-map-ally-marker .tt-counter-stamp{font-size:5px;letter-spacing:-.02em}
+.tt-map-ally-marker .tt-counter-proxy{display:flex;flex-direction:column;gap:0}
+.tt-map-ally-marker .tt-counter-proxy b{font-size:7px}
+.tt-counter-flight{position:fixed;z-index:100;pointer-events:none;display:grid;place-items:center;border:2px solid #e1bf80;border-radius:4px;background:#283e34;box-shadow:0 8px 22px #000b,0 0 17px #efc778aa;transition:transform .64s cubic-bezier(.22,.7,.25,1),opacity .64s linear;transform-origin:center;overflow:hidden}
+.tt-counter-flight img{width:100%;height:100%;object-fit:contain}
+.tt-counter-arrived{animation:tt-counter-arrive .7s ease-out}
+@keyframes tt-counter-arrive{0%{filter:brightness(2);box-shadow:0 0 15px #f1d38d;transform:scale(1.12)}100%{filter:none;box-shadow:none;transform:scale(1)}}
+@media(max-height:650px){.tt-map{grid-template-rows:minmax(0,1fr) 155px}.tt-rack-row{max-height:18px}.tt-counter-stamp{display:none}}
+@media(prefers-reduced-motion:reduce){.tt-counter-flight{display:none}.tt-counter-arrived{animation:none!important}}
+
+/* v1.34: physically selectable Bands, Rancherías and resources. */
+.tt-board-counter{cursor:pointer;transform-box:fill-box;transform-origin:center;transition:filter .16s ease}
+.tt-board-counter:hover,.tt-board-counter:focus-visible{filter:drop-shadow(0 0 6px #ffe7ae)}
+.tt-board-counter.piece-is-selected{filter:drop-shadow(0 0 7px #ffe6a4)}
+.tt-board-counter rect{stroke:#3c3321;stroke-width:1.6}
+.tt-board-counter.piece-is-selected rect{stroke:#fff0b7;stroke-width:3}
+.tt-piece-flight{position:fixed;z-index:101;pointer-events:none;display:grid;place-items:center;overflow:visible;filter:drop-shadow(0 0 12px #ffde91);transition:transform .65s cubic-bezier(.22,.7,.25,1),opacity .65s linear}
+.tt-piece-flight svg,.tt-piece-flight img{width:100%;height:100%}
+.tt-piece-arrived{animation:tt-piece-arrival .7s ease-out}
+@keyframes tt-piece-arrival{0%{filter:brightness(2.1) drop-shadow(0 0 11px #fce4a1)}100%{filter:brightness(1) drop-shadow(0 0 0px transparent)}}
+.tt-physical-status{display:flex;gap:8px;align-items:center;border:1px solid #84734f;background:#263a2b;border-radius:7px;padding:7px;margin-top:7px}
+.tt-physical-status .tt-counter-symbol{font-size:26px;color:#f0d79d}
+.tt-physical-status small{display:block;font-size:10px;color:#d7d5be;line-height:1.3}
+.tt-selection .tt-piece-list{max-height:60px;overflow:hidden}
+@media(prefers-reduced-motion:reduce){.tt-piece-flight{display:none}.tt-piece-arrived{animation:none!important}}
+
+.tt-held-tray{margin-top:6px;padding-top:6px;border-top:1px solid #6f755b}
+.tt-held-tray>span{display:block;font-size:9px;letter-spacing:.12em;color:#e8cd93;font-weight:800;margin-bottom:3px}
+.tt-held-tray>div{display:flex;flex-wrap:wrap;gap:4px;max-height:53px;overflow:hidden}
+.tt-held-counter{display:flex;align-items:center;gap:3px;max-width:105px;min-height:29px;padding:3px;background:#473e2a;color:#f0ddaf;border:1px solid #a18b5e;border-radius:4px}
+.tt-held-counter img{width:23px;height:23px;object-fit:contain}
+.tt-held-counter small{font-size:9px;overflow:hidden;text-overflow:ellipsis}
+
+/* v1.35 physical Ranchería box, drawn on the same board as its counters. */
+.tt-map-board .tt-rancheria-box{position:absolute;top:6px;right:6px;width:min(290px,43%);max-height:calc(100% - 12px);z-index:12;display:flex;flex-direction:column;color:#f5e5c0;background:#192a20f5;border:2px solid #c3a66b;border-radius:8px;box-shadow:0 12px 35px #000b;overflow:hidden;animation:tt-rise .22s both}
+.tt-rancheria-box header{display:flex;align-items:center;gap:5px;background:#554a31;padding:6px 8px;min-height:30px}
+.tt-rancheria-box header strong{font:700 12px Georgia,serif;flex:1}.tt-rancheria-box header span{font-size:8px;letter-spacing:.09em}.tt-rancheria-box header button{background:transparent;border:0;color:#f4dbb2;font-size:18px}
+.tt-rancheria-body{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:6px;min-height:0;overflow:hidden}.tt-ranch-shelf{background:#2e3b2b;border:1px solid #746e4d;border-radius:5px;padding:4px;min-height:36px}.tt-ranch-shelf:last-child{grid-column:1/-1}.tt-ranch-shelf>b{font-size:9px;color:#dfc58b;display:block;margin-bottom:4px}.tt-ranch-tokens,.tt-success-row{display:flex;gap:3px;flex-wrap:wrap;max-height:50px;overflow:hidden}.tt-ranch-token{height:28px;max-width:57px;min-width:24px;background:#756243;border:1px solid #d2b678;color:#fff4d9;border-radius:3px;padding:1px 3px;display:flex;align-items:center;gap:2px}.tt-ranch-token img,.tt-headman-counter img{width:20px;height:20px;object-fit:contain}.tt-ranch-token small{font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tt-ranch-shelf>small,.tt-success-row small{font-size:9px;color:#d2caab}
+.tt-medicine-headman{display:grid;grid-template-columns:76px minmax(0,1fr);gap:4px;align-items:center;margin-top:4px}.tt-headman-counter{font-size:9px;display:flex;gap:3px;align-items:center;min-width:0;background:#51472e;color:#f9e8b8;border:1px solid #b89e69;border-radius:4px;padding:3px}.tt-medicine-pips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}.tt-medicine-pips span{border:1px solid #6f8060;text-align:center;padding:3px 0;font-size:9px;border-radius:3px}.tt-medicine-pips .is-medicine{background:#e9c77d;color:#1f271b;border-color:#fff5c4;font-weight:900;box-shadow:0 0 8px #f4d18b}.tt-medicine-headman .tt-success-row{grid-column:1/-1;max-height:29px}.tt-rancheria-box footer{font-size:8px;color:#cdbf9f;background:#263427;text-align:center;padding:4px}.tt-missing-headman{color:#ffd3b4!important}
+.tt-medicine-confirm{border:1px solid #c6a56b;border-radius:6px;background:#50442a;padding:7px;margin-top:4px}.tt-medicine-confirm strong{font-size:11px}.tt-medicine-confirm p{font-size:10px;margin:4px 0}
+@media(max-height:720px){.tt-rancheria-box .tt-ranch-shelf:first-child,.tt-rancheria-box .tt-ranch-shelf:nth-child(2){min-height:24px}.tt-map-board .tt-rancheria-box{width:min(240px,43%)}}
+@media(prefers-reduced-motion:reduce){.tt-map-board .tt-rancheria-box{animation:none!important}}
+
+.tt-carried-row{display:flex;align-items:center;gap:4px;margin:2px 0;min-height:26px}.tt-carried-row strong{font-size:9px;min-width:48px;max-width:58px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tt-carried-row .tt-ranch-tokens{flex:1}
+
+/* v1.36: physical Medicine track and required right-to-left activation */
+.tt-track-physical{border:1px solid #b49b6e;border-radius:8px;background:#182820;padding:7px;margin:5px 0;display:grid;gap:5px;color:#f0dcaa}
+.tt-track-slots{display:flex;gap:4px;justify-content:space-between}.tt-track-slot{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;background:#2b4032;border:1px solid #8f835a;border-radius:4px;font-size:10px;padding:3px}.tt-track-slot strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#fff}
+.tt-track-controls{display:flex;flex-wrap:wrap;gap:5px}.tt-track-physical .is-queued{outline:2px solid #debe74}.tt-track-physical small{font-size:10px;color:#ddd1ae}
+
+/* v1.37: physical Band cargo follows the actual held:Band ledger. */
+.tt-band-cargo{cursor:pointer;pointer-events:all;filter:drop-shadow(0 1px 2px #0009)}
+.tt-band-cargo:hover,.tt-band-cargo:focus-visible,.tt-band-cargo.piece-is-selected{filter:drop-shadow(0 0 4px #ffdf91);outline:none}
+.tt-track-slot{color:#f1dbab;cursor:pointer;font-family:inherit}
+.tt-track-slot:disabled{cursor:default;opacity:.75}
+.tt-track-slot.is-next{outline:2px solid #f6d58d;background:#5e5333;box-shadow:0 0 10px #f6ce6a80}
+.tt-track-slot:not(:disabled):hover{filter:brightness(1.25)}
+.tt-band-equipment{border:1px solid #b59b68;background:#24382d;border-radius:8px;padding:5px;margin:6px 0;display:grid;gap:4px}
+.tt-band-equipment-label{display:flex;justify-content:space-between;align-items:center;gap:5px;font-size:11px}
+.tt-band-equipment-label small{color:#f2d595;font-size:9px}
+.tt-band-equipment-items{display:flex;gap:4px;flex-wrap:wrap;max-height:70px;overflow:hidden}
+.tt-band-equipment-token{background:#796747;border:1px solid #d3b47b;color:#fff3d4;border-radius:4px;min-width:28px;max-width:90px;display:flex;align-items:center;gap:3px;min-height:27px;padding:2px;cursor:pointer}
+.tt-band-equipment-token img{width:20px;height:23px;object-fit:contain}
+.tt-band-equipment-token small{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tt-ranch-token[data-action=tabletop-take-counter]{outline:2px solid #e7d28e;animation:tt-pickup-pulse 1.8s ease-in-out infinite;cursor:pointer}
+@keyframes tt-pickup-pulse{50%{box-shadow:0 0 9px #ffde92aa}}
+@media(prefers-reduced-motion:reduce){.tt-ranch-token[data-action=tabletop-take-counter]{animation:none}}
+
+.tt-flight-token{height:100%;width:100%;border:1px solid #e8c686;background:#786447;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff4d5;overflow:hidden}
+.tt-flight-token img{max-width:100%;max-height:100%;object-fit:contain}
+
+/* v1.38 · actual MP counter, Band face, cleanup release gestures */
+.tt-mp-track{display:flex;align-items:center;gap:6px;background:#4a3d27!important;border-color:#e4c28a!important;transition:background .25s ease}
+.tt-mp-track small{font-weight:700;font-size:10px;color:#f0d39e}.tt-mp-track b{min-width:24px;text-align:center}.tt-mp-track i{display:block;font-size:9px;font-style:normal;color:#eadcc0;max-width:83px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tt-board-counter .tt-band-cargo{pointer-events:all}
+.tt-release-cargo{border-color:#d5bc7c!important;box-shadow:0 0 7px #d5bc7c77;animation:tt-deal .3s both}
+.tt-rancheria-box .tt-carried-row{border-top:1px solid #b89a6055;padding:3px 0}
+@media(max-width:1000px){.tt-mp-track i{max-width:48px}}
+
+.tt-band-turned{animation:tt-band-flip .65s ease-out!important;transform-box:fill-box;transform-origin:center}
+@keyframes tt-band-flip{0%{transform:rotateY(0deg);filter:brightness(1)}50%{transform:rotateY(90deg);filter:brightness(1.9)}100%{transform:rotateY(0deg);filter:brightness(1)}}
+
+/* v1.39: physical Horse expenditure and movement rule costs */
+.tt-movement-rules{display:flex;flex-wrap:wrap;gap:4px 10px;margin:5px 0 8px;padding:8px;border:1px solid #a18b5c;border-radius:6px;background:#201f1a;color:#f7e7bb;font-size:12px}
+.tt-movement-rules small{width:100%;color:#d2c4a1;font-size:10px;line-height:1.4}
+.tt-equipment-stack{display:flex;flex-direction:column;align-items:center;gap:3px}
+.tt-spend-horse{border:1px solid #cfb675;border-radius:5px;background:#59452b;color:#fff3d4;font-size:10px;cursor:pointer;padding:3px 5px;transition:transform .2s,background .2s}
+.tt-spend-horse:hover,.tt-spend-horse:focus-visible{background:#826538;transform:translateY(-2px)}
+
+/* v1.40: no disappearing overlays — every in-play Ranchería's physical box is
+   permanently anchored to the tabletop rail.  Nothing in this section opens,
+   closes, or duplicates the authoritative counters. */
+.tt-east{grid-template-rows:auto minmax(72px,.5fr) minmax(0,2.9fr) minmax(65px,.46fr);gap:5px}
+.tt-rancheria-rack{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid #b49965;border-radius:8px;background:#16261e}
+.tt-rancheria-rack-heading{display:flex;gap:5px;justify-content:space-between;align-items:center;flex:none;padding:5px 7px;background:#55482e;color:#ffe0a2}
+.tt-rancheria-rack-heading strong{font:700 10px Georgia,serif;letter-spacing:.04em}.tt-rancheria-rack-heading small{font-size:8px;text-align:right;color:#e1d2a9}
+.tt-rancheria-rack-body{min-height:0;display:grid;grid-auto-rows:minmax(0,1fr);gap:3px;padding:3px;overflow:hidden}
+.tt-rancheria-rack .tt-rancheria-box{position:relative;top:auto;right:auto;max-height:none;width:100%;height:100%;min-height:0;display:flex;flex-direction:column;color:#f5e5c0;background:#1b2a20;border:1px solid #927e55;border-radius:5px;box-shadow:none;overflow:hidden;animation:none}
+.tt-rancheria-rack .tt-rancheria-box.tt-rancheria-focused{border-color:#f5d28e;box-shadow:inset 0 0 0 1px #e3be72}
+.tt-rancheria-rack .tt-rancheria-box header{padding:2px 5px;min-height:19px}
+.tt-rancheria-rack .tt-rancheria-box header strong{font-size:10px}
+.tt-rancheria-rack .tt-rancheria-box header span{font-size:7px}
+.tt-rancheria-rack .tt-rancheria-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px;padding:3px;overflow:hidden;min-height:0;flex:1}
+.tt-rancheria-rack .tt-ranch-shelf{min-width:0;min-height:0;padding:2px;overflow:hidden}
+.tt-rancheria-rack .tt-ranch-shelf>b{font-size:8px;margin:0 0 2px}
+.tt-rancheria-rack .tt-ranch-shelf:last-child{grid-column:1/-1}
+.tt-rancheria-rack .tt-ranch-token{height:21px;max-width:none;min-width:21px;padding:1px 2px}
+.tt-rancheria-rack .tt-ranch-token img{width:17px;height:17px}
+.tt-rancheria-rack .tt-ranch-tokens,.tt-rancheria-rack .tt-success-row{max-height:none;overflow:visible;gap:2px}
+.tt-rancheria-rack .tt-rancheria-box footer{display:none}
+.tt-rancheria-rack .tt-medicine-headman{margin-top:1px;grid-template-columns:62px minmax(0,1fr);gap:2px}
+.tt-rancheria-rack .tt-headman-counter{font-size:8px;padding:1px}
+.tt-rancheria-rack .tt-medicine-pips span{font-size:8px;padding:1px 0}
+.tt-rancheria-rack .tt-track-physical{margin:2px 0;padding:3px;gap:2px}
+.tt-rancheria-rack .tt-track-physical>b,.tt-rancheria-rack .tt-track-physical>small{font-size:8px}
+.tt-rancheria-rack .tt-track-slots{gap:2px}
+.tt-rancheria-rack .tt-track-slot{min-height:22px;padding:1px}
+.tt-rancheria-rack .tt-carried-row{min-height:18px;margin:1px 0}
+.tt-rancheria-rack .tt-carried-row strong{font-size:8px}
+.tt-rancheria-rack .tt-ranch-shelf>small{font-size:8px}
+.tt-rancheria-rack .tt-rancheria-body:has(.tt-track-physical){grid-template-columns:1fr 1fr}
+.tt-rancheria-rack .tt-rancheria-box:has(.tt-track-physical) .tt-ranch-shelf:last-child{min-height:0}
+.tt-no-rancheria{color:#d8cca8;text-align:center;font-size:11px}
+.tt-selection{padding:5px;overflow:hidden}
+.tt-selection .tt-piece-list{max-height:29px;overflow:hidden}
+.tt-selection>strong{font-size:12px;margin:2px 0}
+@media(max-height:780px){.tt-rancheria-rack .tt-rancheria-body{padding:2px}.tt-rancheria-rack .tt-ranch-shelf>b{font-size:7px}.tt-east{grid-template-rows:auto minmax(50px,.4fr) minmax(0,3.6fr) minmax(40px,.25fr)}}
+/* Give the permanent Ranchería ledger real table space rather than overlaying the map. */
+@media(min-width:1050px){.tt-stage{grid-template-columns:minmax(0,1.45fr) minmax(345px,1fr)}}
+@media(min-width:1500px){.tt-stage{grid-template-columns:minmax(0,1.65fr) minmax(420px,1fr)}}
+
+/* v1.41 fixed-board bottom: both counter reserves are in full view throughout play. */
+.tt-surface{grid-template-rows:clamp(60px,9vh,85px) minmax(0,1fr) clamp(152px,26vh,235px)}
+.tt-bottom{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(76px,1.35fr) minmax(50px,.65fr);gap:5px;overflow:hidden}
+.tt-supply-board{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;min-height:0}
+.tt-supply-tray{min-width:0;min-height:0;border:1px solid #9d8559;border-radius:8px;background:#182b21;overflow:hidden;display:flex;flex-direction:column}
+.tt-supply-tray>header{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:4px;padding:4px 8px;background:#54482f}
+.tt-supply-tray>header strong{font:700 10px Georgia,serif;color:#f4dba6;letter-spacing:.045em}
+.tt-supply-tray>header small{font-size:9px;color:#ded0a7;white-space:nowrap}
+.tt-supply-items{min-height:0;flex:1;display:flex;flex-wrap:wrap;align-content:start;align-items:start;column-gap:8px;row-gap:3px;overflow:hidden;padding:3px 6px}
+.tt-supply-group{display:flex;align-items:center;gap:3px;min-width:0;max-width:100%}
+.tt-supply-group-name{font-size:9px;color:#e7c98b;white-space:nowrap}
+.tt-supply-group-name b{color:#fff0c8}
+.tt-supply-counters{display:flex;gap:1px;flex-wrap:wrap;align-items:center}
+.tt-supply-counter{width:21px;height:21px;padding:1px;border-radius:4px;border:1px solid #ac915e;background:#625236;color:#f8e4b6;display:grid;place-items:center;transition:filter .2s,transform .2s}
+.tt-supply-counter img{max-width:100%;max-height:100%;object-fit:contain}
+.tt-supply-counter span{font-size:12px}
+.tt-supply-counter:hover,.tt-supply-counter:focus-visible{filter:brightness(1.3);transform:translateY(-2px);outline:1px solid #ffe0a2}
+.tt-supply-counter.is-removed{opacity:.7;border-style:dashed}
+.tt-supply-empty{font-size:10px;color:#c5b88f}
+.tt-bottom-story{min-height:0;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(190px,.55fr);gap:6px}
+.tt-bottom-story .tt-card-rail,.tt-bottom-story .tt-event{padding:4px 8px;min-height:0}
+.tt-bottom-story .tt-card{height:100%;max-height:74px}
+.tt-bottom-story .tt-event strong{font-size:11px;-webkit-line-clamp:2}
+@media(max-height:720px){.tt-surface{grid-template-rows:54px minmax(0,1fr) 140px}.tt-bottom{grid-template-rows:minmax(66px,1.3fr) minmax(43px,.7fr)}.tt-supply-counter{height:17px;width:17px}.tt-supply-tray>header small{font-size:8px}}
+@media(max-width:700px){.tt-supply-tray>header small{display:none}.tt-bottom-story{grid-template-columns:minmax(0,1fr) 155px}.tt-supply-group-name{font-size:8px}}

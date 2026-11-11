@@ -18,7 +18,7 @@ export function cardRevealEvents(before, after){
 export function artReferenceForCard(card){
   if(card.kind==='History'){
     const n=Number(String(card.identifier).replace(/\D/g,''));
-    return Number.isInteger(n)&&n>=1&&n<=4?'history-source-'+String(n).padStart(2,'0'):null;
+    return Number.isInteger(n)&&n>=1&&n<=4?'history-card-'+String(n).padStart(2,'0'):null;
   }
   if(!['Development','Culture','War'].includes(card.kind))return null;
   const n=Number(String(card.identifier).replace(/\D/g,''));

@@ -1,9 +1,7 @@
 # Comanchería Tracker
 
-Fan-made, local-first Comanchería digital tabletop. Not affiliated with GMT Games.
+A single-screen, local-first digital tabletop companion for *Comanchería: The Rise and Fall of the Comanche Empire*.
 
-Open `index.html` through GitHub Pages or a local static HTTP server. Game data is stored in your browser; back up your browser data before clearing site storage.
+**Play:** Open the published GitHub Pages site in a modern browser. Your game data and optional personal artwork remain in your browser.
 
-Development build: gameplay automation is incomplete. Consult the physical game and official rules.
-
-Run `npm run test:rules` for rules regressions, `npm run test:acceptance` for product acceptance, or `npm run test:structural` for structural and basic security checks. Full product acceptance currently fails.
+Fan-made companion; not affiliated with or endorsed by GMT Games. Official game materials and rules remain the property of their respective owners.

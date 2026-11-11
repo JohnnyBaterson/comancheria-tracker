@@ -4,7 +4,7 @@
  */
 import {activeBandChoices} from './band-action-menu.js';
 import {planningActionChoices} from './planning-action-menu.js';
-import { OPERATIONS, requiredPassage, warAutomationStatus, passageAutomationStatus, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, getStackingProblems, allyTargetPreview, recoverTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, cultureActive, perform, cultureWarEvasionOptions, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, safeNext as setupSafeNext } from './engine.js';
+import { OPERATIONS, requiredPassage, warAutomationStatus, passageAutomationStatus, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, SPACES, getStackingProblems, allyTargetPreview, recoverTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, cultureActive, perform, cultureWarEvasionOptions, historyObjectiveAudit, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, safeNext as setupSafeNext } from './engine.js';
 
 const stepLabels = {
   WAR_AUTO_UNTIL_CHOICE: 'Resolve the War phase',
@@ -59,6 +59,29 @@ function cupSafeSimplePeace(s,p){
  if(known.some(x=>x.blockedInstructions?.includes('Peace')&&(!x.enemies||x.enemies.includes(p.owner))))return false;
  return !s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[String(c.identifier||'').replace(/\D/g,'')]||DEVELOPMENT_EFFECT_CATALOG[String(c.identifier||'').replace(/\D/g,'')].mode.startsWith('manual-required')));
 }
+/** Optional, reproducible computer-player setup: never silently chooses for a human.
+ * Test every proposed placement against the production reducer, including
+ * the real two-territory-control requirement. */
+function autoDownfallRancherias(s){
+ const occupied=new Set(s.pieces.filter(p=>['Tribe','Settlement','Bison','Band','Rancheria'].includes(p.type)).map(p=>p.location));
+ const spaces=SPACES.filter(p=>p.type==='round'&&!occupied.has(p.id));
+ for(const a of spaces)for(const b of spaces){
+  if(b.territory===a.territory)continue;
+  for(const c of spaces){
+   if(c.territory===a.territory||c.territory===b.territory)continue;
+   const command={type:'SETUP_DOWNFALL_RANCHERIAS',spaces:{A:a.id,B:b.id,C:c.id}};
+   try{perform(s,command);return command;}catch{}
+  }
+ }
+ return null;
+}
+const downfallStockChoice={type:'SETUP_DOWNFALL_RESOURCES',allocation:{
+ A:{band2:2,band1:0,horses:3,trade:1},
+ B:{band2:1,band1:1,horses:3,trade:0},
+ C:{band2:1,band1:1,horses:2,trade:0}
+}};
+const downfallMedicineChoice={type:'SETUP_DOWNFALL_MEDICINE',medicine:Object.fromEntries(
+ ['A','B','C'].flatMap(letter=>['paraibo','mahimiana'].map(kind=>[`${letter}-${kind}`,2])))};
 /** Output is intentionally plain, serializable data for UI and test harnesses. */
 export function nextPlayerPrompt(s) {
   if(s.phase==='gameover')return {kind:'finished',title:'Campaign finished',detail:s.gameResult?.reason||'Review the recorded result.'};
@@ -70,7 +93,16 @@ export function nextPlayerPrompt(s) {
     if(s.scenario==='downfall'){
       const ordered=[['bison','nine Bison placements'],['rancherias','three Rancherías'],['resources','Band and resource allocation'],['medicine','six headman Medicine ratings']];
       const missing=ordered.find(([key])=>!s.setupConfirmed?.[key]);
-      if(missing){if(missing[0]==='bison')return auto('Roll nine Downfall Bison positions','Use the board’s six-face territory die and numbered area die; reroll spaces already occupied by printed counters.',{type:'SETUP_DOWNFALL_ROLL_BISON'});return blocked('Downfall: '+missing[1],`Use the on-board setup form for ${missing[1]}. This is a player decision; the game must not create a fictitious arrangement.`);}
+      if(missing){
+       if(missing[0]==='bison')return auto('Roll nine Downfall Bison positions','Use the board’s six-face territory die and numbered area die; reroll spaces already occupied by printed counters.',{type:'SETUP_DOWNFALL_ROLL_BISON'});
+       const proposal=missing[0]==='rancherias'?autoDownfallRancherias(s):missing[0]==='resources'?downfallStockChoice:downfallMedicineChoice;
+       if(proposal){
+        try{perform(s,proposal);return decision('Downfall: '+missing[1],
+          'This is a genuine player setup choice. You can arrange it yourself in the board controls, or explicitly let the computer choose the shown legal default.',
+          [{label:'Let the computer choose a legal starting setup',command:proposal}]);}catch{}
+       }
+       return blocked('Downfall: '+missing[1],`Use the on-board setup form for ${missing[1]}; no automatically verified legal choice was available.`);
+      }
     }
     if(!s.setupCultureFinished){
       const options=scenarioSetupOptions(s).availableCulture.filter(x=>x.eligible);
@@ -87,7 +119,14 @@ export function nextPlayerPrompt(s) {
       if(pending.rerolls===0&&s.pieces.some(p=>p.id==='setup-downfall-trade'&&p.location.startsWith('box:')))choices.push({label:'Spend Trade Goods to reroll',command:{type:'SETUP_DOWNFALL_DEVELOPMENT_REROLL'}});
       return decision('Downfall Development die: '+pending.die,'Accept the rolled die or spend a Trade Goods for one reroll before committing the card reveal.',choices);
     }
-    if(s.pieces.some(p=>p.type==='Band'&&p.ratingConfirmed===false))return blocked('Enter printed Band movement ratings','The actual counters must supply their printed movement ratings. Use the visible Band ratings form; the template value is only a placeholder.');
+    if('cards-war' in (s.setupChecklist||{})&&!s.setupConfirmed?.['cards-war'])return auto(
+      'Prepare the digital War deck',
+      'Verify all 25 distinct recorded War Card identities. The engine draws randomly from the remaining cards; this does not attest to a physical shuffle.',
+      {type:'SETUP_PREPARE_DIGITAL_WAR_DECK'});
+    if(s.scenario==='downfall'&&s.setupChecklist?.physical&&!s.setupConfirmed?.physical){
+      const proposal={type:'SETUP_AUDIT_DOWNFALL_DIGITAL_STOCK'};
+      try{perform(s,proposal);return auto('Audit the Downfall digital stock','Validate recorded cards, counters and player-selected setup. This does not certify actual physical components or unverified card effects.',proposal);}catch{}
+    }
     const unchecked=Object.keys(s.setupChecklist||{}).filter(key=>!s.setupConfirmed?.[key]);
     if(unchecked.length)return blocked('Confirm physical setup',`Still requiring player verification: ${unchecked.join(', ')}. Check these against your printed game using the on-board checklist; the engine cannot attest to a shuffle or physical counter stock.`);
     const ready=setupSafeNext(s);
@@ -146,10 +185,70 @@ export function nextPlayerPrompt(s) {
     }
     return decision('Complete the Raid exception','A drawn Enemy Instruction, Peace Space roll or special Development Card must be resolved in Turn controls before the Raid can finish.',[]);
   }
+  // A card effect with a verified reducer is a genuine player decision, not
+  // an unimplemented blocker. All offered choices are tested against the same
+  // reducer used by the interactive card forms; do not infer missing card text.
+  if(s.developmentPending){
+    const pending=s.developmentPending;
+    const proposals=[];
+    const offer=(label,command)=>{
+      try{perform(s,command);proposals.push({label,command});}catch{}
+    };
+    if(pending.kind==='ute-displacement'){
+      for(const space of pending.destinations||[])offer(`Move Ranchería to ${SPACE[space]?.name||space}`,{type:'DEVELOPMENT_RESOLVE_UTE_DISPLACEMENT',space});
+    }else if(pending.kind==='buffalo-hunters'){
+      for(const bisonId of pending.bisonIds||[])offer(`Remove Bison ${bisonId}`,{type:'DEVELOPMENT_BUFFALO_RESOLVE',bisonId});
+    }else if(['cuerno-medicine','quanah-medicine'].includes(pending.kind)){
+      for(const mahimianaId of pending.chiefIds||[])offer(`Apply Medicine to ${mahimianaId}`,{type:'DEVELOPMENT_RESOLVE_MEDICINE',mahimianaId});
+    }else if(pending.kind==='smallpox-end'){
+      for(const bandId of pending.bandIds||[])offer(`Reduce Band ${bandId}`,{type:'DEVELOPMENT_RESOLVE_SMALLPOX',bandId});
+    }else if(pending.kind==='nuevo-apacheria'){
+      for(const tribe of s.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location])){
+        for(const space of Object.values(SPACE).filter(x=>x.territory==='RG'&&x.type==='round'))offer(`Move ${tribe.id} to ${space.name}`,{type:'DEVELOPMENT_NUEVO_APACHERIA',tribeId:tribe.id,space:space.id});
+      }
+    }else if(pending.kind==='horse-discard'){
+      const ids=pending.horseIds||[],count=pending.required;
+      if(Number.isInteger(count)&&count>=0&&count<=ids.length){
+        // A valid default is offered only when the choice is forced; otherwise
+        // the card form lets the player select exactly which Horses to lose.
+        if(count===0||count===ids.length)offer(`Return ${count} Horse counters`,{type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:count?ids:[]});
+      }
+    }
+    if(proposals.length)return decision(`Development #${pending.number}: ${pending.kind}`,pending.reason||'Choose a legal printed card effect.',proposals);
+    return blocked(`Development #${pending.number}: card choice needs review`,pending.reason||'Use the card controls to resolve the printed effect; no verified automatic choice is available.');
+  }
+  if(s.victoryPending&&s.scenario==='plains'&&s.passageResult?.digital){
+    const audit=historyObjectiveAudit(s);
+    if(audit.result!=='unknown'&&!audit.uncertainTerritories?.length){
+      const command={type:'PASSAGE_DIGITAL_H1_RESOLVE'};
+      try{perform(s,command);return decision(`H1 objective: ${audit.result==='met'?'achieved':'not achieved'}`,audit.reason,[{label:'Apply verified digital H1 result',command}]);}catch{}
+    }
+    return blocked('H1 objective needs board review',audit.reason);
+  }
   if(s.pending||s.successCheck||s.battlePending||s.battleContinuation||s.developmentPending||s.victoryPending){
     return decision('Resolve the highlighted game decision', 'Open Turn controls for the existing battle, card or victory choice. All effects run through the game engine.',[]);
   }
+  if(s.enemySelection){
+    const staged=s.enemySelection;
+    if(staged.enemy)return auto(`Flip ${staged.enemy} Instruction`, staged.die==null?`A card selected ${staged.enemy} without an Enemy Action Table roll. ${staged.displayDie!=null?'Reveal the already rolled display die '+staged.displayDie+'.':'Roll the display die now.'}`:`Enemy Action die ${staged.die} (${staged.history}) identifies ${staged.enemy}. Roll an independent display-row die and flip exactly that counter.`, {type:'ENEMY_BEGIN',kind:staged.kind,enemy:staged.enemy,die:staged.die,...(staged.source==='politics-display'||staged.source==='development-override'||(staged.die!=null&&verifiedHistoryEnemy(s,staged.die)===staged.enemy)?{}:{ack:true})});
+    const named=VERIFIED_HISTORY_NAMED_ENEMIES[staged.history]||['North','West','South','East'];
+    return decision(`Identify the Enemy on ${staged.history}`, `Enemy Action die ${staged.die}. The exact History Card mapping is not source-verified; check the printed card and then the game rolls the second die.`,named.map(enemy=>({label:`Printed result: ${enemy}`,command:{type:'ENEMY_BEGIN',kind:staged.kind,enemy,die:staged.die,ack:true}})));
+  }
   if(s.enemyFlow){
+    // A held No Relief card is an optional interrupt BEFORE automatic Recover.
+    // Never consume the enemy's Recover die without presenting that choice.
+    const f=s.enemyFlow,selected=s.pieces.find(p=>p.id===f.currentId);
+    const heldNoRelief=s.cards.some(c=>c.kind==='Development'&&Number(c.identifier)===18&&c.zone==='Hand');
+    const activeRecover=selected&&selected.type==='Instruction'&&selected.owner===f.enemy;
+    if(heldNoRelief&&f.stage==='effect'&&!f.recoverResolved&&activeRecover){
+      const targets=recoverTargetAudit(s,f.enemy);
+      if(targets.candidates.length&&!targets.ambiguousRavaged.length){
+        const play={type:'DEVELOPMENT_PLAY_NO_RELIEF'};
+        try{perform(s,play);return decision('No Relief from War: use your held card?',
+          'Enemy Recover has a target. Choose whether to discard Development #18 to prevent Recover, or allow the normal enemy roll.',
+          [{label:'Play No Relief from War',command:play},{label:'Allow normal Enemy Recover',command:{type:'ENEMY_AUTO_RECOVER'}}]);}catch{}
+      }
+    }
     const status=enemyAutomationPreview(s);
     if(status.ready)return auto('Enemy Instruction: automatic effect',status.reason,status.command);
     return decision('Enemy Instruction needs your decision',status.reason+' Open the on-board Enemy controls for printed choices.',[]);
@@ -188,6 +287,10 @@ export function nextPlayerPrompt(s) {
       if(!['done','na'].includes(s.steps.pt14)&&s.steps.pt13==='done')return decision('Buy a Culture card?',status.reason,[
         {label:'Decline this purchase',command:{type:'PASSAGE_CULTURE_DECLINE'}}
       ]);
+      if(s.scenario==='plains'&&!s.passageResult&&['pt1','pt2','pt3','pt4','pt5','pt6','pt7','pt8','pt9','pt10','pt11','pt12','pt13','pt14'].every(k=>['done','na'].includes(s.steps[k]))){
+        const command={type:'PASSAGE_DIGITAL_FINISH'};
+        try{perform(s,command);return decision('Onto the Plains: final Passage roll', 'Use the tracked digital board and a seeded die for Passage step 15. Physical-board users should use the printed-roll form instead.', [{label:'Roll digital Passage die',command}]);}catch{}
+      }
       return decision('Your decision: Passage of Time',status.reason,[]);
     }
     if(s.operation==='Culture'){
@@ -288,9 +391,9 @@ export function nextPlayerPrompt(s) {
         }
         if(s.planningEnemyDie==null)return auto('Enemy acts: roll free Instruction','The game rolls the seeded Enemy die. Only the printed History Card mapping and display row may require your input.',{type:'PLANNING_ROLL_ENEMY_DIE'});
         const enemy=s.planningPoliticsEnemy||verifiedHistoryEnemy(s,s.planningEnemyDie);
-        if(enemy)return auto(`Enemy Instruction: ${enemy}`,`Enemy Action die ${s.planningEnemyDie} identified ${enemy}. Roll the independent display die and flip its row automatically.`,{type:'ENEMY_BEGIN',kind:'free',enemy,die:s.planningEnemyDie,ack:true});
+        if(enemy)return auto(`Enemy Instruction: ${enemy}`,`Enemy Action die ${s.planningEnemyDie} identified ${enemy}. Roll the independent display die and flip its row automatically.`,{type:'ENEMY_PREPARE',kind:'free'});
         if(!s.planningEnemyChoice)return decision('Who acts? Check your History Card',`The seeded die is ${s.planningEnemyDie}. Look up that number on your printed History Card and choose the matching Enemy. This is one verified player input, not an automatic guess.`,['North','West','South','East'].map(enemy=>({label:`History Card says ${enemy}`,command:{type:'PLANNING_CONFIRM_ENEMY',enemy,ack:true}})));
-        return auto(`Free Enemy Instruction: ${s.planningEnemyChoice}`,`The Enemy has been confirmed. Roll the second, independent display die and flip the indicated counter.`,{type:'ENEMY_BEGIN',kind:'free',enemy:s.planningEnemyChoice,die:s.planningEnemyDie,ack:true});
+        return auto(`Free Enemy Instruction: ${s.planningEnemyChoice}`,`The Enemy has been confirmed. Roll the second, independent display die and flip the indicated counter.`,{type:'ENEMY_PREPARE',kind:'free'});
       }
       if(s.planningStage===9){
         const active=s.cards.some(c=>['Development','Culture','War'].includes(c.kind)&&['In play','Display','War Event'].includes(c.zone));
@@ -357,7 +460,7 @@ export function nextPlayerPrompt(s) {
         }
         const enemy=f.enemy||verifiedHistoryEnemy(s,f.die);
         if(!enemy)return decision('Finished Bands triggered an Enemy','The game rolled the Enemy die. Identify the Enemy from your printed History Card.', ['North','West','South','East'].map(x=>({label:`History Card: ${x}`,command:{type:'CLEANUP_CONFIRM_FINISHED_ENEMY',enemy:x,ack:true}})));
-        return auto(`Free Enemy Instruction: ${enemy}`,`Finished Band roll ${f.triggerDie} caused an Enemy action. Roll the second display die and flip its row.`,{type:'ENEMY_BEGIN',kind:'free',enemy,die:f.die,ack:true});
+        return auto(`Free Enemy Instruction: ${enemy}`,`Finished Band roll ${f.triggerDie} caused an Enemy action. Roll the second display die and flip its row.`,{type:'ENEMY_PREPARE',kind:'free'});
       }
       const ranches=s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location]).sort((a,b)=>a.id.localeCompare(b.id)).filter(r=>s.pieces.some(p=>p.type==='Band'&&p.finished&&p.location===`box:${r.id}`));
       if((s.cleanupFinishedRolls||[]).length<ranches.length)return auto('Finished Bands: roll one Ranchería',`Roll the seeded die for ${ranches[(s.cleanupFinishedRolls||[]).length].label||'the next Ranchería'}; free Enemy action only when triggered.`,{type:'CLEANUP_ROLL_FINISHED'});
@@ -401,7 +504,7 @@ export function nextPlayerPrompt(s) {
       if(c.started)return auto('Cleanup: paid Enemy procedure finished','Return to Cleanup step 4 after the recorded Enemy Instruction resolves.',{type:'CLEANUP_FINISH_CUP_ENEMY'});
       const enemy=c.enemy||verifiedHistoryEnemy(s,c.die);
       if(!enemy)return decision('Paid Enemy: identify the Enemy',`Enemy Action die ${c.die}; choose the matching printed History Card Enemy.`,['North','West','South','East'].map(x=>({label:`History Card: ${x}`,command:{type:'CLEANUP_CONFIRM_PAID_ENEMY',enemy:x,ack:true}})));
-      return auto(`Paid Enemy: ${enemy}`,`Enemy Action die ${c.die} identifies the Enemy. Roll a separate die for the display flip, then execute affordable Instructions.`,{type:'ENEMY_BEGIN',kind:'paid',enemy,die:c.die,ack:true});
+      return auto(`Paid Enemy: ${enemy}`,`Enemy Action die ${c.die} identifies the Enemy. Roll a separate die for the display flip, then execute affordable Instructions.`,{type:'ENEMY_PREPARE',kind:'paid'});
     }
     if(!['done','na'].includes(s.steps.cl4)){
       if(!s.flags?.santaFe&&!s.cards.some(c=>c.kind==='Development'&&String(c.identifier||'').replace(/\D/g,'')==='43'&&['In play','Display'].includes(c.zone)))return auto('Santa Fé Trail not active','No Wagon Train counter is required this turn.',{type:'CLEANUP_SKIP_TRAIL'});
