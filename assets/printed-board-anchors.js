@@ -1,20 +1,21 @@
 /** Placement coordinates on the existing, owner-imported TTS board image.
- * All values are in the shared 1080 × 720 SVG viewBox. This draws NO board art.
+ * All values are in the shared 1080 × 720 TTS board-coordinate viewBox. This draws NO board art.
  * Source: original supplied TTS map anchors + supplied physical-board photos.
  * No rule state is stored here. These are visual counter destinations only.
  */
 export const PRINTED_BOARD={
   width:1080,height:720,
-  rancheria:{firstY:50,rowGap:76,mahY:0,paraY:28,medicineX:782,medicineGap:25,successX:742,resourcesX:961,resourcesY:1,resourcesWidth:93},
-  instructions:{firstX:851,firstY:512,colGap:43,rowGap:25,cols:['West','South','East','North','Inactive']},
-  supply:{available:{x:598,y:632,w:190,h:66},out:{x:800,y:646,w:72,h:52},enemyAP:{x:920,y:676,w:136,h:26}},
-  records:{x:{military:40,culture:62,ap:84},bottomY:665,step:34},
-  operations:{x:68,bottomY:303,step:20},
+  rancheria:{firstY:89,rowGap:69,mahY:0,paraY:27,medicineX:794,medicineGap:24,successX:762,resourcesX:951,resourcesY:1,resourcesWidth:69},
+  instructions:{firstY:517,rowGap:25,cols:['West','South','East','North','Inactive'],columnX:{West:851,South:895,East:939,North:983,Inactive:1010}},
+  supply:{available:{x:572,y:590,w:126,h:78},out:{x:790,y:594,w:65,h:61},enemyAP:{x:917,y:664,w:103,h:26}},
+  records:{x:{military:34,culture:58,ap:82},yByValue:[658,608,571,545,518,493,469,443,419,394]},
+  operations:{x:67,yByValue:[168,198,227,257,288,318,349]},
   history:{x:735,y:500,w:90,h:104}
 };
 export function rancheriaPrintedIndex(ranch,index){
  const matches=String(ranch.subtype||ranch.label||ranch.id||'').match(/(?:^|\W)([A-E])(?:$|\W)/i);
- return matches?matches[1].toUpperCase().charCodeAt(0)-65:Math.min(4,index);
+ // The physical display runs from E (top) to A (bottom).
+ return matches?69-matches[1].toUpperCase().charCodeAt(0):Math.min(4,index);
 }
 export function rancheriaMedicinePoint(index,type,rating){
  const r=PRINTED_BOARD.rancheria;
@@ -22,10 +23,10 @@ export function rancheriaMedicinePoint(index,type,rating){
 }
 export function instructionPrintedPoint(enemy,row){
  const cfg=PRINTED_BOARD.instructions,col=cfg.cols.indexOf(enemy),idx=String('ABCDEF').indexOf(row);
- return col<0||idx<0?null:[cfg.firstX+col*cfg.colGap,cfg.firstY+idx*cfg.rowGap];
+ return col<0||idx<0?null:[cfg.columnX[enemy],cfg.firstY+idx*cfg.rowGap];
 }
 export function recordPrintedPoint(key,value){
- const r=PRINTED_BOARD.records;return [r.x[key],r.bottomY-Math.max(0,Math.min(9,value))*r.step];
+ const r=PRINTED_BOARD.records;return [r.x[key],r.yByValue[Math.max(0,Math.min(9,Math.floor(value)))] ];
 }
 export function spreadPrintedCounters(items,region,maxColumns=7){
  if(!items.length)return [];

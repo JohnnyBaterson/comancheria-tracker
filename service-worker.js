@@ -1,5 +1,5 @@
 const CACHE_PREFIX='comancheria-table-companion-';
-const CACHE=CACHE_PREFIX+'v1.42.0-original-printed-board';
+const CACHE=CACHE_PREFIX+'v1.45.0-physical-artwork';
 const ASSETS=['./','./index.html','./assets/style.css','./assets/tabletop.css','./assets/app.js','./assets/card-reveal.js','./assets/engine.js','./assets/next-action.js','./assets/planning-action-menu.js','./assets/band-action-menu.js','./assets/board-layout.js','./assets/printed-board-anchors.js','./assets/board-analysis.js','./assets/board-counter-actions.js','./assets/rancheria-surface.js','./assets/tabletop-supply.js','./assets/map-evidence.js','./assets/map-fact-checks.js','./assets/map-topology-audit.js','./assets/save-safety.js','./assets/physical-counter-catalog.js','./assets/component-stock.js','./assets/cup-system.js','./assets/tts-asset-library.js','./assets/tts-source-manifest.js','./assets/war-card-effects.js','./assets/icon.svg','./manifest.webmanifest'];
 const KNOWN=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));

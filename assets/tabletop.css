@@ -272,7 +272,7 @@ body:has(.tt-printed-only){margin:0;background:#16130f}
 .printed-instruction-inner .tt-instruction{width:100%;height:100%;border-radius:2px;padding:0;border-width:1px;box-shadow:0 2px 3px #0008}
 .printed-instruction-inner .tt-counter-stamp{display:none}
 .printed-instruction-inner .tt-counter-proxy{display:grid;gap:0;text-align:center}
-.printed-instruction-inner .tt-counter-proxy b{font-size:6px}.printed-instruction-inner .tt-counter-proxy small{font-size:5px}
+.printed-instruction-inner .tt-counter-proxy b{font-size:6px}.printed-instruction-inner .tt-counter-proxy small{font-size:4px}
 .printed-utility{position:absolute;top:8px;right:8px;z-index:12;display:flex;gap:5px}
 .printed-utility button{width:27px;height:27px;border:1px solid #f4deaf;border-radius:50%;background:#241e18c8;color:#fff0bf;font-size:16px;box-shadow:0 2px 5px #0007}
 .printed-utility button:disabled{opacity:.3}
@@ -289,3 +289,34 @@ body:has(.tt-printed-only){margin:0;background:#16130f}
 @media(max-width:950px){.printed-floating-actions{max-width:98vw}.printed-choice{min-width:49px;max-width:120px;font-size:9px;min-height:30px;padding:4px 6px}.printed-current-turn{max-width:110px;font-size:9px;padding:4px 6px}.printed-utility button{height:23px;width:23px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.printed-choice{animation:none}}
 
+
+/* v1.43 — authentic printed positions, no artificial map population bubbles. */
+.tt-printed-only .map-piece-badge,.tt-printed-only .map-node-id,.tt-printed-only .map-node-number{display:none!important}
+.tt-printed-only .map-focus-ring{stroke-width:2;fill:transparent;opacity:.5}
+.tt-printed-only .printed-instruction{overflow:visible}
+.tt-printed-only .printed-instruction .tt-instruction{box-sizing:border-box;padding:0}
+.tt-printed-only .printed-instruction .tt-counter-face{min-width:0;overflow:hidden}
+
+/* Board-aligned anchors: Medicine tokens are actual interactive hit targets. */
+.tt-printed-only .printed-medicine{cursor:pointer;filter:drop-shadow(0 1px 1px #0009)}
+.tt-printed-only .printed-medicine:hover,.tt-printed-only .printed-medicine:focus-visible{filter:drop-shadow(0 0 4px #fff2ab);outline:none}
+
+.tt-printed-only .printed-medicine.piece-is-selected{filter:drop-shadow(0 0 5px #ffdc78)}
+/* Fallback paper-counter colors only. Locally imported original faces take precedence. */
+.tt-printed-only .printed-instruction.owner-west .tt-instruction:has(.tt-counter-proxy){background:#d2ae35;color:#281d10}
+.tt-printed-only .printed-instruction.owner-south .tt-instruction:has(.tt-counter-proxy){background:#33965d;color:#fff9df}
+.tt-printed-only .printed-instruction.owner-east .tt-instruction:has(.tt-counter-proxy){background:#3282b8;color:#fff9df}
+.tt-printed-only .printed-instruction.owner-north .tt-instruction:has(.tt-counter-proxy){background:#8d8472;color:#181512}
+.tt-printed-only .printed-instruction.owner-inactive .tt-instruction:has(.tt-counter-proxy){background:#983e3c;color:#fff9df}
+
+/* Physical printed cells: do not cover neighboring printed instruction slots. */
+.tt-printed-only .printed-instruction .tt-counter-proxy b{font-size:5px;line-height:1.1}
+.tt-printed-only .printed-instruction .tt-counter-proxy small{font-size:3px;line-height:1.1}
+.tt-printed-only .printed-instruction-inner .tt-instruction{box-shadow:0 1px 2px #0006}
+/* Critical: animated CSS transforms must NEVER override the SVG translate(x y)
+   that positions a physical Band on the owner's printed board. */
+.tt-printed-only svg .tt-band-turned{animation:none!important;transform-origin:initial;transform-box:initial}
+.tt-printed-only svg .tt-band-turned>rect,
+.tt-printed-only svg .tt-band-turned>image,
+.tt-printed-only svg .tt-band-turned>text,
+.tt-printed-only svg .tt-band-turned>path{animation:tt-band-flip .65s ease-out;transform-box:fill-box;transform-origin:center}

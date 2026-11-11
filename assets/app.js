@@ -401,13 +401,13 @@ function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
   `<rect class="map-node-core" x="${x-22}" y="${y-22}" width="44" height="44" rx="6" fill="${fill}"/>`;
  const label=round?`${sp.area}`:id==='RESERVATION'?'R':id==='PD'?'PD':id;
  const labelFont=sp.type==='reservation'?15:round?20:13;
- const badge=count?`<g class="map-piece-badge" transform="translate(${x+25} ${y+21})"><circle r="13"/><text y="4" text-anchor="middle">${count>99?'99+':count}</text></g>`:'';
- const instructionMarkers=here.filter(instructionOnBoard).map((piece,i)=>`<g class="tt-map-ally-marker" transform="translate(${x+30+i*17} ${y-50})"><foreignObject x="-18" y="-20" width="36" height="43">${instructionTile(piece,true)}</foreignObject></g>`).join('');
- const physicalHere=here.filter(p=>!instructionOnBoard(p));const piecePreview=physicalHere.slice(0,6).map((piece,i)=>{const row=Math.floor(i/3),col=i%3,visible=Math.min(3,physicalHere.length-row*3);const dx=(col-(visible-1)/2)*24;const dy=row*28;const hue=piece.type==='Band'?'#b6d2a0':piece.type==='Rancheria'?'#f4ce91':piece.type==='War Column'?'#f19a87':piece.type==='Settlement'?'#d7ad9e':piece.type==='Tribe'?'#b0c6ba':'#e1ccab';const art=pieceArt(piece);
+ const badge=!printed&&count?`<g class="map-piece-badge" transform="translate(${x+25} ${y+21})"><circle r="13"/><text y="4" text-anchor="middle">${count>99?'99+':count}</text></g>`:'';
+ const instructionMarkers=here.filter(instructionOnBoard).map((piece,i)=>`<g class="tt-map-ally-marker" transform="translate(${x-12+i*17} ${y+2})"><foreignObject x="-18" y="-20" width="36" height="43">${instructionTile(piece,true)}</foreignObject></g>`).join('');
+ const physicalHere=here.filter(p=>!instructionOnBoard(p));const piecePreview=physicalHere.map((piece,i)=>{const slot=i%6,row=Math.floor(slot/3),col=slot%3,visible=Math.min(3,physicalHere.length-row*3);const layer=Math.floor(i/6),dx=(col-(visible-1)/2)*19+Math.min(layer,5)*1.4;const dy=row*22+Math.min(layer,5)*1.4;const hue=piece.type==='Band'?'#b6d2a0':piece.type==='Rancheria'?'#f4ce91':piece.type==='War Column'?'#f19a87':piece.type==='Settlement'?'#d7ad9e':piece.type==='Tribe'?'#b0c6ba':'#e1ccab';const art=pieceArt(piece);
  const carried=piece.type==='Band'?state.pieces.filter(p=>p.location===`held:${piece.id}`):[];
  const cargo=carried.slice(0,3).map((held,j)=>{const art=pieceArt(held),cx=-8+j*8,cy=18;return `<g transform="translate(${cx} ${cy})" class="tt-band-cargo ${stateUI.digitalSelectedPieceId===held.id?'piece-is-selected':''}" data-physical-piece-id="${esc(held.id)}" data-action="board-select-piece" data-id="${esc(held.id)}" role="button" tabindex="0" aria-label="Select carried ${esc(labelPiece(held))}"><title>${esc(labelPiece(held))} carried by ${esc(labelPiece(piece))}</title><rect x="-6" y="-7" width="12" height="14" rx="2" fill="#c6b28a" stroke="#473822" stroke-width="1"/>${art?`<image href="${esc(art)}" x="-6" y="-7" width="12" height="14" pointer-events="none"/>`:`<text x="0" y="4" font-size="10" text-anchor="middle" pointer-events="none">${esc(smallIcon(held.type))}</text>`}</g>`;}).join('');
  const cargoOverflow=carried.length>3?`<text x="19" y="22" font-size="9" fill="#ffe0a0" text-anchor="middle">+${carried.length-3}</text>`:'';
- return `<g transform="translate(${x+dx} ${y-36+dy})" class="map-mini-counter map-piece-target tt-board-counter ${stateUI.digitalSelectedPieceId===piece.id?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="board-select-piece" data-id="${esc(piece.id)}" role="button" tabindex="0" aria-label="Select ${esc(labelPiece(piece))}"><title>${esc(labelPiece(piece))} · select counter</title><rect x="-12" y="-14" width="24" height="27" rx="3" fill="${piece.type==='Band'&&piece.finished?'#8e7159':hue}"/>${art?`<image href="${esc(art)}" x="-11" y="-13" width="22" height="25" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="4" text-anchor="middle">${esc(nodePieceGlyph(piece))}</text>`}${piece.type==='Band'?`<text x="0" y="-17" font-size="8" font-weight="bold" text-anchor="middle" fill="${piece.finished?'#f6bd89':'#e9e0aa'}" pointer-events="none">${piece.finished?'FINISHED':'READY'}</text>`:''}${cargo}${cargoOverflow}</g>`;}).join('');
+ return `<g transform="translate(${x+dx} ${y+dy})" class="map-mini-counter map-piece-target tt-board-counter ${stateUI.digitalSelectedPieceId===piece.id?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="board-select-piece" data-id="${esc(piece.id)}" role="button" tabindex="0" aria-label="Select ${esc(labelPiece(piece))}"><title>${esc(labelPiece(piece))} · select counter</title><rect x="-10" y="-11" width="20" height="21" rx="2" fill="${piece.type==='Band'&&piece.finished?'#8e7159':hue}"/>${art?`<image href="${esc(art)}" x="-9" y="-10" width="18" height="19" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="4" text-anchor="middle">${esc(nodePieceGlyph(piece))}</text>`}${cargo}${cargoOverflow}</g>`;}).join('');
  return `<g class="${classes}" data-action="select-space" data-id="${esc(id)}" role="button" tabindex="0" aria-label="${esc(title)}"><title>${esc(title)}</title>${isSelected?`<circle class="map-focus-ring" cx="${x}" cy="${y}" r="${sp.type==='reservation'?50:31}"/>`:''}${base}${printed?'':`<text class="map-node-number" x="${x}" y="${y+6}" text-anchor="middle" style="font-size:${labelFont}px">${esc(label)}</text>`}${printed?'':round?`<text class="map-node-id" x="${x}" y="${y+38}" text-anchor="middle">${esc(sp.territory)}-${sp.area}</text>`:sp.type==='enemy'?`<text class="map-node-id" x="${x}" y="${y+36}" text-anchor="middle">ENEMY</text>`:''}${piecePreview}${instructionMarkers}${badge}${legalMove?`<g class="move-valid-cost" transform="translate(${x+29} ${y-28})"><circle r="15"/><text y="5" text-anchor="middle">${legalMove.cost}</text></g>`:''}</g>`;
 }
 function mapLinkLine(link,routePath=[]){
@@ -735,7 +735,7 @@ function tabletopSupplyTrays(){
 function printedCounter(piece,x,y,size=23,action='board-select-piece',attributes=''){
  const art=pieceArt(piece),name=esc(labelPiece(piece)),selected=stateUI.digitalSelectedPieceId===piece.id;
  const fill=piece.type==='Band'&&piece.finished?'#80715e':'#d4bc84';
- return `<g transform="translate(${x} ${y})" class="printed-counter ${selected?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="${action}" data-id="${esc(piece.id)}" ${attributes} role="button" tabindex="0" aria-label="${name}" title="${name}"><title>${name} · ${esc(piece.location)}</title><rect x="${-size/2}" y="${-size/2}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${selected?'#ffe79c':'#614b2e'}" stroke-width="${selected?2:1}"/>${art?`<image href="${esc(art)}" x="${-size/2+1}" y="${-size/2+1}" width="${size-2}" height="${size-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text text-anchor="middle" y="4" font-size="${Math.max(10,Math.floor(size*.55))}" pointer-events="none">${esc(smallIcon(piece.type))}</text>`}${piece.type==='Band'&&piece.finished?'<path d="M -10,-10 L 10,10" stroke="#633" stroke-width="2" pointer-events="none"/>':''}</g>`;
+ return `<g transform="translate(${x} ${y})" class="printed-counter ${selected?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="${action}" data-id="${esc(piece.id)}" ${attributes} role="button" tabindex="0" aria-label="${name}" title="${name}"><title>${name} · ${esc(piece.location)}</title><rect x="${-size/2}" y="${-size/2}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${selected?'#ffe79c':'#614b2e'}" stroke-width="${selected?2:1}"/>${art?`<image href="${esc(art)}" x="${-size/2+1}" y="${-size/2+1}" width="${size-2}" height="${size-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text text-anchor="middle" y="4" font-size="${Math.max(10,Math.floor(size*.55))}" pointer-events="none">${esc(smallIcon(piece.type))}</text>`}${piece.type==='Band'&&piece.finished&&!physicalCounterArtUrl(piece)?'<path d="M -10,-10 L 10,10" stroke="#633" stroke-width="2" pointer-events="none"/>':''}</g>`;
 }
 function printedButton(x,y,label,action,attrs=''){
  const width=Math.min(110,Math.max(47,label.length*5+14));
@@ -752,7 +752,10 @@ function printedRancherias(){
    const [x,y]=rancheriaMedicinePoint(row,h.type,rating);
    // The Medicine rating counter is stationary. The Mahimiana person may
    // separately travel under a Band, so do NOT duplicate its physical ID here.
-   const medicine=`<g class="printed-medicine" transform="translate(${x} ${y})" aria-label="${esc(h.type)} Medicine ${rating}"><rect x="-11" y="-10" width="22" height="20" rx="2" fill="${h.type==='Mahimiana'?'#a35f61':'#456389'}" stroke="#e9d3a7"/><text y="3" font-size="7" fill="#fff8db" font-weight="700" text-anchor="middle">${h.type==='Mahimiana'?'MAH':'PAR'}</text></g>`;
+   const medicineFace=h.type==='Mahimiana'?163+(4-row):153+2*(4-row);
+   const medicineArt=physicalCounterImageUrlByIndex(medicineFace);
+   // Medicine markers use the published face, not a second copy of the Headman counter.
+   const medicine=`<g class="printed-medicine ${stateUI.digitalSelectedPieceId===h.id?'piece-is-selected':''}" data-action="board-select-piece" data-id="${esc(h.id)}" data-medicine-marker-for="${esc(h.id)}" transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${esc(h.type)} Medicine ${rating} — select headman"><title>${esc(h.label||h.type)} · Medicine ${rating}</title><rect x="-10" y="-10" width="20" height="20" rx="2" fill="${h.type==='Mahimiana'?'#a35f61':'#456389'}" stroke="#e9d3a7"/>${medicineArt?`<image href="${esc(medicineArt)}" x="-9.5" y="-9.5" width="19" height="19" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="3" font-size="7" fill="#fff8db" font-weight="700" text-anchor="middle" pointer-events="none">${h.type==='Mahimiana'?'MAH':'PAR'}</text>`}</g>`;
    const successes=h.success.map((p,j)=>printedCounter(p,cfg.successX+(j%2)*13,baseY+(h.type==='Mahimiana'?0:28)+Math.floor(j/2)*9,13));
    return medicine+successes.join('');
   }).join('');
@@ -761,24 +764,33 @@ function printedRancherias(){
   const eligible=state.phase==='execution'&&state.operation==='Take Actions'&&!track&&bands.length>0&&m.headmen.some(h=>h.type==='Paraibo'&&h.medicineValue>0);
   const own=track?.rancheriaId===ranch.id?track:null;
   const placed=own?own.slots.filter(s=>bands.some(b=>b.id===s.bandId)):[];
-  const slotBandIds=new Set(placed.map(s=>s.bandId));
-  const renderedBands=bands.map((band,j)=>{
-   const onTrack=placed.find(s=>s.bandId===band.id),queued=order.indexOf(band.id);
-   const x=onTrack?cfg.medicineX+onTrack.slot*cfg.medicineGap:queued>=0?cfg.medicineX+(Math.max(0,Math.min(5,5-queued)))*cfg.medicineGap:cfg.resourcesX+14+(j%3)*25;
-   const y=onTrack?baseY+28:queued>=0?baseY+28:baseY+13+Math.floor(j/3)*24;
+  // All non-track pieces use the same printed Resources square. Never allocate
+  // independent grids for Bands and Horses: they would draw over one another.
+  const paraiboRating=m.headmen.find(h=>h.type==='Paraibo')?.medicineValue??0;
+  const boxedBands=bands.filter(b=>!placed.some(slot=>slot.bandId===b.id)&&!(order.indexOf(b.id)>=0&&order.indexOf(b.id)<paraiboRating));
+  const boxedCargo=m.carried.filter(entry=>entry.band.location===`box:${ranch.id}`).flatMap(entry=>entry.counters.map(p=>({piece:p,carrier:entry.band})));
+  const boxed=[...boxedBands.map(piece=>({piece})),...stored.map(piece=>({piece})),...boxedCargo];
+  const positions=new Map(boxed.map((entry,j)=>{
+   const layer=Math.floor(j/6),col=j%3,row=Math.floor(j/3)%2;
+   return [entry.piece.id,[cfg.resourcesX+12+col*22+Math.min(3,layer)*1.3,
+     baseY+12+row*25+Math.min(3,layer)*1.3]];
+  }));
+  const renderedBands=bands.map(band=>{
+   const onTrack=placed.find(s=>s.bandId===band.id),queued=order.indexOf(band.id),pos=positions.get(band.id);
+   const queuedOnTrack=queued>=0&&queued<paraiboRating;
+   const x=onTrack?cfg.medicineX+onTrack.slot*cfg.medicineGap:queuedOnTrack?cfg.medicineX+Math.max(0,paraiboRating-queued-1)*cfg.medicineGap:pos?.[0]??cfg.resourcesX+12;
+   const y=onTrack?baseY+27:queuedOnTrack?baseY+27:pos?.[1]??baseY+12;
    const action=onTrack?'tabletop-track-select':eligible?(queued>=0?'tabletop-unorder-band':'tabletop-order-band'):'board-select-piece';
-   return printedCounter(band,x,y,22,action);
+   return printedCounter(band,x,y,20,action);
   }).join('');
-  const goods=stored.map((p,j)=>{
-   const x=cfg.resourcesX+14+(j%3)*26,y=baseY+12+Math.floor(j/3)*21;
-   const active=state.pieces.some(b=>b.type==='Band'&&b.id===state.activeBandId&&b.location===ranch.location);
-   return printedCounter(p,x,y,19,active?'tabletop-take-counter':'board-select-piece');
+  const active=state.pieces.some(b=>b.type==='Band'&&b.id===state.activeBandId&&b.location===ranch.location);
+  const goods=stored.map(p=>{
+   const [x,y]=positions.get(p.id);return printedCounter(p,x,y,18,active?'tabletop-take-counter':'board-select-piece');
   }).join('');
-  const carried=m.carried.filter(entry=>entry.band.location===`box:${ranch.id}`).flatMap(entry=>entry.counters.map((p,j)=>{
-   const x=cfg.resourcesX+12+(j%4)*20,y=baseY+43+Math.floor(j/4)*10;
-   const release=state.phase==='cleanup'&&state.steps.cl1!=='done';
-   return printedCounter(p,x,y,15,release?'tabletop-relinquish':'board-select-piece',release?`data-band-id="${esc(entry.band.id)}" data-rancheria-id="${esc(ranch.id)}"`:'');
-  })).join('');
+  const carried=boxedCargo.map(({piece:p,carrier})=>{
+   const [x,y]=positions.get(p.id),release=state.phase==='cleanup'&&state.steps.cl1!=='done';
+   return printedCounter(p,x,y,14,release?'tabletop-relinquish':'board-select-piece',release?`data-band-id="${esc(carrier.id)}" data-rancheria-id="${esc(ranch.id)}"`:'');
+  }).join('');
   const prepared=eligible&&order.length===bands.length&&bands.length>0?printedButton(cfg.resourcesX-4,baseY+48,'Place Bands','tabletop-track-start',`data-rancheria-id="${esc(ranch.id)}"`):'';
   const ap=own&&own.activated>0&&placed.length?printedButton(cfg.resourcesX-1,baseY+48,'Take AP','tabletop-track-ap'):'';
   const end=own&&own.activated>0?printedButton(cfg.resourcesX+43,baseY+48,'Return','tabletop-track-finish'):'';
@@ -793,30 +805,34 @@ function printedInstructions(){
    const cell=col==='Inactive'?audit.inactive.find(x=>x.row===row):audit.columns[col]?.rows.find(x=>x.row===row);
    const piece=cell?.piece;if(!piece)continue;
    const [x,y]=instructionPrintedPoint(col,row);
-   html+=`<foreignObject class="printed-instruction" x="${x-19}" y="${y-12}" width="38" height="25" aria-label="${esc(col)} row ${row}"><div xmlns="http://www.w3.org/1999/xhtml" class="printed-instruction-inner">${instructionTile(piece)}</div></foreignObject>`;
+   html+=`<foreignObject class="printed-instruction owner-${esc(col.toLowerCase())}" x="${x-12}" y="${y-11.5}" width="24" height="23" aria-label="${esc(col)} row ${row}"><div xmlns="http://www.w3.org/1999/xhtml" class="printed-instruction-inner">${instructionTile(piece)}</div></foreignObject>`;
   }
  }
  return `<g class="printed-instruction-layer">${html}</g>`;
 }
 function printedSupply(){
  const {available,outOfPlay}=tabletopSupplyModel(state);
- const supplies=available.filter(p=>p.type==='Resource'||p.type==='Bison'||p.type==='Tribe'||p.type==='Settlement'||p.type==='Marker');
- const others=available.filter(p=>!supplies.includes(p));
+ // Reserve pieces remain physical pieces on the printed board, including
+ // unused Instructions, War Columns and Bands; never silently omit them.
+ const supplies=available;
  const out=outOfPlay;
  const pile=(items,region)=>spreadPrintedCounters(items,region,Math.max(1,Math.floor(region.w/21))).map(({piece,x,y,pile})=>printedCounter(piece,x+11+Math.min(pile,3)*1.5,y+10+Math.min(pile,3)*1.5,18)).join('');
  const enemyAP=state.pieces.filter(p=>p.location==='available-enemy-aps');
- return `<g class="printed-supply-layer" aria-label="Printed supply and Out of Play boxes">${pile(supplies,PRINTED_BOARD.supply.available)}${pile(out,PRINTED_BOARD.supply.out)}${pile(enemyAP,PRINTED_BOARD.supply.enemyAP)}${others.length?`<title>${others.length} reserve counters tracked outside the printed resource box</title>`:''}</g>`;
+ return `<g class="printed-supply-layer" aria-label="Printed supply and Out of Play boxes">${pile(supplies,PRINTED_BOARD.supply.available)}${pile(out,PRINTED_BOARD.supply.out)}${pile(enemyAP,PRINTED_BOARD.supply.enemyAP)}</g>`;
 }
 function printedTracks(){
  const tokens=['military','culture','ap'].map(key=>{
   const [x,y]=recordPrintedPoint(key,state.tracks[key]||0);
-  return `<g transform="translate(${x} ${y})" class="printed-track-marker" role="img" aria-label="${key} ${state.tracks[key]}"><circle r="10" fill="${key==='military'?'#ad413c':key==='culture'?'#364b9d':'#335d99'}" stroke="#e6d6a9" stroke-width="1.5"/><text y="3" text-anchor="middle" font-size="6.5" fill="#fff">${key==='military'?'MIL':key==='culture'?'CUL':'AP'}</text></g>`;
+  const face={ap:15,culture:16,military:17}[key],art=physicalCounterImageUrlByIndex(face);
+  return `<g transform="translate(${x} ${y})" class="printed-track-marker" role="img" aria-label="${key} ${state.tracks[key]}"><circle r="10" fill="${key==='military'?'#ad413c':key==='culture'?'#364b9d':'#335d99'}" stroke="#e6d6a9" stroke-width="1.5"/>${art?`<image href="${esc(art)}" x="-9.5" y="-9.5" width="19" height="19" pointer-events="none"/>`:`<text y="3" text-anchor="middle" font-size="6.5" fill="#fff">${key==='military'?'MIL':key==='culture'?'CUL':'AP'}</text>`}</g>`;
  }).join('');
  const op=state.tracks.operations??0;
- const ops=`<g transform="translate(${PRINTED_BOARD.operations.x} ${PRINTED_BOARD.operations.bottomY-Math.min(9,Math.max(0,op))*PRINTED_BOARD.operations.step})" class="printed-track-marker" aria-label="Operations marker ${op}"><rect x="-10" y="-9" width="20" height="18" fill="#eac95f" stroke="#483a23"/><text y="3" text-anchor="middle" font-size="8" fill="#241e15">OPS</text></g>`;
+ const opsArt=physicalCounterImageUrlByIndex(19);
+ const ops=`<g transform="translate(${PRINTED_BOARD.operations.x} ${PRINTED_BOARD.operations.yByValue[Math.min(6,Math.max(0,op))]})" class="printed-track-marker" aria-label="Operations marker ${op}"><rect x="-10" y="-9" width="20" height="18" fill="#eac95f" stroke="#483a23"/>${opsArt?`<image href="${esc(opsArt)}" x="-9" y="-9" width="18" height="18" pointer-events="none"/>`:'<text y="3" text-anchor="middle" font-size="8" fill="#241e15">OPS</text>'}</g>`;
  const band=state.pieces.find(p=>p.id===state.activeBandId&&p.type==='Band');
  const loc=band&&SPACE[band.location]?boardImagePosition(band.location):null;
- const mp=loc?`<g transform="translate(${loc[0]+39} ${loc[1]+18})" class="printed-mp-marker" role="img" aria-label="${esc(band.label)} ${state.tracks.movement} Movement Points"><circle r="12" fill="#20472c" stroke="#f1dc8a" stroke-width="2"/><text y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffe7a0">${state.tracks.movement}</text><title>${esc(band.label)} · ${state.tracks.movement} MP remaining</title></g>`:'';
+ const mpArt=physicalCounterImageUrlByIndex(18);
+ const mp=loc?`<g transform="translate(${loc[0]+39} ${loc[1]+18})" class="printed-mp-marker" role="img" aria-label="${esc(band.label)} ${state.tracks.movement} Movement Points"><circle r="12" fill="#20472c" stroke="#f1dc8a" stroke-width="2"/>${mpArt?`<image href="${esc(mpArt)}" x="-11" y="-11" width="22" height="22" pointer-events="none"/>`:''}<text y="4" text-anchor="middle" font-size="10" font-weight="bold" stroke="#10221a" stroke-width="2" paint-order="stroke" fill="#ffe7a0">${state.tracks.movement}</text><title>${esc(band.label)} · ${state.tracks.movement} MP remaining</title></g>`:'';
  return `<g class="printed-board-tracks">${tokens}${ops}${mp}</g>`;
 }
 function printedBandActions(){
@@ -826,7 +842,7 @@ function printedBandActions(){
  const finish=printedButton(x-22,y+66,'Finish Band','finish-band');
  return `<g class="printed-band-actions">${spend}${finish}</g>`;
 }
-function printedBoardCounters(){return `<g class="printed-real-board-counters">${printedRancherias()}${printedInstructions()}${printedSupply()}${printedTracks()}${printedBandActions()}</g>`;}
+function printedBoardCounters(){return `<g class="printed-real-board-counters">${printedRancherias()}${printedInstructions()}${printedSupply()}${printedTracks()}</g>`;}
 function tabletopPage(){
  if(state.phase==='setup')return `<div class="tabletop-setup">${officialSetupPanel()}</div>`;
  const prompt=nextPlayerPrompt(state),choices=prompt.kind==='player'?(prompt.choices||[]):[];
