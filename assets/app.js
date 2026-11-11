@@ -11,6 +11,7 @@ import {southMapFacts} from './map-fact-checks.js';
 import {MAP_EVIDENCE_EDGES,MAP_CONNECTION_CANDIDATES,MAP_EVIDENCE_SOURCE,MAP_EVIDENCE_URL,FINAL_MAP_URL,mapConnectionReconciliation,mapConnectionMatches} from './map-evidence.js';
 import { DEVELOPMENT_EFFECT_CATALOG,DEVELOPMENT_SOURCE_INDEX,developmentSourceCoverage,developmentCardAudit,developmentCoverage,CULTURE_CARD_CATALOG,culturePurchaseOptions,verifiedWarEventStatus, fastColumnEligible, travoisOptions,warCountermeasureOptions, VERSION, warAutomationStatus, passageAutomationStatus, historyObjectiveAudit, CARD_EVIDENCE_STATES, cardEvidenceAudit, TEMPLATE_SCENARIOS, SCENARIO_DETAILS, BAND_COUNTER_FACES, scenarioSetupOptions, openingLedgerAudit, TERRITORIES, TERRITORY_DIE_ORDER, SPACES, SPACE, SQUARES, SCENARIOS, PIECE_TYPES, RESOURCES, OPERATIONS, newGame, perform, migrateGame, cultureBaseTerritories, cultureGainPreview, territoryControlAudit, pointLossPreview, basicIntegrity, getStackingProblems, getProblems, requiredPassage, checklist, allChecksDone, safeNext, formatLocation, planBandRoute, mapCoverage, eligibleBattleUnits, warBattleObligations, rancheriaSacrificePreview, rancheriaFightPreview, battleAutoResolutionPreview, enemyApPreview, enemyDisplayAudit, enemyDisplayResetPlan, enemyFlowPreview, enemyAutomationPreview, mapReviewAudit, enemyColorNetwork, enemyCulturePreview, huntTargetPreview, encroachTargetPreview, allyTargetPreview, peaceTargetPreview, peaceWarColumnPreview, enemyWarRaidPreview, peaceSpaceStatus, enemyCardExceptionPreview, activeCardEffects, instructionName, verifiedHistoryEnemy, VERIFIED_HISTORY_NAMED_ENEMIES, settleTargetAudit, subjugateTargetAudit, recoverTargetAudit, ENEMY_COLUMNS, DISPLAY_ROWS, warColumnStopUnits, warColumnBattleModifier, warMoveChoices, autoWarMovementPreview } from './engine.js';
 import {BOARD_WIDTH,BOARD_HEIGHT,MAP_POSITIONS,MAP_PALETTE,MAP_REGION_LABELS,boardPosition,boardImagePosition,mapEdgesForDisplay} from './board-layout.js';
+import {PRINTED_BOARD,rancheriaPrintedIndex,rancheriaMedicinePoint,instructionPrintedPoint,recordPrintedPoint,spreadPrintedCounters} from './printed-board-anchors.js';
 import {boardNetworkAudit,bandMovementOverlay} from './board-analysis.js';
 import {rancheriaSurfaceModel} from './rancheria-surface.js';
 import {counterActionStatus,boardMoveStatus,boardMoveOptions} from './board-counter-actions.js';
@@ -393,7 +394,8 @@ function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
  const title=`${sp.name}${legalMove?' · LEGAL MOVE · '+legalMove.cost+' MP':blockedMove?' · NOT LEGAL · '+blockedMove.reason:''} · ${count} recorded counter${count===1?'':'s'}${count?': '+here.slice(0,15).map(labelPiece).join(', '):''}`;
  const round=sp.type==='round';
  const fill=round?MAP_PALETTE[sp.territory]:(sp.type==='canyon'?MAP_PALETTE.canyon:sp.type==='reservation'?MAP_PALETTE.reservation:MAP_PALETTE.enemy);
- const base=round?`<circle class="map-node-core" cx="${x}" cy="${y}" r="23" fill="${fill}"/>`:
+ const printed=Boolean(boardImageUrl());
+ const base=printed?`<circle cx="${x}" cy="${y}" r="22" fill="transparent" class="printed-hit-target"/>`:round?`<circle class="map-node-core" cx="${x}" cy="${y}" r="23" fill="${fill}"/>`:
   sp.type==='canyon'?`<polygon class="map-node-core" points="${x-25},${y-15} ${x},${y-29} ${x+25},${y-15} ${x+25},${y+15} ${x},${y+29} ${x-25},${y+15}" fill="${fill}"/>`:
   sp.type==='reservation'?`<circle class="map-node-core" cx="${x}" cy="${y}" r="43" fill="${fill}"/>`:
   `<rect class="map-node-core" x="${x-22}" y="${y-22}" width="44" height="44" rx="6" fill="${fill}"/>`;
@@ -406,7 +408,7 @@ function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
  const cargo=carried.slice(0,3).map((held,j)=>{const art=pieceArt(held),cx=-8+j*8,cy=18;return `<g transform="translate(${cx} ${cy})" class="tt-band-cargo ${stateUI.digitalSelectedPieceId===held.id?'piece-is-selected':''}" data-physical-piece-id="${esc(held.id)}" data-action="board-select-piece" data-id="${esc(held.id)}" role="button" tabindex="0" aria-label="Select carried ${esc(labelPiece(held))}"><title>${esc(labelPiece(held))} carried by ${esc(labelPiece(piece))}</title><rect x="-6" y="-7" width="12" height="14" rx="2" fill="#c6b28a" stroke="#473822" stroke-width="1"/>${art?`<image href="${esc(art)}" x="-6" y="-7" width="12" height="14" pointer-events="none"/>`:`<text x="0" y="4" font-size="10" text-anchor="middle" pointer-events="none">${esc(smallIcon(held.type))}</text>`}</g>`;}).join('');
  const cargoOverflow=carried.length>3?`<text x="19" y="22" font-size="9" fill="#ffe0a0" text-anchor="middle">+${carried.length-3}</text>`:'';
  return `<g transform="translate(${x+dx} ${y-36+dy})" class="map-mini-counter map-piece-target tt-board-counter ${stateUI.digitalSelectedPieceId===piece.id?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="board-select-piece" data-id="${esc(piece.id)}" role="button" tabindex="0" aria-label="Select ${esc(labelPiece(piece))}"><title>${esc(labelPiece(piece))} · select counter</title><rect x="-12" y="-14" width="24" height="27" rx="3" fill="${piece.type==='Band'&&piece.finished?'#8e7159':hue}"/>${art?`<image href="${esc(art)}" x="-11" y="-13" width="22" height="25" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="4" text-anchor="middle">${esc(nodePieceGlyph(piece))}</text>`}${piece.type==='Band'?`<text x="0" y="-17" font-size="8" font-weight="bold" text-anchor="middle" fill="${piece.finished?'#f6bd89':'#e9e0aa'}" pointer-events="none">${piece.finished?'FINISHED':'READY'}</text>`:''}${cargo}${cargoOverflow}</g>`;}).join('');
- return `<g class="${classes}" data-action="select-space" data-id="${esc(id)}" role="button" tabindex="0" aria-label="${esc(title)}"><title>${esc(title)}</title>${isSelected?`<circle class="map-focus-ring" cx="${x}" cy="${y}" r="${sp.type==='reservation'?50:31}"/>`:''}${base}<text class="map-node-number" x="${x}" y="${y+6}" text-anchor="middle" style="font-size:${labelFont}px">${esc(label)}</text>${round?`<text class="map-node-id" x="${x}" y="${y+38}" text-anchor="middle">${esc(sp.territory)}-${sp.area}</text>`:sp.type==='enemy'?`<text class="map-node-id" x="${x}" y="${y+36}" text-anchor="middle">ENEMY</text>`:''}${piecePreview}${instructionMarkers}${badge}${legalMove?`<g class="move-valid-cost" transform="translate(${x+29} ${y-28})"><circle r="15"/><text y="5" text-anchor="middle">${legalMove.cost}</text></g>`:''}</g>`;
+ return `<g class="${classes}" data-action="select-space" data-id="${esc(id)}" role="button" tabindex="0" aria-label="${esc(title)}"><title>${esc(title)}</title>${isSelected?`<circle class="map-focus-ring" cx="${x}" cy="${y}" r="${sp.type==='reservation'?50:31}"/>`:''}${base}${printed?'':`<text class="map-node-number" x="${x}" y="${y+6}" text-anchor="middle" style="font-size:${labelFont}px">${esc(label)}</text>`}${printed?'':round?`<text class="map-node-id" x="${x}" y="${y+38}" text-anchor="middle">${esc(sp.territory)}-${sp.area}</text>`:sp.type==='enemy'?`<text class="map-node-id" x="${x}" y="${y+36}" text-anchor="middle">ENEMY</text>`:''}${piecePreview}${instructionMarkers}${badge}${legalMove?`<g class="move-valid-cost" transform="translate(${x+29} ${y-28})"><circle r="15"/><text y="5" text-anchor="middle">${legalMove.cost}</text></g>`:''}</g>`;
 }
 function mapLinkLine(link,routePath=[]){
  const mapper=boardImageUrl()?boardImagePosition:boardPosition;const [x1,y1]=mapper(link.a),[x2,y2]=mapper(link.b);
@@ -414,7 +416,7 @@ function mapLinkLine(link,routePath=[]){
  const onRoute=routePath.some((id,i)=>i>0&&((id===link.a&&routePath[i-1]===link.b)||(id===link.b&&routePath[i-1]===link.a)));
  return `<line class="map-verified-link ${link.kind==='dashed'?'dashed':''} ${link.enemyFor?.length>1?'enemy-shared':link.enemyFor?.length?'enemy-'+link.enemyFor[0].toLowerCase():''} ${highlight?'highlighted':''} ${onRoute?'route-preview-link':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
 }
-function boardMap(){
+function boardMap(printedSurface=false){
  const edges=mapEdgesForDisplay(state.edges);
  const overlay=stateUI.mapShowReach&&(!stateUI.digitalSelectedPieceId||stateUI.digitalSelectedPieceId===state.activeBandId)?bandMovementOverlay(state,state.activeBandId):null;
  const activeBand=state.pieces.find(p=>p.id===state.activeBandId);
@@ -433,21 +435,21 @@ function boardMap(){
  <path class="map-landmark" d="M410 45 Q464 135 507 260 T568 515 T665 708"/>
  <path class="map-landmark" d="M235 690 Q406 675 565 640 T1000 669"/>`;
  const nodes=SPACES.map(sp=>mapSpaceNode(sp,overlay,routePath,moveOptions||{legal:[],blocked:[]})).join('');
- return `<div class="map-toolbar"><div class="map-title"><span class="map-eyebrow">${actualBoard?'YOUR BOARD · INTERACTIVE':'BOARD · SCHEMATIC MODE'}</span><strong>Southern Plains · 1700–1875</strong><small>${actualBoard?'TTS board imported locally · select a counter to use its actions':'Select your TTS Images folder to enable the authentic board'}</small></div><div class="map-toolbar-actions">${hButton('map-zoom-out','−','btn slim',stateUI.mapZoom<=1?'disabled title="Minimum zoom"':'title="Zoom out"')}${hButton('map-zoom-in','+','btn slim',stateUI.mapZoom>=2?'disabled title="Maximum zoom"':'title="Zoom in"')}${hButton('map-connect',stateUI.mapConnectMode?'Cancel line':'Connect spaces','btn sm',stateUI.mapConnectMode?'aria-pressed="true"':'aria-pressed="false"')}${activeBand?hButton('map-toggle-reach',stateUI.mapShowReach?'Hide MP overlay':'Show MP overlay','btn sm',`aria-pressed="${stateUI.mapShowReach}"`):''}</div></div>
- ${moveOptions&&state.edges.length===0?'<div class="notice alert"><b>No map connections have been recorded.</b> The engine cannot show valid moves until the printed board links are entered and verified. Use <b>Connect spaces</b> to record the board network.</div>':''}
- ${moveOptions?`<div class="notice compact info"><b>Valid Band moves:</b> ${moveOptions.legal.length} highlighted in green · numbers show exact MP cost. ${moveOptions.blocked.length} connected destination(s) are blocked (red outline). Only green destinations can be clicked to move.</div>`:''}
- ${overlay?`<div class="notice compact info"><b>Movement overlay:</b> ${overlay.reachableCount} other space(s) within ${overlay.available} MP through entered lines (${overlay.costPerEdge} MP per link). Pale rings indicate ledger-reachable spaces, <b>not</b> guaranteed legal moves. Select a target to preview a path.</div>`:''}
- ${stateUI.mapConnectMode?`<div class="notice compact info"><strong>Connection entry:</strong> Selected start <b>${esc(stateUI.edgeStart||stateUI.selectedSpace)}</b>. Click a second map space, then confirm the line type against your physical board. No line is recorded until you confirm.</div>`:''}
- <div class="world-map-scroller" tabindex="0" aria-label="Scrollable board diagram"><svg xmlns="http://www.w3.org/2000/svg" class="${className}" viewBox="0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}" style="min-width:${Math.round(850*stateUI.mapZoom)}px" role="group" aria-label="Spatial overview of the 36 Comanchería round spaces plus special map spaces">
+ return `${printedSurface?'':`<div class="map-toolbar"><div class="map-title"><span class="map-eyebrow">${actualBoard?'YOUR BOARD · INTERACTIVE':'BOARD · SCHEMATIC MODE'}</span><strong>Southern Plains · 1700–1875</strong><small>${actualBoard?'TTS board imported locally · select a counter to use its actions':'Select your TTS Images folder to enable the authentic board'}</small></div><div class="map-toolbar-actions">${hButton('map-zoom-out','−','btn slim',stateUI.mapZoom<=1?'disabled title="Minimum zoom"':'title="Zoom out"')}${hButton('map-zoom-in','+','btn slim',stateUI.mapZoom>=2?'disabled title="Maximum zoom"':'title="Zoom in"')}${hButton('map-connect',stateUI.mapConnectMode?'Cancel line':'Connect spaces','btn sm',stateUI.mapConnectMode?'aria-pressed="true"':'aria-pressed="false"')}${activeBand?hButton('map-toggle-reach',stateUI.mapShowReach?'Hide MP overlay':'Show MP overlay','btn sm',`aria-pressed="${stateUI.mapShowReach}"`):''}</div></div>`}
+ ${!printedSurface&&moveOptions&&state.edges.length===0?'<div class="notice alert"><b>No map connections have been recorded.</b> The engine cannot show valid moves until the printed board links are entered and verified. Use <b>Connect spaces</b> to record the board network.</div>':''}
+ ${!printedSurface&&moveOptions?`<div class="notice compact info"><b>Valid Band moves:</b> ${moveOptions.legal.length} highlighted in green · numbers show exact MP cost. ${moveOptions.blocked.length} connected destination(s) are blocked (red outline). Only green destinations can be clicked to move.</div>`:''}
+ ${!printedSurface&&overlay?`<div class="notice compact info"><b>Movement overlay:</b> ${overlay.reachableCount} other space(s) within ${overlay.available} MP through entered lines (${overlay.costPerEdge} MP per link). Pale rings indicate ledger-reachable spaces, <b>not</b> guaranteed legal moves. Select a target to preview a path.</div>`:''}
+ ${!printedSurface&&stateUI.mapConnectMode?`<div class="notice compact info"><strong>Connection entry:</strong> Selected start <b>${esc(stateUI.edgeStart||stateUI.selectedSpace)}</b>. Click a second map space, then confirm the line type against your physical board. No line is recorded until you confirm.</div>`:''}
+ <div class="world-map-scroller" tabindex="0" aria-label="Entire printed Comanchería board"><svg xmlns="http://www.w3.org/2000/svg" class="${className}" viewBox="0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}" style="${printedSurface?'':'min-width:'+Math.round(850*stateUI.mapZoom)+'px'}" role="group" aria-label="Spatial overview of the 36 Comanchería round spaces plus special map spaces">
  <defs><pattern id="map-speckle" width="36" height="36" patternUnits="userSpaceOnUse"><circle cx="6" cy="16" r=".9" fill="#dfc9a1" opacity=".10"/><circle cx="25" cy="6" r=".9" fill="#dfc9a1" opacity=".08"/></pattern></defs>
  <rect x="0" y="0" width="${BOARD_WIDTH}" height="${BOARD_HEIGHT}" rx="13" class="map-surface"/>
  <rect x="0" y="0" width="${BOARD_WIDTH}" height="${BOARD_HEIGHT}" fill="url(#map-speckle)"/>
- ${actualBoard?`<image href="${esc(actualBoard)}" x="0" y="0" width="${BOARD_WIDTH}" height="${BOARD_HEIGHT}" preserveAspectRatio="none"/>`:`${regions}${guide}${labels}`}
- <g class="map-link-layer">${edges.map(edge=>mapLinkLine(edge,routePath)).join('')}</g>
- <g class="map-space-layer">${nodes}</g>
- <text class="map-corner-label" x="1054" y="696" text-anchor="end">${edges.length} RECORDED LINKS</text>
+ ${actualBoard?`<image href="${esc(actualBoard)}" x="0" y="0" width="${BOARD_WIDTH}" height="${BOARD_HEIGHT}" preserveAspectRatio="xMidYMid meet"/>`:`${regions}${guide}${labels}`}
+ <g class="map-link-layer">${edges.filter(()=>!actualBoard||stateUI.mapConnectMode||routePath.length).map(edge=>mapLinkLine(edge,routePath)).join('')}</g>
+ <g class="map-space-layer">${nodes}</g>${printedSurface?printedBoardCounters():''}
+ ${printedSurface?'':`<text class="map-corner-label" x="1054" y="696" text-anchor="end">${edges.length} RECORDED LINKS</text>`}
  </svg></div>
- <p class="map-mobile-tip">${actualBoard?'Board anchors are visually aligned to the supplied TTS texture; they do not certify connections. ':'On a narrow screen, swipe horizontally. '}Zoom with +/− and select a space for its counters and actions.</p><div class="map-legend"><span><i class="legend-dot ua"></i>Upper Arkansas</span><span><i class="legend-dot la"></i>Lower Arkansas</span><span><i class="legend-dot rr"></i>Red River</span><span><i class="legend-dot le"></i>Llano Estacado</span><span><i class="legend-dot rg"></i>Rio Grande</span><span><i class="legend-dot bc"></i>Brazos Colorado</span><span><i class="legend-counter"></i>Recorded pieces</span><span><i class="legend-line"></i>Verified map line</span>${moveOptions?'<span><i class="legend-valid"></i>Legal move</span><span><i class="legend-blocked"></i>Blocked move</span>':''}</div>`;
+ ${printedSurface?'':`<p class="map-mobile-tip">${actualBoard?'Board anchors are visually aligned to the supplied TTS texture; they do not certify connections. ':'On a narrow screen, swipe horizontally. '}Zoom with +/− and select a space for its counters and actions.</p><div class="map-legend"><span><i class="legend-dot ua"></i>Upper Arkansas</span><span><i class="legend-dot la"></i>Lower Arkansas</span><span><i class="legend-dot rr"></i>Red River</span><span><i class="legend-dot le"></i>Llano Estacado</span><span><i class="legend-dot rg"></i>Rio Grande</span><span><i class="legend-dot bc"></i>Brazos Colorado</span><span><i class="legend-counter"></i>Recorded pieces</span><span><i class="legend-line"></i>Verified map line</span>${moveOptions?'<span><i class="legend-valid"></i>Legal move</span><span><i class="legend-blocked"></i>Blocked move</span>':''}</div>`}`;
 }
 function selectedBoardCounter(){
  const id=stateUI.digitalSelectedPieceId;
@@ -728,41 +730,115 @@ function tabletopSupplyTrays(){
  const tray=(id,label,items,description)=>`<section class="tt-supply-tray" aria-label="${label}" data-supply-zone="${id}"><header><strong>${label}</strong><small>${items.length} counters · ${description}</small></header><div class="tt-supply-items">${supplyGroups(items)||'<span class="tt-supply-empty">Empty</span>'}</div></section>`;
  return `<div class="tt-supply-board" aria-label="Permanent resource supplies">${tray('available','AVAILABLE RESOURCES',available,'reusable stock')}${tray('out','OUT OF PLAY',out,'Success out / permanently removed') }</div>`;
 }
+/** All counters below are rendered OVER THE OWNER'S EXISTING board graphic.
+ * No freestanding Ranchería/Enemy/Resource UI is used on the play screen. */
+function printedCounter(piece,x,y,size=23,action='board-select-piece',attributes=''){
+ const art=pieceArt(piece),name=esc(labelPiece(piece)),selected=stateUI.digitalSelectedPieceId===piece.id;
+ const fill=piece.type==='Band'&&piece.finished?'#80715e':'#d4bc84';
+ return `<g transform="translate(${x} ${y})" class="printed-counter ${selected?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="${action}" data-id="${esc(piece.id)}" ${attributes} role="button" tabindex="0" aria-label="${name}" title="${name}"><title>${name} · ${esc(piece.location)}</title><rect x="${-size/2}" y="${-size/2}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${selected?'#ffe79c':'#614b2e'}" stroke-width="${selected?2:1}"/>${art?`<image href="${esc(art)}" x="${-size/2+1}" y="${-size/2+1}" width="${size-2}" height="${size-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text text-anchor="middle" y="4" font-size="${Math.max(10,Math.floor(size*.55))}" pointer-events="none">${esc(smallIcon(piece.type))}</text>`}${piece.type==='Band'&&piece.finished?'<path d="M -10,-10 L 10,10" stroke="#633" stroke-width="2" pointer-events="none"/>':''}</g>`;
+}
+function printedButton(x,y,label,action,attrs=''){
+ const width=Math.min(110,Math.max(47,label.length*5+14));
+ return `<g class="printed-action" data-action="${esc(action)}" ${attrs} transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${esc(label)}"><rect width="${width}" height="18" rx="4" fill="#f7dc96" stroke="#4b3925"/><text x="${width/2}" y="12" text-anchor="middle" font-size="9" font-weight="700" fill="#252919" pointer-events="none">${esc(label)}</text></g>`;
+}
+function printedRancherias(){
+ const ranches=state.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location]).sort((a,b)=>String(a.subtype||a.label).localeCompare(String(b.subtype||b.label)));
+ const cfg=PRINTED_BOARD.rancheria,track=state.rancheriaActivation;
+ return ranches.map((ranch,i)=>{
+  const row=rancheriaPrintedIndex(ranch,i),m=rancheriaSurfaceModel(state,ranch.id);if(!m)return '';
+  const baseY=cfg.firstY+row*cfg.rowGap;
+  const head=m.headmen.map(h=>{
+   const rating=Number.isInteger(h.medicineValue)?h.medicineValue:0;
+   const [x,y]=rancheriaMedicinePoint(row,h.type,rating);
+   // The Medicine rating counter is stationary. The Mahimiana person may
+   // separately travel under a Band, so do NOT duplicate its physical ID here.
+   const medicine=`<g class="printed-medicine" transform="translate(${x} ${y})" aria-label="${esc(h.type)} Medicine ${rating}"><rect x="-11" y="-10" width="22" height="20" rx="2" fill="${h.type==='Mahimiana'?'#a35f61':'#456389'}" stroke="#e9d3a7"/><text y="3" font-size="7" fill="#fff8db" font-weight="700" text-anchor="middle">${h.type==='Mahimiana'?'MAH':'PAR'}</text></g>`;
+   const successes=h.success.map((p,j)=>printedCounter(p,cfg.successX+(j%2)*13,baseY+(h.type==='Mahimiana'?0:28)+Math.floor(j/2)*9,13));
+   return medicine+successes.join('');
+  }).join('');
+  const stored=m.contents.filter(p=>p.type==='Resource'||p.type==='Bison'||p.type==='Mahimiana');
+  const bands=m.bands,order=(stateUI.rancheriaBandOrder[ranch.id]||[]).filter(id=>bands.some(b=>b.id===id));
+  const eligible=state.phase==='execution'&&state.operation==='Take Actions'&&!track&&bands.length>0&&m.headmen.some(h=>h.type==='Paraibo'&&h.medicineValue>0);
+  const own=track?.rancheriaId===ranch.id?track:null;
+  const placed=own?own.slots.filter(s=>bands.some(b=>b.id===s.bandId)):[];
+  const slotBandIds=new Set(placed.map(s=>s.bandId));
+  const renderedBands=bands.map((band,j)=>{
+   const onTrack=placed.find(s=>s.bandId===band.id),queued=order.indexOf(band.id);
+   const x=onTrack?cfg.medicineX+onTrack.slot*cfg.medicineGap:queued>=0?cfg.medicineX+(Math.max(0,Math.min(5,5-queued)))*cfg.medicineGap:cfg.resourcesX+14+(j%3)*25;
+   const y=onTrack?baseY+28:queued>=0?baseY+28:baseY+13+Math.floor(j/3)*24;
+   const action=onTrack?'tabletop-track-select':eligible?(queued>=0?'tabletop-unorder-band':'tabletop-order-band'):'board-select-piece';
+   return printedCounter(band,x,y,22,action);
+  }).join('');
+  const goods=stored.map((p,j)=>{
+   const x=cfg.resourcesX+14+(j%3)*26,y=baseY+12+Math.floor(j/3)*21;
+   const active=state.pieces.some(b=>b.type==='Band'&&b.id===state.activeBandId&&b.location===ranch.location);
+   return printedCounter(p,x,y,19,active?'tabletop-take-counter':'board-select-piece');
+  }).join('');
+  const carried=m.carried.filter(entry=>entry.band.location===`box:${ranch.id}`).flatMap(entry=>entry.counters.map((p,j)=>{
+   const x=cfg.resourcesX+12+(j%4)*20,y=baseY+43+Math.floor(j/4)*10;
+   const release=state.phase==='cleanup'&&state.steps.cl1!=='done';
+   return printedCounter(p,x,y,15,release?'tabletop-relinquish':'board-select-piece',release?`data-band-id="${esc(entry.band.id)}" data-rancheria-id="${esc(ranch.id)}"`:'');
+  })).join('');
+  const prepared=eligible&&order.length===bands.length&&bands.length>0?printedButton(cfg.resourcesX-4,baseY+48,'Place Bands','tabletop-track-start',`data-rancheria-id="${esc(ranch.id)}"`):'';
+  const ap=own&&own.activated>0&&placed.length?printedButton(cfg.resourcesX-1,baseY+48,'Take AP','tabletop-track-ap'):'';
+  const end=own&&own.activated>0?printedButton(cfg.resourcesX+43,baseY+48,'Return','tabletop-track-finish'):'';
+  return `<g class="printed-rancheria" data-rancheria-zone="${esc(ranch.id)}" aria-label="${esc(ranch.label||ranch.id)} printed Ranchería row">${head}${renderedBands}${goods}${carried}${prepared}${ap}${end}</g>`;
+ }).join('');
+}
+function printedInstructions(){
+ const audit=enemyDisplayAudit(state);
+ let html='';
+ for(const col of PRINTED_BOARD.instructions.cols){
+  for(const row of DISPLAY_ROWS){
+   const cell=col==='Inactive'?audit.inactive.find(x=>x.row===row):audit.columns[col]?.rows.find(x=>x.row===row);
+   const piece=cell?.piece;if(!piece)continue;
+   const [x,y]=instructionPrintedPoint(col,row);
+   html+=`<foreignObject class="printed-instruction" x="${x-19}" y="${y-12}" width="38" height="25" aria-label="${esc(col)} row ${row}"><div xmlns="http://www.w3.org/1999/xhtml" class="printed-instruction-inner">${instructionTile(piece)}</div></foreignObject>`;
+  }
+ }
+ return `<g class="printed-instruction-layer">${html}</g>`;
+}
+function printedSupply(){
+ const {available,outOfPlay}=tabletopSupplyModel(state);
+ const supplies=available.filter(p=>p.type==='Resource'||p.type==='Bison'||p.type==='Tribe'||p.type==='Settlement'||p.type==='Marker');
+ const others=available.filter(p=>!supplies.includes(p));
+ const out=outOfPlay;
+ const pile=(items,region)=>spreadPrintedCounters(items,region,Math.max(1,Math.floor(region.w/21))).map(({piece,x,y,pile})=>printedCounter(piece,x+11+Math.min(pile,3)*1.5,y+10+Math.min(pile,3)*1.5,18)).join('');
+ const enemyAP=state.pieces.filter(p=>p.location==='available-enemy-aps');
+ return `<g class="printed-supply-layer" aria-label="Printed supply and Out of Play boxes">${pile(supplies,PRINTED_BOARD.supply.available)}${pile(out,PRINTED_BOARD.supply.out)}${pile(enemyAP,PRINTED_BOARD.supply.enemyAP)}${others.length?`<title>${others.length} reserve counters tracked outside the printed resource box</title>`:''}</g>`;
+}
+function printedTracks(){
+ const tokens=['military','culture','ap'].map(key=>{
+  const [x,y]=recordPrintedPoint(key,state.tracks[key]||0);
+  return `<g transform="translate(${x} ${y})" class="printed-track-marker" role="img" aria-label="${key} ${state.tracks[key]}"><circle r="10" fill="${key==='military'?'#ad413c':key==='culture'?'#364b9d':'#335d99'}" stroke="#e6d6a9" stroke-width="1.5"/><text y="3" text-anchor="middle" font-size="6.5" fill="#fff">${key==='military'?'MIL':key==='culture'?'CUL':'AP'}</text></g>`;
+ }).join('');
+ const op=state.tracks.operations??0;
+ const ops=`<g transform="translate(${PRINTED_BOARD.operations.x} ${PRINTED_BOARD.operations.bottomY-Math.min(9,Math.max(0,op))*PRINTED_BOARD.operations.step})" class="printed-track-marker" aria-label="Operations marker ${op}"><rect x="-10" y="-9" width="20" height="18" fill="#eac95f" stroke="#483a23"/><text y="3" text-anchor="middle" font-size="8" fill="#241e15">OPS</text></g>`;
+ const band=state.pieces.find(p=>p.id===state.activeBandId&&p.type==='Band');
+ const loc=band&&SPACE[band.location]?boardImagePosition(band.location):null;
+ const mp=loc?`<g transform="translate(${loc[0]+39} ${loc[1]+18})" class="printed-mp-marker" role="img" aria-label="${esc(band.label)} ${state.tracks.movement} Movement Points"><circle r="12" fill="#20472c" stroke="#f1dc8a" stroke-width="2"/><text y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffe7a0">${state.tracks.movement}</text><title>${esc(band.label)} · ${state.tracks.movement} MP remaining</title></g>`:'';
+ return `<g class="printed-board-tracks">${tokens}${ops}${mp}</g>`;
+}
+function printedBandActions(){
+ const band=state.pieces.find(p=>p.type==='Band'&&p.id===state.activeBandId);if(!band||!SPACE[band.location])return '';
+ const [x,y]=boardImagePosition(band.location),horse=state.pieces.filter(p=>p.location===`held:${band.id}`&&p.subtype==='Horse');
+ const spend=horse.length?printedButton(x+20,y+47,'Horse +1 MP','tabletop-spend-horse',`data-id="${esc(horse[0].id)}"`):'';
+ const finish=printedButton(x-22,y+66,'Finish Band','finish-band');
+ return `<g class="printed-band-actions">${spend}${finish}</g>`;
+}
+function printedBoardCounters(){return `<g class="printed-real-board-counters">${printedRancherias()}${printedInstructions()}${printedSupply()}${printedTracks()}${printedBandActions()}</g>`;}
 function tabletopPage(){
  if(state.phase==='setup')return `<div class="tabletop-setup">${officialSetupPanel()}</div>`;
- const prompt=nextPlayerPrompt(state), choices=prompt.kind==='player'?(prompt.choices||[]):[];
- const selected=state.pieces.filter(piece=>piece.location===stateUI.selectedSpace);
- const active=state.cards.filter(card=>['Hand','In play','Display','War Event'].includes(card.zone));
- const event=state.log[0];
- const options=prompt.kind==='automatic'?`<button class="tt-decision tt-decision-primary" data-action="director-auto"><span class="tt-decision-symbol">✦</span><strong>Continue the story</strong><small>${esc(prompt.title)}</small></button>`:
- choices.slice(0,4).map((choice,i)=>`<button class="tt-decision" data-action="director-choice" data-choice-index="${i}" title="${esc(choice.detail||'')}"><span class="tt-decision-symbol">${['◈','✧','◆','✦'][i%4]}</span><strong>${esc(choice.label)}</strong><small>${esc(choice.detail||'Choose this action')}</small></button>`).join('')+(choices.length>4?`<button class="tt-more" data-action="tabletop-choices">See all ${choices.length} legal choices ◈</button>`:'');
- const extra=prompt.title==='Gain Culture'?hButton('culture-ledger-gain','Confirm Culture','tt-small-button'):prompt.title==='Resolve Operations track'?hButton('operations-digital-roll','Roll for Operations','tt-small-button'):'';
- const context=stateUI.digitalSelectedPieceId?state.pieces.find(piece=>piece.id===stateUI.digitalSelectedPieceId):null;
- const boxOwner=context?.location?.startsWith('box:')?context.location.slice(4):null;
- const holder=context?.location?.startsWith('held:')?state.pieces.find(p=>p.id===context.location.slice(5)):null;
- const localRanch=holder?.type==='Band'?state.pieces.find(p=>p.type==='Rancheria'&&(p.location===holder.location||holder.location===`box:${p.id}`)):null;
- const rancheriaContext=context?.type==='Rancheria'?context:state.pieces.find(p=>p.type==='Rancheria'&&(p.id===context?.affiliatedRancheriaId||p.id===boxOwner||p.id===localRanch?.id))||null;
- const action=selectedBoardCounter();
- const heldByContext=context&&['Band','Rancheria'].includes(context.type)?state.pieces.filter(piece=>piece.location===(context.type==='Band'?`held:${context.id}`:`box:${context.id}`)):[];
- const activeCargoBand=context?.type==='Band'?context:context?.location?.startsWith('held:')?state.pieces.find(p=>p.id===context.location.slice(5)):null;
- const cargoPieces=activeCargoBand?state.pieces.filter(p=>p.location===`held:${activeCargoBand.id}`):[];
- const activeCargoHorses=cargoPieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse');
- const cargoBelt=activeCargoBand?`<div class="tt-band-equipment" aria-label="${esc(activeCargoBand.label||activeCargoBand.id)} carried counters"><div class="tt-band-equipment-label"><strong>${esc(activeCargoBand.label||activeCargoBand.id)}</strong><small>${activeCargoBand.id===state.activeBandId?'ACTIVE · '+state.tracks.movement+' MP':'Band · '+(activeCargoBand.finished?'Finished':'Ready')}</small></div>${activeCargoBand.id===state.activeBandId?`<div class="tt-movement-rules" aria-label="Movement cost and Horse movement points"><strong>Movement: ${state.tracks.movement} MP</strong><span>${activeCargoHorses.length?'1 MP per connected space (mounted)':'2 MP per connected space (on foot)'}</span><small>${activeCargoHorses.length?`${activeCargoHorses.length} Horse${activeCargoHorses.length===1?'':'s'} carried. Spending one grants +1 MP; spending the last changes the next move to 2 MP.`:'No Horses carried; a Horse must be possessed to get the mounted discount.'} Paraibo Medicine affects track activation, not movement. A possessed Mahimiana affects Hunt, not movement.</small></div>`:''}<div class="tt-band-equipment-items">${cargoPieces.length?cargoPieces.map(p=>`<div class="tt-equipment-stack"><button type="button" class="tt-band-equipment-token" data-action="board-select-piece" data-id="${esc(p.id)}" data-physical-piece-id="${esc(p.id)}" aria-label="Inspect carried ${esc(labelPiece(p))}">${pieceArt(p)?`<img src="${esc(pieceArt(p))}" alt="">`:esc(smallIcon(p.type))}<small>${esc(p.subtype||p.label||p.type)}</small></button>${activeCargoBand.id===state.activeBandId&&p.type==='Resource'&&p.subtype==='Horse'?`<button type="button" class="tt-spend-horse" data-action="tabletop-spend-horse" data-id="${esc(p.id)}" title="Return this exact Horse counter to stock for +1 MP">Spend +1 MP</button>`:''}</div>`).join(''):'<small>No counters carried</small>'}</div></div>`:'';
- const heldTray=heldByContext.length?`<div class="tt-held-tray" aria-label="Counters belonging to selected piece"><span>${context.type==='Band'?'CARRIED COUNTERS':'RANCHERÍA BOX'}</span><div>${heldByContext.slice(0,10).map(piece=>`<button class="tt-held-counter" data-action="board-select-piece" data-id="${esc(piece.id)}" aria-label="Inspect ${esc(labelPiece(piece))}">${pieceArt(piece)?`<img src="${esc(pieceArt(piece))}" alt="">`:esc(smallIcon(piece.type))}<small>${esc(piece.subtype||piece.label||piece.type)}</small></button>`).join('')}</div></div>`:'';
- const cards=active.slice(0,8).map(card=>`<button class="tt-card" type="button" data-action="tabletop-inspect-card" data-id="${esc(card.id)}" aria-label="Inspect ${esc(card.title||card.identifier||card.kind)}"><span class="tt-card-type">${esc(card.kind)}</span>${cardImageUrl(artReferenceForCard(card))?`<img src="${esc(cardImageUrl(artReferenceForCard(card)))}" alt="" loading="lazy">`:`<span class="tt-card-glyph">✦</span>`}<strong>${esc(card.title||card.identifier||card.kind)}</strong><small>${esc(card.zone)}</small></button>`).join('');
- return `<section class="tt-surface" aria-label="Interactive Comanchería tabletop">
-  <header class="tt-header"><div class="tt-brand"><span class="tt-brand-mark">✦</span><div><strong>COMANCHERÍA</strong><small>${esc(SCENARIOS.find(x=>x[0]===state.scenario)?.[1]||state.scenario)} · Period ${state.period} · ${esc(state.phase)}</small></div></div>
-   <div class="tt-tracks" aria-label="Game tracks"><span>Military <b>${state.tracks.military}</b></span><span>Culture <b>${state.tracks.culture}</b></span><span>AP <b>${state.tracks.ap}</b></span><span>Enemy AP <b>${state.tracks.enemyAp}</b></span><span class="tt-mp-track" aria-label="Active Band movement points remaining"><small>MP</small><b>${state.tracks.movement}</b><i>${state.activeBandId?esc(state.pieces.find(p=>p.id===state.activeBandId)?.label||state.activeBandId):'No active Band'}</i></span></div>
-   <div class="tt-tools"><button data-action="undo" title="Undo" aria-label="Undo" ${history.past.length?'':'disabled'}>↶</button><button data-action="redo" title="Redo" aria-label="Redo" ${history.future.length?'':'disabled'}>↷</button><button data-action="tabletop-details" aria-label="Open unresolved procedure details" title="Unresolved rules / procedures">ⓘ</button></div>
-  </header>
-  <div class="tt-stage"><div class="tt-map" aria-label="Select spaces and counters on the board"><div class="tt-map-board">${boardMap()}</div>${physicalInstructionRack()}<div class="tt-map-caption">Select a space or piece to act · highlighted destinations are validated</div></div>
-   <aside class="tt-east"><div class="tt-chapter"><span>THE CURRENT MOMENT</span><h2>${esc(prompt.title)}</h2><p>${esc(prompt.detail)}</p></div><div class="tt-choice-deck" aria-label="Available decisions">${options||extra||`<div class="tt-evidence"><span>✧</span><p>${prompt.kind==='finished'?'Campaign concluded':'A printed-rule decision needs further detail.'}</p><button class="tt-small-button" data-action="tabletop-details">Inspect this moment</button></div>`}${options&&extra?extra:''}</div>
-    <div class="tt-rancheria-rack" aria-label="Permanent Ranchería resource boxes and Medicine tracks"><div class="tt-rancheria-rack-heading"><strong>RANCHERÍA RESOURCE BOXES</strong><small>All in-play Rancherías · click pieces directly</small></div><div class="tt-rancheria-rack-body">${state.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location]).sort((a,b)=>String(a.label||a.id).localeCompare(String(b.label||b.id))).map(p=>rancheriaPhysicalBox(p.id)).join('')||'<p class="tt-no-rancheria">No Rancherías on the map</p>'}</div></div><div class="tt-selection"><span>SELECTED ON THE BOARD</span><strong>${esc(SPACE[stateUI.selectedSpace]?.name||stateUI.selectedSpace)}</strong><div class="tt-piece-list">${selected.length?selected.slice(0,12).map(piece=>`<button class="tt-piece ${context?.id===piece.id?'tt-piece-selected':''}" data-action="board-select-piece" data-id="${esc(piece.id)}" title="${esc(piece.type)}">${esc(smallIcon(piece.type))} ${esc(piece.label||piece.type)}</button>`).join(''):'<small>No counters in this space</small>'}${selected.length>12?`<small>+${selected.length-12} additional counters; inspect the space to see the rest.</small>`:''}</div>${context?`<small>Selected: ${esc(context.label||context.type)}</small>`:''}${cargoBelt}${heldTray}<div class="tt-piece-actions">${action}</div></div>
-   </aside></div>
-   <footer class="tt-bottom">${tabletopSupplyTrays()}<div class="tt-bottom-story"><div class="tt-card-rail"><span class="tt-rail-label">CARDS IN PLAY</span>${cards||'<span class="tt-empty-cards">No active cards</span>'}</div><div class="tt-event"><span>LATEST EVENT</span><strong>${esc(event?.description||'Choose a board space to begin')}</strong></div></div></footer>
-  ${stateUI.eventNotice?`<div class="tt-event-splash"><div class="tt-event-panel" role="status" aria-live="polite"><span>✦ ${esc(stateUI.eventNotice.title)} ✦</span><h2>${esc(stateUI.eventNotice.description)}</h2><button data-action="dismiss-event">Continue on the board</button></div></div>`:''}
-  ${stateUI.tabletopChoices?`<div class="tt-details-scrim"><section class="tt-all-choices" role="dialog" aria-modal="true" aria-label="Available choices"><header><strong>${esc(prompt.title)} · Choose your action</strong><button data-action="tabletop-close-choices" aria-label="Return to the map">✕</button></header><div class="tt-all-choice-grid">${choices.map((choice,i)=>`<button class="tt-decision" data-action="director-choice" data-choice-index="${i}" title="${esc(choice.detail||'')}"><span class="tt-decision-symbol">◈</span><strong>${esc(choice.label)}</strong><small>${esc(choice.detail||'')}</small></button>`).join('')}</div></section></div>`:''}
-  ${stateUI.tabletopDetails?`<div class="tt-details-scrim"><section class="tt-details" role="dialog" aria-modal="true" aria-label="Detailed rules procedure"><header><strong>Rule detail · ${esc(prompt.title)}</strong><button data-action="tabletop-close-details" aria-label="Close details">✕</button></header><div class="tt-details-body">${nextActionBanner()}${boardActionDrawer()}</div></section></div>`:''}
+ const prompt=nextPlayerPrompt(state),choices=prompt.kind==='player'?(prompt.choices||[]):[];
+ const options=prompt.kind==='automatic'?`<button class="printed-choice" data-action="director-auto">${esc(prompt.title)} <span>Continue</span></button>`:choices.slice(0,5).map((choice,i)=>`<button class="printed-choice" data-action="director-choice" data-choice-index="${i}" title="${esc(choice.detail||'')}"><span>✦</span>${esc(choice.label)}</button>`).join('');
+ const extra=prompt.title==='Gain Culture'?hButton('culture-ledger-gain','Apply Culture','printed-choice'):prompt.title==='Resolve Operations track'?hButton('operations-digital-roll','Roll Operations','printed-choice'):'';
+ const importBoard=!boardImageUrl()?`<div class="printed-board-import"><h2>Load your Comanchería board image</h2><p>The physical printed board is the playing surface. No substitute map or dashboard is displayed.</p><button data-action="choose-tts-folder">Select your TTS Images folder</button><small>The board artwork stays in this browser. The printed spaces are the playing surface.</small></div>`:'';
+ return `<section class="tt-surface tt-printed-only" aria-label="Comanchería complete printed board playing surface">
+  <div class="tt-printed-board">${boardImageUrl()?boardMap(true):''}${importBoard}</div>
+  <div class="printed-floating-actions" aria-label="Current game decision"><div class="printed-current-turn" title="${esc(prompt.detail)}">${esc(prompt.title)}</div><div class="printed-choice-row">${options||extra||'<button class="printed-choice" data-action="tabletop-details">Inspect decision</button>'}${options&&extra?extra:''}</div></div>
+  <div class="printed-utility" aria-label="Game utilities"><button data-action="undo" ${history.past.length?'':'disabled'} title="Undo">↶</button><button data-action="redo" ${history.future.length?'':'disabled'} title="Redo">↷</button><button data-action="tabletop-details" title="Unresolved rules procedure">?</button></div>
+  ${stateUI.eventNotice?`<div class="tt-event-splash"><div class="tt-event-panel"><h2>${esc(stateUI.eventNotice.description)}</h2><button data-action="dismiss-event">Continue</button></div></div>`:''}
+  ${stateUI.tabletopDetails?`<div class="tt-details-scrim"><section class="tt-details" role="dialog" aria-modal="true" aria-label="Unresolved rule detail"><header><strong>${esc(prompt.title)}</strong><button data-action="tabletop-close-details">✕</button></header><div class="tt-details-body">${nextActionBanner()}${boardActionDrawer()}</div></section></div>`:''}
  </section>`;
 }
 function filterPieces(){return sortedPieces(state).filter(p=>(stateUI.pieceType==='All'||p.type===stateUI.pieceType) && (!stateUI.pieceFilter||`${p.label} ${p.type} ${p.subtype} ${formatLocation(state,p.location)}`.toLowerCase().includes(stateUI.pieceFilter.toLowerCase())));}
@@ -1403,7 +1479,7 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
   render();return;
  }
  if(a==='tabletop-track-start'){
-  const ranch=state.pieces.find(p=>p.type==='Rancheria'&&p.id===stateUI.digitalSelectedPieceId)||state.pieces.find(p=>p.type==='Rancheria'&&p.id===(state.pieces.find(x=>x.id===stateUI.digitalSelectedPieceId)?.location||'').replace('box:',''));
+  const ranch=state.pieces.find(p=>p.type==='Rancheria'&&p.id===d.rancheriaId)||state.pieces.find(p=>p.type==='Rancheria'&&p.id===stateUI.digitalSelectedPieceId)||state.pieces.find(p=>p.type==='Rancheria'&&p.id===(state.pieces.find(x=>x.id===stateUI.digitalSelectedPieceId)?.location||'').replace('box:',''));
   if(!ranch)return;const ids=stateUI.rancheriaBandOrder[ranch.id]||[];
   commit({type:'RANCHERIA_TRACK_START',rancheriaId:ranch.id,bandIds:ids});return;
  }

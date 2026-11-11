@@ -8,7 +8,7 @@ import {assertNoContradictedSouthLinks} from './map-fact-checks.js';
  * No GMT imagery or card text is redistributed. Source: Spring 2024 Living Rules.
  * A validated command is NOT a claim of full rules compliance. See README.
  */
-export const VERSION = '1.41.0-permanent-resource-trays';
+export const VERSION = '1.42.0-original-printed-board';
 const RAID_CUP_COMMANDS=['RAID_CUP_EMPTY_REDIRECT','RAID_CUP_SINGLE_BISON_HUNT','RAID_CUP_SAME_TERRITORY_HUNT','RAID_CUP_GUIDED_HUNT','RAID_CUP_GUIDED_ENCROACH','RAID_CUP_FORCED_ENCROACH','RAID_CUP_SINGLE_ALLY','RAID_CUP_CHOOSE_ALLY','RAID_CUP_CULTURE_ATTACK','RAID_CUP_SETTLE','RAID_CUP_SUBJUGATE','RAID_CUP_WAR_RAID','RAID_CUP_PEACE','RAID_CUP_EMPTY_HUNT','RAID_CUP_CONFIRM_EFFECT','RAID_CUP_ROLL_SWAP','RAID_CUP_REROLL_SWAP','RAID_CUP_EXCHANGE'];
 export const RULES_SOURCE = 'GMT Games, Comanchería Second Edition Living Rules, Spring 2024';
 // Die faces printed on the physical map; these are not geographical sort order.
