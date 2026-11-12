@@ -1715,6 +1715,9 @@ async function chooseLocalArtwork(files){
   const scanned=files.length;notify('Scanning '+scanned+' filenames locally. Only known Comanchería assets are decoded…');
   const result=await importLocalCards(files,progress=>{const e=$('tts-progress');if(e)e.textContent=`Scanning: ${progress.sheets}/${EXPECTED_ART.sheets} sheets · ${progress.cardsImported} faces · ${progress.counterTiles} counter tiles`;});
   notify(`Local import: ${result.total}/${EXPECTED_ART.cards} cards, ${result.sheets}/6 sheets, ${result.board?'board ready':'board missing'}, ${result.counterTiles} counter tiles.`,result.total!==EXPECTED_ART.cards||!result.board);
+  if(!result.board && result.counterTiles===0 && result.total===0){
+   notify('No known Comanchería artwork matched the selected folder. Select the original Tabletop Simulator Mods/Images folder, not an exported game folder.',true);
+  }
   await loadPhysicalCounterArt();render();if(stateUI.showCounterGallery)await updateCounterGallery();await displayLocalCard(stateUI.referenceSelected);
  }catch(e){notify('Asset import failed: '+e.message,true);}
 }

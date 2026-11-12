@@ -26,12 +26,9 @@ export const CARD_REFERENCE=[
 export const EXPECTED_ART={cards:CARD_REFERENCE.length,sheets:SHEETS.length,history:HISTORY_SOURCES.length,board:1,counterTiles:TTS_COUNTER_TILES.length};
 const DB='comancheria-local-tts-art',STORE='faces',BOARD_KEY='board-reference',MAX_SIZE=95*1024*1024,MAX_BOARD_SIZE=512*1024*1024;
 const knownFilenames=new Set([BOARD_SOURCE,...SHEETS.map(s=>s[1]),...HISTORY_SOURCES.map(s=>s[1]),...TTS_COUNTER_TILES].map(s=>s.toLowerCase()));
-const PACKAGED_BOARD='./assets/original-art/board.webp';
 let dbPromise=null,lastReport=null,boardUrl=null;
 const available=new Set(),urls=new Map(),counterNames=new Set(),counterMappings=new Map();
-// Private development package: original artwork is bundled, with no external requests.
-TTS_COUNTER_TILES.forEach((filename,i)=>{urls.set('counter:'+filename,'./assets/original-art/counters/'+String(i+1).padStart(3,'0')+'.webp');counterNames.add(filename);});
-CARD_REFERENCE.forEach(card=>{available.add(card.id);urls.set(card.id,'./assets/original-art/cards/'+card.id+'.webp');});
+// Artwork is loaded only from the user-selected local TTS folder and browser IndexedDB.
 function openDB(){
  if(!('indexedDB' in globalThis))return Promise.reject(new Error('Browser-local image storage is not available.'));
  return dbPromise??=new Promise((resolve,reject)=>{
@@ -77,14 +74,17 @@ export async function refreshLocalCards(){
  const cardIds=new Set(CARD_REFERENCE.map(c=>c.id));
  for(const key of keys){if(cardIds.has(key))available.add(key);else if(String(key).startsWith('counter:'))counterNames.add(String(key).slice(8));}
  for(const key of keys){if(!String(key).startsWith('counter-map:'))continue;const type=String(key).slice(12);const name=await tx('readonly',store=>store.get(key));if(counterNames.has(name))counterMappings.set(type,name);}
- await Promise.all([...new Set(counterMappings.values())].map(name=>imageForKey('counter:'+name)));
- // Restore the private packaged artwork references after inspecting IndexedDB overrides.
- TTS_COUNTER_TILES.forEach((name,i)=>{counterNames.add(name);if(!urls.has('counter:'+name))urls.set('counter:'+name,'./assets/original-art/counters/'+String(i+1).padStart(3,'0')+'.webp');});
- CARD_REFERENCE.forEach(card=>{available.add(card.id);if(!urls.has(card.id))urls.set(card.id,'./assets/original-art/cards/'+card.id+'.webp');});
+ // Card faces are used synchronously throughout the setup gallery and board.
+ // Restore all imported faces after a reload; loading only a single selected
+ // reference card leaves the remaining stored artwork falsely unassociated.
+ const preload=[...available,...[...counterNames].map(name=>'counter:'+name)];
+ for(let i=0;i<preload.length;i+=16){
+  await Promise.all(preload.slice(i,i+16).map(imageForKey));
+ }
  await refreshLocalBoard();lastReport=await tx('readonly',store=>store.get('scan-report'))||null;return available.size;
 }
-export function localCardCount(){return CARD_REFERENCE.length;}
-export function counterTileCount(){return TTS_COUNTER_TILES.length;}
+export function localCardCount(){return available.size;}
+export function counterTileCount(){return counterNames.size;}
 export function counterArtAssignments(){return [...counterMappings.entries()].map(([type,filename])=>({type,filename}));}
 export function counterArtUrl(type,subtype=''){const specific=subtype?counterMappings.get(type+':'+subtype):null;const name=specific||counterMappings.get(type);return name?urls.get('counter:'+name)||null:null;}
 export async function assignCounterArt(type,filename){
@@ -127,7 +127,7 @@ export async function loadPhysicalCounterArt(){
  return filenames.length;
 }
 export function cardImageUrl(id){return urls.get(id)||null;}
-export function boardImageUrl(){return boardUrl||PACKAGED_BOARD;}
+export function boardImageUrl(){return boardUrl;}
 export function lastAssetReport(){return lastReport;}
 export async function imageForKey(key){
  if(urls.has(key))return urls.get(key);
@@ -141,7 +141,7 @@ export async function loadCounterTiles(limit=36,offset=0){
 export async function refreshLocalBoard(){
  if(boardUrl){URL.revokeObjectURL(boardUrl);boardUrl=null;}
  const image=await tx('readonly',s=>s.get(BOARD_KEY));if(image instanceof Blob)boardUrl=URL.createObjectURL(image);
- return Boolean(boardUrl||PACKAGED_BOARD);
+ return Boolean(boardUrl);
 }
 export async function clearLocalCards(){
  await tx('readwrite',store=>{for(const card of CARD_REFERENCE)store.delete(card.id);});
@@ -202,6 +202,6 @@ export async function importLocalCards(files,onProgress=()=>{}){
   try{image=await decode(file,240);const blob=await encode(fitCanvas(image,200));await tx('readwrite',s=>s.put(blob,'counter:'+name));counterNames.add(name);status.counterTiles++;}
   catch(err){status.errors.push('Counter tile '+name+': '+err.message);}finally{image?.close?.();}
  }
- closeUrls();await refreshLocalBoard();await Promise.all([...new Set(counterMappings.values())].map(name=>imageForKey('counter:'+name)));status.total=available.size;status.reusedFromCache=Math.max(0,status.total-status.cardsImported);
+ closeUrls();await refreshLocalCards();status.total=available.size;status.reusedFromCache=Math.max(0,status.total-status.cardsImported);
  await tx('readwrite',store=>store.put(status,'scan-report'));lastReport=status;progress();return {...status};
 }
