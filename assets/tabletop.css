@@ -534,3 +534,105 @@ svg.world-board .map-node.piece-drop-hover .map-node-core{stroke:#ffdb7e;stroke-
 /* v1.94: Battle/card decisions share the existing action rail, not the map. */
 .board-counter-action-tray{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border-top:1px solid #756d57}
 .board-counter-action-tray>span{font-size:11px;color:#d6c9aa}
+
+/* v1.96.3: Restore the uninterrupted printed tabletop. The physical action
+   controls are opened explicitly, not permanently mounted over the map. */
+.tt-surface.tt-printed-only{--turn-rail:0px!important}
+.tt-printed-only .tt-printed-board{inset:0!important;bottom:0!important}
+.tt-printed-only .tt-printed-board svg.world-board{width:min(100vw,150dvh)!important;max-width:100%!important;max-height:100%!important;height:auto!important}
+.tt-printed-only{--table-log-margin:max(0px,calc((100vw - min(100vw,150dvh))/2))}
+.tt-printed-only .board-turn-hud{bottom:8px;max-height:min(70dvh,540px);min-height:0;overflow-y:auto;z-index:23;box-shadow:0 10px 45px #000c}
+@media(max-width:680px){.tt-printed-only .board-turn-hud{max-height:68dvh}}
+
+/* v1.97: physical activation target is the printed Medicine marker itself. */
+.printed-medicine.piece-drop-legal{filter:drop-shadow(0 0 7px #f7dc79);cursor:crosshair}
+/* Board-first drop affordances: outlines lie INSIDE existing printed boxes. */
+.tt-printed-only .printed-resource-hit.piece-drop-legal,
+.tt-printed-only .printed-supply-hit.piece-drop-legal {stroke:#f3d66d;stroke-width:2;stroke-dasharray:5 3;fill:#f3d66d18;pointer-events:none}
+.tt-printed-only .printed-resource-hit.piece-drop-hover,
+.tt-printed-only .printed-supply-hit.piece-drop-hover {stroke:#aaff92;stroke-width:3;fill:#aaff9220}
+.tt-printed-only [data-visual-marker="operations"][data-action] {cursor:pointer}
+.tt-printed-only .printed-medicine-slot.piece-drop-legal{stroke:#f7dc73;stroke-width:2;stroke-dasharray:3 2;fill:#f7dc7325;pointer-events:none}
+/* Imported card faces reside in the actual printed Development/War/History boxes. */
+.tt-printed-only .printed-card {cursor:pointer}
+.tt-printed-only .printed-card:hover>rect,.tt-printed-only .printed-card:focus-visible>rect{stroke:#fbe49b;stroke-width:2.5}
+/* Every original printed counter must be touch-draggable, including Bands
+   awaiting Medicine placement (not only generic Select actions). */
+.tt-printed-only svg.world-board [data-physical-piece-id] {touch-action:none;user-select:none;cursor:grab}
+
+/* v2.03 — single-board contract. No fixed external game menus or side drawers.
+   The decision dialog is a temporary card sitting ON the printed board, while
+   the sole external action log remains visible and scrollable. */
+.tt-printed-only .printed-utility,
+.tt-printed-only .board-command-drawers,
+.tt-printed-only .board-turn-hud,
+.tt-printed-only .printed-floating-actions {display:none!important}
+.tt-printed-only .printed-decision-cue{
+ position:absolute;z-index:19;bottom:clamp(9px,2vh,22px);
+ left:calc(var(--table-log-margin) + 12px);
+ max-width:min(260px,42vw);min-height:36px;padding:7px 13px;
+ border:1px solid #e7cf89;border-radius:6px;background:#22271de8;
+ color:#ffedbf;box-shadow:0 2px 12px #0009;
+ font:600 12px/1.25 system-ui,sans-serif;cursor:pointer;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.tt-printed-only .printed-decision-cue:hover,.tt-printed-only .printed-decision-cue:focus-visible{background:#435138;outline:2px solid #f3dcaa}
+.tt-printed-only .player-panel-shade{
+ position:absolute;z-index:30;top:0;bottom:0;
+ left:var(--table-log-margin);right:0;display:flex;
+ justify-content:center;align-items:center;padding:clamp(8px,3vw,26px);
+ background:#100f0baa;box-sizing:border-box
+}
+.tt-printed-only .player-panel{
+ width:min(590px,95%);height:auto;max-height:min(83dvh,740px);
+ border:2px solid #bca26c;border-radius:12px;
+ box-shadow:0 12px 55px #000e;background:#25281f;
+ overflow:hidden
+}
+.tt-printed-only .player-panel-body{padding:14px 18px 18px;overflow-y:auto}
+.tt-printed-only .player-panel-footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:12px;border-top:1px solid #817257}
+.tt-printed-only .player-panel-footer .board-turn-command{width:auto;min-height:34px}
+.tt-printed-only .player-panel-choices{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+@media(max-width:680px){
+ .tt-printed-only .player-panel-shade{padding:6px;align-items:center}
+ .tt-printed-only .player-panel{width:100%;max-height:90dvh}
+ .tt-printed-only .player-panel-choices{grid-template-columns:1fr}
+ .tt-printed-only .printed-decision-cue{font-size:10px;max-width:52vw}
+}
+
+/* v2.04: every interactive layer is contained by the board, never an external
+   screen; the action log alone remains in its original left-hand margin. */
+.tt-printed-only #modal-root,.tt-printed-only #card-reveal-root{display:contents}
+.tt-printed-only .modal-bg,.tt-printed-only .card-reveal-shade{
+ position:absolute;top:0;bottom:0;left:var(--table-log-margin);right:0;
+ inset:auto 0 0 var(--table-log-margin);height:100%;width:auto;
+ box-sizing:border-box;z-index:60;overflow-y:auto
+}
+.tt-printed-only .modal-bg{display:flex;align-items:center;justify-content:center;background:#080a08b8}
+.tt-printed-only .card-reveal-shade{display:grid;place-items:center;background:#080a08d4}
+.tt-printed-only .game-cinematic-shade{left:var(--table-log-margin);right:0;width:auto}
+.tt-printed-only .board-legal-decisions{display:block}
+.tt-printed-only .board-legal-decisions>.board-turn-actions{display:flex;flex-wrap:wrap;align-items:stretch;gap:9px}
+.tt-printed-only .board-legal-decisions .board-turn-command{min-width:min(190px,100%);flex:1 1 190px;min-height:46px}
+.tt-printed-only .board-legal-decisions .board-direct-hint{width:100%;padding:6px 0}
+.tt-printed-only .player-panel-meta{display:grid;gap:8px}
+.tt-printed-only .player-panel-meta b{font:700 clamp(18px,2.4vw,24px) Georgia,serif}
+.tt-printed-only .player-panel-meta p{margin:0}
+.tt-printed-only .player-panel-footer{position:sticky;bottom:-18px;background:#25281f;padding-bottom:10px;z-index:1}
+@media(max-width:680px){
+ .tt-printed-only .board-legal-decisions .board-turn-command{flex-basis:100%}
+ .tt-printed-only .player-panel-body{padding:12px}
+}
+
+/* v2.05: decisions for ambiguous physical counters are transient overlays,
+   never another persistent menu. Visible focus helps keyboard users. */
+.tt-printed-only svg.world-board [data-physical-piece-id]:focus-visible{outline:3px solid #f5dd95;outline-offset:2px}
+.tt-printed-only .player-panel-shade .player-panel{animation:board-decision-arrive .15s ease-out}
+@keyframes board-decision-arrive{from{opacity:.75;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.tt-printed-only .player-panel-shade .player-panel{animation:none}}
+
+/* v2.06: selection highlights only reducer-validated clickable destinations. */
+.tt-printed-only .map-node.click-drop-legal .printed-hit-target{stroke:#f9df75;stroke-width:3;stroke-dasharray:5 3;fill:#f6d75921}
+.tt-printed-only .map-node.click-drop-legal{cursor:pointer;filter:drop-shadow(0 0 6px #e4ba49)}
+.tt-printed-only .map-node.click-drop-legal:hover .printed-hit-target,
+.tt-printed-only .map-node.click-drop-legal:focus-visible .printed-hit-target{stroke:#fff1a8;stroke-width:5;fill:#fff0a835}

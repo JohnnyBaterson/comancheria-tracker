@@ -10,7 +10,9 @@ export const PRINTED_BOARD={
   supply:{available:{x:572,y:590,w:126,h:78},out:{x:790,y:594,w:65,h:61},enemyAP:{x:917,y:664,w:103,h:26}},
   records:{x:{military:34,culture:58,ap:82},yByValue:[658,608,571,545,518,493,469,443,419,394]},
   operations:{x:67,yByValue:[168,198,227,257,288,318,349]},
-  history:{x:735,y:500,w:90,h:104}
+  history:{x:774,y:465,w:70,h:89},
+  // Existing card rectangles printed on the owner-provided TTS board image.
+  cards:{development:[{x:430,y:41,w:75,h:104},{x:512,y:41,w:75,h:104},{x:597,y:41,w:75,h:104}],warEvent:{x:655,y:221,w:74,h:79}}
 };
 export function rancheriaPrintedIndex(ranch,index){
  const matches=String(ranch.subtype||ranch.label||ranch.id||'').match(/(?:^|\W)([A-E])(?:$|\W)/i);

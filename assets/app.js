@@ -13,6 +13,9 @@ import {MAP_EVIDENCE_EDGES,MAP_CONNECTION_CANDIDATES,MAP_EVIDENCE_SOURCE,MAP_EVI
 import { DEVELOPMENT_EFFECT_CATALOG,DEVELOPMENT_SOURCE_INDEX,developmentSourceCoverage,developmentCardAudit,developmentCoverage,CULTURE_CARD_CATALOG,culturePurchaseOptions,santaFeTrailPlacementPreview,verifiedWarEventStatus, fastColumnEligible, travoisOptions,warCountermeasureOptions, VERSION, rollSeededDie, warAutomationStatus, passageAutomationStatus, historyObjectiveAudit, CARD_EVIDENCE_STATES, cardEvidenceAudit, TEMPLATE_SCENARIOS, SCENARIO_DETAILS, BAND_COUNTER_FACES, scenarioSetupOptions, openingLedgerAudit, TERRITORIES, TERRITORY_DIE_ORDER, SPACES, SPACE, SQUARES, SCENARIOS, PIECE_TYPES, RESOURCES, OPERATIONS, newGame, perform, migrateGame, cultureBaseTerritories, cultureGainPreview, territoryControlAudit, pointLossPreview, basicIntegrity, getStackingProblems, getProblems, requiredPassage, checklist, allChecksDone, safeNext, formatLocation, planBandRoute, mapCoverage, eligibleBattleUnits, warBattleObligations, rancheriaSacrificePreview, rancheriaFightPreview, battleAutoResolutionPreview, battleSafeRoundPreview, enemyApPreview, enemyDisplayAudit, enemyDisplayResetPlan, enemyFlowPreview, enemyAutomationPreview, mapReviewAudit, enemyColorNetwork, enemyCulturePreview, huntTargetPreview, encroachTargetPreview, allyTargetPreview, peaceTargetPreview, peaceWarColumnPreview, enemyWarRaidPreview, peaceSpaceStatus, enemyCardExceptionPreview, activeCardEffects, instructionName, verifiedHistoryEnemy, VERIFIED_HISTORY_NAMED_ENEMIES, settleTargetAudit, subjugateTargetAudit, recoverTargetAudit, ENEMY_COLUMNS, DISPLAY_ROWS, warColumnStopUnits, warColumnBattleModifier, warMoveChoices, autoWarMovementPreview } from './engine.js';
 import {BOARD_WIDTH,BOARD_HEIGHT,MAP_POSITIONS,MAP_PALETTE,MAP_REGION_LABELS,boardPosition,boardImagePosition,mapEdgesForDisplay} from './board-layout.js';
 import {PRINTED_BOARD,rancheriaPrintedIndex,rancheriaMedicinePoint,instructionPrintedPoint,recordPrintedPoint,spreadPrintedCounters} from './printed-board-anchors.js';
+import {printedRancheriaAt,printedMedicineSlotAt,printedSupplyAt,printedPieceDrop,printedMedicineArrangement,printedPossessionDrop,printedAPActivationDrop,printedBattleDrop,printedBandExchangeDrop,printedMedicineBandActivationAtMap,printedMedicineTrackFinish} from './printed-board-interactions.js';
+import {printedCounterChoice,printedHorseDiscardSelection,printedEpidemicBandSelection,printedHeadmanTargetChoice} from './printed-counter-decisions.js';
+import {printedPlanningTrackChoice} from './printed-track-decisions.js';
 import {boardNetworkAudit,bandMovementOverlay} from './board-analysis.js';
 import {playerPhaseProgress} from './player-phase-view.js';
 import {rancheriaSurfaceModel} from './rancheria-surface.js';
@@ -37,7 +40,7 @@ const smallIcon=t=>({'Band':'♞','Rancheria':'⌂','Settlement':'▥','War Colu
 const details=p=>[p.subtype,p.type==='Band'?`${p.strength}–${p.finished?'F':p.mpRating} printed Band face`:p.strength&&p.strength+' str.',p.type!=='Band'&&p.finished?'Finished':null].filter(Boolean).join(' · ');
 const navItems=[['board','Play board','◎']]; // Advanced tools live in on-board drawers, not separate navigation screens.
 const phases=[['war','War column'],['selection','Select operation'],['execution','Execute'],['cleanup','Cleanup']];
-const stateUI={playerPanel:null,tabletopDetails:false,tabletopChoices:false,choicePage:0,historyVerification:null,horseDiscardSelection:[],horseDiscardKey:null,medicinePendingBandId:null,rancheriaBandOrder:{},instructionFocus:null,home:true,eventNotice:null,pendingBoardConsequences:null,cardReveals:[],cardRevealArt:null,cardRevealBusy:false,drawers:{turn:true,dice:false,cards:false,journal:false,advanced:false},toolsOpen:false,tab:'board',modal:null,selectedSpace:'UA-2',pieceFilter:'',pieceType:'All',modalId:null,toasts:'',toastError:false,showAllLog:false,referenceKind:'War',referenceSelected:'war-01',routeTarget:'UA-1',battleWarId:null,battleUnitId:null,mapZoom:1,mapConnectMode:false,digitalSelectedPieceId:null,digitalDeck:'Development',edgeStart:null,edgeTarget:null,mapShowReach:true,saveConflict:false,showCounterGallery:false,counterGalleryPage:0,selectedCounterArt:null,counterArtType:'Band',counterCorrection:false};
+const stateUI={playerPanel:null,contextPieceId:null,contextRancheriaId:null,contextCardId:null,targetMoveChoices:null,tabletopDetails:false,tabletopChoices:false,choicePage:0,historyVerification:null,horseDiscardSelection:[],horseDiscardKey:null,epidemicSelection:{},epidemicKey:null,medicinePendingBandId:null,rancheriaBandOrder:{},instructionFocus:null,home:false,eventNotice:null,pendingBoardConsequences:null,cardReveals:[],cardRevealArt:null,cardRevealBusy:false,drawers:{turn:true,dice:false,cards:false,journal:false,advanced:false},toolsOpen:false,tab:'board',modal:null,selectedSpace:'UA-2',pieceFilter:'',pieceType:'All',modalId:null,toasts:'',toastError:false,showAllLog:false,referenceKind:'War',referenceSelected:'war-01',routeTarget:'UA-1',battleWarId:null,battleUnitId:null,mapZoom:1,mapConnectMode:false,digitalSelectedPieceId:null,digitalDeck:'Development',edgeStart:null,edgeTarget:null,mapShowReach:true,saveConflict:false,showCounterGallery:false,counterGalleryPage:0,selectedCounterArt:null,counterArtType:'Band',counterCorrection:false};
 let state,history={past:[],future:[]},saveRevision=null;
 try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved?.state){stateUI.home=false;saveRevision=revisionOf(saved);state=migrateGame(saved.state);history={past:Array.isArray(saved.past)?saved.past.slice(-70).map(migrateGame):[],future:Array.isArray(saved.future)?saved.future.slice(-70).map(migrateGame):[]};}else state=newGame();}
 catch(e){state=newGame();stateUI.toasts='Saved game could not be read. Started an empty tracker.';stateUI.toastError=true;}
@@ -140,7 +143,7 @@ function gameplayCeremonyOverlay(){
 }
 function commit(cmd){
  if(!ensureFreshTab())return;
- stateUI.choicePage=0;stateUI.spatialChoice=null;
+ stateUI.choicePage=0;stateUI.spatialChoice=null;stateUI.contextPieceId=null;stateUI.contextRancheriaId=null;stateUI.contextCardId=null;stateUI.targetMoveChoices=null;
  try{
   const initial=perform(state,cmd);
   stateUI.playerPanel=null;
@@ -155,6 +158,7 @@ function commit(cmd){
   stateUI.eventNotice=ceremony;
 
   if(!persist()){state=before;history=oldHistory;stateUI.eventNotice=oldEvent;savingFailed();return;}
+  stateUI.epidemicSelection={};stateUI.epidemicKey=null;
   if(newlyDrawn.length){stateUI.cardReveals.push(...newlyDrawn);stateUI.cardRevealArt=null;}
   if(ceremony)stateUI.toasts='';
   const physicalOrigins=physicalPositions(),pieceOrigins=physicalPiecePositions(),markerOrigins=visualMarkerPositions();
@@ -164,7 +168,7 @@ function commit(cmd){
  }catch(e){notify(e.message||'Action rejected.',true);}
 }
 function undo(){
- stateUI.cardReveals=[];stateUI.cardRevealArt=null;stateUI.eventNotice=null;
+ stateUI.epidemicSelection={};stateUI.epidemicKey=null;stateUI.cardReveals=[];stateUI.cardRevealArt=null;stateUI.eventNotice=null;
  if(!history.past.length||!ensureFreshTab())return;
  const before=state,oldHistory=history;
  state=history.past.at(-1);history={past:history.past.slice(0,-1),future:[...history.future,copy(before)]};
@@ -172,7 +176,7 @@ function undo(){
  render();notify('Undid last event. Physical board must be reconciled.');
 }
 function redo(){
- stateUI.cardReveals=[];stateUI.cardRevealArt=null;stateUI.eventNotice=null;
+ stateUI.epidemicSelection={};stateUI.epidemicKey=null;stateUI.cardReveals=[];stateUI.cardRevealArt=null;stateUI.eventNotice=null;
  if(!history.future.length||!ensureFreshTab())return;
  const before=state,oldHistory=history;
  state=history.future.at(-1);history={past:[...history.past,copy(before)],future:history.future.slice(0,-1)};
@@ -180,7 +184,7 @@ function redo(){
  render();notify('Redid event. Check the physical board.');
 }
 function newSession(demo){
- stateUI.cardReveals=[];stateUI.cardRevealArt=null;
+ stateUI.epidemicSelection={};stateUI.epidemicKey=null;stateUI.cardReveals=[];stateUI.cardRevealArt=null;
  if(!ensureFreshTab())return;
  const scenario=$('scenario-select')?.value||state.scenario;
  if((state.pieces.length||state.log.length)&&!confirm('Replace this game? Export a backup first if you wish to keep it.'))return;
@@ -464,8 +468,9 @@ function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
  const blockedMove=candidate.blocked.find(x=>x.to===id);
  const canReach=!stateUI.digitalSelectedPieceId&&Boolean(overlay?.reachable[id])&&id!==overlay?.from;
  const onRoute=routePath.includes(id);
- const classes=['map-node',isSelected?'selected':'',active?'active-band-node':'',war?'war-column-node':'',connected?'connected':'',count?'has-counters':'',canReach?'mp-reachable':'',legalMove?'move-valid':'',blockedMove?'move-blocked':'',onRoute?'route-preview-node':''].filter(Boolean).join(' ');
- const title=`${sp.name}${legalMove?' · LEGAL MOVE · '+legalMove.cost+' MP':blockedMove?' · NOT LEGAL · '+blockedMove.reason:''} · ${count} recorded counter${count===1?'':'s'}${count?': '+here.slice(0,15).map(labelPiece).join(', '):''}`;
+ const isClickDestination=clickDestinations.has(id);
+ const classes=['map-node',isClickDestination?'click-drop-legal':'',isSelected?'selected':'',active?'active-band-node':'',war?'war-column-node':'',connected?'connected':'',count?'has-counters':'',canReach?'mp-reachable':'',legalMove?'move-valid':'',blockedMove?'move-blocked':'',onRoute?'route-preview-node':''].filter(Boolean).join(' ');
+ const title=`${sp.name}${isClickDestination?' · CLICK TO PLACE SELECTED COUNTER':''}${legalMove?' · LEGAL MOVE · '+legalMove.cost+' MP':blockedMove?' · NOT LEGAL · '+blockedMove.reason:''} · ${count} recorded counter${count===1?'':'s'}${count?': '+here.slice(0,15).map(labelPiece).join(', '):''}`;
  const round=sp.type==='round';
  const fill=round?MAP_PALETTE[sp.territory]:(sp.type==='canyon'?MAP_PALETTE.canyon:sp.type==='reservation'?MAP_PALETTE.reservation:MAP_PALETTE.enemy);
  const printed=Boolean(boardImageUrl());
@@ -486,10 +491,13 @@ function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
  const col=i%4,row=Math.floor(i/4),n=Math.min(4,physicalHere.length-row*4);
  const fanX=(col-(n-1)/2)*25,fanY=(row-(Math.ceil(physicalHere.length/4)-1)/2)*27;
  const hue=piece.type==='Band'?'#b6d2a0':piece.type==='Rancheria'?'#f4ce91':piece.type==='War Column'?'#f19a87':piece.type==='Settlement'?'#d7ad9e':piece.type==='Tribe'?'#b0c6ba':'#e1ccab';const art=pieceArt(piece);
+ // Authentic board: the printed possession layer already renders every
+ // carried counter once beside its actual Band. Do not draw a second copy in
+ // the map-node preview (which previously duplicated up to three counters).
  const carried=piece.type==='Band'?state.pieces.filter(p=>p.location===`held:${piece.id}`):[];
- const cargo=carried.slice(0,3).map((held,j)=>{const art=pieceArt(held),cx=-8+j*8,cy=18;return `<g transform="translate(${cx} ${cy})" class="tt-band-cargo ${stateUI.digitalSelectedPieceId===held.id?'piece-is-selected':''}" data-physical-piece-id="${esc(held.id)}" data-action="board-select-piece" data-id="${esc(held.id)}" role="button" tabindex="0" aria-label="Select carried ${esc(labelPiece(held))}"><title>${esc(labelPiece(held))} carried by ${esc(labelPiece(piece))}</title><rect x="-6" y="-7" width="12" height="14" rx="2" fill="#c6b28a" stroke="#473822" stroke-width="1"/>${art?`<image href="${esc(art)}" x="-6" y="-7" width="12" height="14" pointer-events="none"/>`:`<text x="0" y="4" font-size="10" text-anchor="middle" pointer-events="none">${esc(smallIcon(held.type))}</text>`}</g>`;}).join('');
- const cargoOverflow=carried.length>3?`<text x="19" y="22" font-size="9" fill="#ffe0a0" text-anchor="middle">+${carried.length-3}</text>`:'';
- return `<g transform="translate(${x} ${y})" class="map-counter-anchor"><g class="map-mini-counter map-piece-target tt-board-counter ${stateUI.digitalSelectedPieceId===piece.id?'piece-is-selected':''}" style="--fan-x:${fanX}px;--fan-y:${fanY}px" data-physical-piece-id="${esc(piece.id)}" data-action="board-select-piece" data-id="${esc(piece.id)}" role="button" tabindex="0" aria-label="Select ${esc(labelPiece(piece))}"><title>${esc(labelPiece(piece))} · select counter</title><rect x="-10" y="-11" width="20" height="21" rx="2" fill="${piece.type==='Band'&&piece.finished?'#8e7159':hue}"/>${art?`<image href="${esc(art)}" x="-9" y="-10" width="18" height="19" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="4" text-anchor="middle">${esc(nodePieceGlyph(piece))}</text>`}${cargo}${cargoOverflow}</g></g>`;}).join('');
+ const cargo='';
+ const cargoOverflow='';
+ return `<g transform="translate(${x} ${y})" class="map-counter-anchor"><g class="map-mini-counter map-piece-target tt-board-counter ${stateUI.digitalSelectedPieceId===piece.id||Object.values(stateUI.epidemicSelection).includes(piece.id)?'piece-is-selected':''}" style="--fan-x:${fanX}px;--fan-y:${fanY}px" data-physical-piece-id="${esc(piece.id)}" data-action="board-select-piece" data-id="${esc(piece.id)}" role="button" tabindex="0" aria-label="Select ${esc(labelPiece(piece))}"><title>${esc(labelPiece(piece))} · select counter</title><rect x="-10" y="-11" width="20" height="21" rx="2" fill="${piece.type==='Band'&&piece.finished?'#8e7159':hue}"/>${art?`<image href="${esc(art)}" x="-9" y="-10" width="18" height="19" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text y="4" text-anchor="middle">${esc(nodePieceGlyph(piece))}</text>`}${cargo}${cargoOverflow}</g></g>`;}).join('');
  return `<g class="${classes}" data-action="select-space" data-id="${esc(id)}" role="button" tabindex="0" aria-label="${esc(title)}"><title>${esc(title)}</title>${isSelected?`<circle class="map-focus-ring" cx="${x}" cy="${y}" r="${sp.type==='reservation'?50:31}"/>`:''}${base}${printed?'':`<text class="map-node-number" x="${x}" y="${y+6}" text-anchor="middle" style="font-size:${labelFont}px">${esc(label)}</text>`}${printed?'':round?`<text class="map-node-id" x="${x}" y="${y+38}" text-anchor="middle">${esc(sp.territory)}-${sp.area}</text>`:sp.type==='enemy'?`<text class="map-node-id" x="${x}" y="${y+36}" text-anchor="middle">ENEMY</text>`:''}${piecePreview}${instructionMarkers}${legalMove?`<g class="move-valid-cost" transform="translate(${x+29} ${y-28})"><circle r="15"/><text y="5" text-anchor="middle">${legalMove.cost}</text></g>`:''}</g>`;
 }
 function mapLinkLine(link,routePath=[]){
@@ -516,6 +524,34 @@ function directorSpatialTargets(prompt=nextPlayerPrompt(state)){
  }
  return targets;
 }
+/** Legal map destinations for a selected physical counter. Shared by mouse,
+ * touch click-to-place and the existing drag-drop routes; no state is mutated. */
+function selectedCounterMapActions(pieceId){
+ const piece=state.pieces.find(p=>p.id===pieceId);
+ if(!piece)return [];
+ const prompt=nextPlayerPrompt(state);
+ const options=[...directorPieceDropOptions(state,pieceId,prompt)];
+ if(['Resource','Bison','Mahimiana'].includes(piece.type))options.push(...resourceDropOptions(state,pieceId));
+ if(piece.type==='Band'&&piece.id===state.activeBandId){
+  for(const move of boardMoveOptions(state,piece.id).legal)options.push({to:move.to,command:{type:'MOVE_BAND',to:move.to},label:`Move ${piece.label||'Band'} to ${SPACE[move.to]?.name||move.to}`});
+ }
+ // Validate every candidate afresh against the single authoritative reducer.
+ return options.filter(o=>SPACE[o.to]&&o.command).filter(o=>{try{perform(state,o.command);return true;}catch{return false;}});
+}
+function rancheriaBoardActions(rancheriaId){
+ const prompt=nextPlayerPrompt(state);
+ if(prompt.kind!=='player')return [];
+ return (prompt.choices||[]).filter(choice=>choice.command?.rancheriaId===rancheriaId).filter(choice=>{
+  try{perform(state,choice.command);return true;}catch{return false;}
+ });
+}
+function printedCardActions(cardId){
+ const prompt=nextPlayerPrompt(state);
+ if(prompt.kind!=='player'||!state.cards.some(card=>card.id===cardId))return [];
+ return (prompt.choices||[]).filter(choice=>choice.command?.cardId===cardId).filter(choice=>{
+  try{perform(state,choice.command);return true;}catch{return false;}
+ });
+}
 function boardMap(printedSurface=false){
  const edges=mapEdgesForDisplay(state.edges);
  const overlay=stateUI.mapShowReach&&(!stateUI.digitalSelectedPieceId||stateUI.digitalSelectedPieceId===state.activeBandId)?bandMovementOverlay(state,state.activeBandId):null;
@@ -535,7 +571,8 @@ function boardMap(printedSurface=false){
  <path class="map-landmark" d="M410 45 Q464 135 507 260 T568 515 T665 708"/>
  <path class="map-landmark" d="M235 690 Q406 675 565 640 T1000 669"/>`;
  const directorTargets=printedSurface?directorSpatialTargets():new Map();
- const nodes=SPACES.map(sp=>mapSpaceNode(sp,overlay,routePath,moveOptions||{legal:[],blocked:[]})).join('');
+ const clickDestinations=new Set(stateUI.digitalSelectedPieceId?selectedCounterMapActions(stateUI.digitalSelectedPieceId).map(option=>option.to):[]);
+ const nodes=SPACES.map(sp=>mapSpaceNode(sp,overlay,routePath,moveOptions||{legal:[],blocked:[]},clickDestinations)).join('');
  const spatialMarkers=[...directorTargets.entries()].map(([id,choices])=>{
   const [x,y]=boardImagePosition(id);
   return `<g class="director-spatial-target" data-action="director-map-target" data-id="${esc(id)}" role="button" tabindex="0" aria-label="${esc(choices.length===1?choices[0].label:`Choose action at ${SPACE[id]?.name||id}`)}" transform="translate(${x} ${y})"><title>${esc(choices.map(x=>x.label).join(' / '))}</title><circle r="28" class="director-target-halo"/><circle r="17" class="director-target-centre"/><text y="5" text-anchor="middle" pointer-events="none">${choices.length>1?choices.length:'➜'}</text></g>`;
@@ -932,11 +969,8 @@ function tabletopSupplyTrays(){
 function printedCounter(piece,x,y,size=23,action='board-select-piece',attributes=''){
  const art=pieceArt(piece),name=esc(labelPiece(piece)),selected=stateUI.digitalSelectedPieceId===piece.id;
  const fill=piece.type==='Band'&&piece.finished?'#80715e':'#d4bc84';
- return `<g transform="translate(${x} ${y})" class="printed-counter ${selected?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="${action}" data-id="${esc(piece.id)}" ${attributes} role="button" tabindex="0" aria-label="${name}" title="${name}"><title>${name} · ${esc(piece.location)}</title><rect x="${-size/2}" y="${-size/2}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${selected?'#ffe79c':'#614b2e'}" stroke-width="${selected?2:1}"/>${art?`<image href="${esc(art)}" x="${-size/2+1}" y="${-size/2+1}" width="${size-2}" height="${size-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text text-anchor="middle" y="4" font-size="${Math.max(10,Math.floor(size*.55))}" pointer-events="none">${esc(smallIcon(piece.type))}</text>`}${piece.type==='Band'&&piece.finished&&!physicalCounterArtUrl(piece)?'<path d="M -10,-10 L 10,10" stroke="#633" stroke-width="2" pointer-events="none"/>':''}</g>`;
-}
-function printedButton(x,y,label,action,attrs=''){
- const width=Math.min(110,Math.max(47,label.length*5+14));
- return `<g class="printed-action" data-action="${esc(action)}" ${attrs} transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${esc(label)}"><rect width="${width}" height="18" rx="4" fill="#f7dc96" stroke="#4b3925"/><text x="${width/2}" y="12" text-anchor="middle" font-size="9" font-weight="700" fill="#252919" pointer-events="none">${esc(label)}</text></g>`;
+ const discardPicked=stateUI.horseDiscardSelection.includes(piece.id)||Object.values(stateUI.epidemicSelection).includes(piece.id);
+ return `<g transform="translate(${x} ${y})" class="printed-counter ${selected||discardPicked?'piece-is-selected':''}" data-physical-piece-id="${esc(piece.id)}" data-action="${action}" data-id="${esc(piece.id)}" ${attributes} role="button" tabindex="0" aria-label="${name}" title="${name}"><title>${name} · ${esc(piece.location)}</title><rect x="${-size/2}" y="${-size/2}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${selected?'#ffe79c':'#614b2e'}" stroke-width="${selected?2:1}"/>${art?`<image href="${esc(art)}" x="${-size/2+1}" y="${-size/2+1}" width="${size-2}" height="${size-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text text-anchor="middle" y="4" font-size="${Math.max(10,Math.floor(size*.55))}" pointer-events="none">${esc(smallIcon(piece.type))}</text>`}${piece.type==='Band'&&piece.finished&&!physicalCounterArtUrl(piece)?'<path d="M -10,-10 L 10,10" stroke="#633" stroke-width="2" pointer-events="none"/>':''}</g>`;
 }
 function printedRancherias(){
  const ranches=state.pieces.filter(p=>p.type==='Rancheria'&&(SPACE[p.location]||p.location===`box:${p.id}`)).sort((a,b)=>String(a.subtype||a.label).localeCompare(String(b.subtype||b.label)));
@@ -944,6 +978,11 @@ function printedRancherias(){
  return ranches.map((ranch,i)=>{
   const row=rancheriaPrintedIndex(ranch,i),m=rancheriaSurfaceModel(state,ranch.id);if(!m)return '';
   const baseY=cfg.firstY+row*cfg.rowGap;
+  // Transparent pointer region covers the ORIGINAL Resources square.
+  const resourcesHit=`<rect data-action="printed-rancheria-resources" data-id="${esc(ranch.id)}" data-printed-rancheria-resources="${esc(ranch.id)}" x="${cfg.resourcesX-7}" y="${baseY-12}" width="${cfg.resourcesWidth+15}" height="66" fill="transparent" class="printed-resource-hit"/>`;
+  // The printed Paraibo track itself is the drop target, never an overlay menu.
+  const paraMed=m.headmen.find(h=>h.type==='Paraibo')?.medicineValue??0;
+  const medicineHits=Array.from({length:Math.max(0,paraMed)},(_,slot)=>`<circle class="printed-medicine-slot" data-printed-medicine-slot="${esc(ranch.id)}:${slot}" cx="${cfg.medicineX+slot*cfg.medicineGap}" cy="${baseY+cfg.paraY}" r="12" fill="transparent"/>`).join('');
   const head=m.headmen.map(h=>{
    const rating=Number.isInteger(h.medicineValue)?h.medicineValue:0;
    const [x,y]=rancheriaMedicinePoint(row,h.type,rating);
@@ -998,10 +1037,10 @@ function printedRancherias(){
    const [x,y]=positions.get(p.id),release=state.phase==='cleanup'&&state.steps.cl1!=='done';
    return printedCounter(p,x,y,boxPieceSize,release?'tabletop-relinquish':'board-select-piece',release?`data-band-id="${esc(carrier.id)}" data-rancheria-id="${esc(ranch.id)}"`:'');
   }).join('');
-  const prepared=eligible&&order.length===bands.length&&bands.length>0?printedButton(cfg.resourcesX-4,baseY+48,'Place Bands','tabletop-track-start',`data-rancheria-id="${esc(ranch.id)}"`):'';
-  const ap=own&&own.activated>0&&placed.length?printedButton(cfg.resourcesX-1,baseY+48,'Take AP','tabletop-track-ap'):'';
-  const end=own&&own.activated>0?printedButton(cfg.resourcesX+43,baseY+48,'Return','tabletop-track-finish'):'';
-  return `<g class="printed-rancheria" data-rancheria-zone="${esc(ranch.id)}" aria-label="${esc(ranch.label||ranch.id)} printed Ranchería row">${head}${homePiece}${renderedBands}${goods}${carried}${prepared}${ap}${end}</g>`;
+  const prepared='';
+  const ap='';
+  const end='';
+  return `<g class="printed-rancheria" data-rancheria-zone="${esc(ranch.id)}" aria-label="${esc(ranch.label||ranch.id)} printed Ranchería row">${resourcesHit}${medicineHits}${head}${homePiece}${renderedBands}${goods}${carried}${prepared}${ap}${end}</g>`;
  }).join('');
 }
 function printedInstructions(){
@@ -1033,31 +1072,55 @@ function printedSupply(){
  };
  const empty=(region,label)=>`<g transform="translate(${region.x+region.w/2} ${region.y+region.h/2})" aria-label="${esc(label)}"><rect x="-${region.w/2-3}" y="-12" width="${region.w-6}" height="24" rx="3" fill="#f6e9c9" fill-opacity=".88" stroke="#886f49" stroke-width=".8"/><text text-anchor="middle" y="-2" font-size="7" font-weight="bold" fill="#453420">${label==='Out of Play'?'None recorded':'No registered spare stock'}</text><text text-anchor="middle" y="9" font-size="6" fill="#453420">${label==='Out of Play'?'':'Quantity unverified'}</text></g>`;
  const enemyAP=state.pieces.filter(p=>p.location==='available-enemy-aps');
- return `<g class="printed-supply-layer" aria-label="Original printed supply and Out of Play boxes">${pile(available,PRINTED_BOARD.supply.available)}${!available.length?empty(PRINTED_BOARD.supply.available,'Available'):''}${pile(out,PRINTED_BOARD.supply.out)}${!out.length?empty(PRINTED_BOARD.supply.out,'Out of Play'):''}${pile(enemyAP,PRINTED_BOARD.supply.enemyAP)}</g>`;
+ return `<g class="printed-supply-layer" aria-label="Original printed supply and Out of Play boxes"><rect data-printed-supply="out" x="${PRINTED_BOARD.supply.out.x}" y="${PRINTED_BOARD.supply.out.y}" width="${PRINTED_BOARD.supply.out.w}" height="${PRINTED_BOARD.supply.out.h}" class="printed-supply-hit" fill="transparent"/>${pile(available,PRINTED_BOARD.supply.available)}${pile(out,PRINTED_BOARD.supply.out)}${pile(enemyAP,PRINTED_BOARD.supply.enemyAP)}</g>`;
 }
 function printedTracks(){
  const tokens=['military','culture','ap'].map(key=>{
   const [x,y]=recordPrintedPoint(key,state.tracks[key]||0);
   const face={ap:15,culture:16,military:17}[key],art=physicalCounterImageUrlByIndex(face);
-  return `<g transform="translate(${x} ${y})" class="printed-track-marker" data-visual-marker="${key}" role="img" aria-label="${key} ${state.tracks[key]}"><circle r="10" fill="${key==='military'?'#ad413c':key==='culture'?'#364b9d':'#335d99'}" stroke="#e6d6a9" stroke-width="1.5"/>${art?`<image href="${esc(art)}" x="-9.5" y="-9.5" width="19" height="19" pointer-events="none"/>`:`<text y="3" text-anchor="middle" font-size="6.5" fill="#fff">${key==='military'?'MIL':key==='culture'?'CUL':'AP'}</text>`}</g>`;
+  return `<g transform="translate(${x} ${y})" class="printed-track-marker" data-visual-marker="${key}" ${key==='ap'?'data-action="printed-record-ap"':key==='culture'?'data-action="printed-record-culture"':key==='military'?'data-action="printed-record-military"':''} role="button" tabindex="0" aria-label="${key} ${state.tracks[key]}"><circle r="10" fill="${key==='military'?'#ad413c':key==='culture'?'#364b9d':'#335d99'}" stroke="#e6d6a9" stroke-width="1.5"/>${art?`<image href="${esc(art)}" x="-9.5" y="-9.5" width="19" height="19" pointer-events="none"/>`:`<text y="3" text-anchor="middle" font-size="6.5" fill="#fff">${key==='military'?'MIL':key==='culture'?'CUL':'AP'}</text>`}</g>`;
  }).join('');
  const op=state.tracks.operations??0;
  const opsArt=physicalCounterImageUrlByIndex(19);
- const ops=`<g transform="translate(${PRINTED_BOARD.operations.x} ${PRINTED_BOARD.operations.yByValue[Math.min(6,Math.max(0,op))]})" class="printed-track-marker" data-visual-marker="operations" aria-label="Operations marker ${op}"><rect x="-10" y="-9" width="20" height="18" fill="#eac95f" stroke="#483a23"/>${opsArt?`<image href="${esc(opsArt)}" x="-9" y="-9" width="18" height="18" pointer-events="none"/>`:'<text y="3" text-anchor="middle" font-size="8" fill="#241e15">OPS</text>'}</g>`;
+ const ops=`<g transform="translate(${PRINTED_BOARD.operations.x} ${PRINTED_BOARD.operations.yByValue[Math.min(6,Math.max(0,op))]})" class="printed-track-marker" data-visual-marker="operations" data-action="printed-operations" role="button" tabindex="0" aria-label="Operations marker ${op}. Continue automatic step when available"><rect x="-10" y="-9" width="20" height="18" fill="#eac95f" stroke="#483a23"/>${opsArt?`<image href="${esc(opsArt)}" x="-9" y="-9" width="18" height="18" pointer-events="none"/>`:'<text y="3" text-anchor="middle" font-size="8" fill="#241e15">OPS</text>'}</g>`;
  const band=state.pieces.find(p=>p.id===state.activeBandId&&p.type==='Band');
  const loc=band&&SPACE[band.location]?boardImagePosition(band.location):null;
  const mpArt=physicalCounterImageUrlByIndex(18);
  const mp=loc?`<g transform="translate(${loc[0]+39} ${loc[1]+18})" class="printed-mp-marker" data-visual-marker="mp" role="img" aria-label="${esc(band.label)} ${state.tracks.movement} Movement Points"><circle r="12" fill="#20472c" stroke="#f1dc8a" stroke-width="2"/>${mpArt?`<image href="${esc(mpArt)}" x="-11" y="-11" width="22" height="22" pointer-events="none"/>`:''}<text y="4" text-anchor="middle" font-size="10" font-weight="bold" stroke="#10221a" stroke-width="2" paint-order="stroke" fill="#ffe7a0">${state.tracks.movement}</text><title>${esc(band.label)} · ${state.tracks.movement} MP remaining</title></g>`:'';
- return `<g class="printed-board-tracks">${tokens}${ops}${mp}</g>`;
+ const operationsPieces=state.pieces.filter(p=>p.location==='operations'&&(p.type==='Resource'||p.type==='Bison'));
+ const stackY=PRINTED_BOARD.operations.yByValue[Math.min(6,Math.max(0,op))];
+ const operationsCounters=operationsPieces.map((p,i)=>printedCounter(p,PRINTED_BOARD.operations.x+22+(i%3)*13,stackY-12+Math.floor(i/3)*12,12)).join('');
+ return `<g class="printed-board-tracks">${tokens}${ops}${operationsCounters}${mp}</g>`;
 }
-function printedBandActions(){
- const band=state.pieces.find(p=>p.type==='Band'&&p.id===state.activeBandId);if(!band||!SPACE[band.location])return '';
- const [x,y]=boardImagePosition(band.location),horse=state.pieces.filter(p=>p.location===`held:${band.id}`&&p.subtype==='Horse');
- const spend=horse.length?printedButton(x+20,y+47,'Horse +1 MP','tabletop-spend-horse',`data-id="${esc(horse[0].id)}"`):'';
- const finish=printedButton(x-22,y+66,'Finish Band','finish-band');
- return `<g class="printed-band-actions">${spend}${finish}</g>`;
+
+function printedCards(){
+ // Only use card rectangles already PRINTED on the TTS image.
+ // Multiple cards in a zone are genuine physical piles, not cloned counters.
+ const slots=PRINTED_BOARD.cards.development;
+ const dev=state.cards.filter(c=>['Development','Culture'].includes(c.kind)&&['In play','Hand','Display'].includes(c.zone));
+ const war=state.cards.filter(c=>c.kind==='War'&&c.zone==='War Event');
+ const history=state.cards.filter(c=>c.kind==='History'&&['In play','Display','History','Current','Active'].includes(c.zone));
+ const renderCard=(c,slot,offset=0)=>{
+  const art=cardImageUrl(artReferenceForCard(c)),x=slot.x+Math.min(9,offset*3),y=slot.y+Math.min(9,offset*3);
+  const w=slot.w-4,h=slot.h-4;
+  const label=esc((c.title||c.identifier||c.kind)+' · '+c.zone);
+  return `<g class="printed-card" data-action="printed-card-inspect" data-id="${esc(c.id)}" data-reveal-card-id="${esc(c.id)}" role="button" tabindex="0" aria-label="Inspect ${label}"><title>${label}</title><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="#c1ad83" stroke="#4d3920" stroke-width="1"/>${art?`<image href="${esc(art)}" x="${x+1}" y="${y+1}" width="${w-2}" height="${h-2}" preserveAspectRatio="xMidYMid meet" pointer-events="none"/>`:`<text x="${x+w/2}" y="${y+h/2}" font-size="7" text-anchor="middle" fill="#2e2319" pointer-events="none">${esc(c.identifier||c.kind)}</text>`}</g>`;
+ };
+ const h=PRINTED_BOARD.history;
+ const historyHit=`<rect data-action="printed-history" x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="transparent" role="button" tabindex="0" aria-label="Inspect printed History Card and its mandatory check"/>`;
+ return `<g class="printed-card-layer" aria-label="Cards on original printed card spaces">${historyHit}${dev.map((c,i)=>renderCard(c,slots[i%slots.length],Math.floor(i/slots.length))).join('')}${war.map((c,i)=>renderCard(c,PRINTED_BOARD.cards.warEvent,i)).join('')}${history.map((c,i)=>renderCard(c,PRINTED_BOARD.history,i)).join('')}</g>`;
 }
-function printedBoardCounters(){return `<g class="printed-real-board-counters">${printedRancherias()}${printedInstructions()}${printedSupply()}${printedTracks()}</g>`;}
+function printedHeldOnMap(){
+ const carriers=state.pieces.filter(p=>p.type==='Band'&&SPACE[p.location]);
+ return carriers.flatMap(band=>{
+  const goods=state.pieces.filter(p=>p.location===`held:${band.id}`);
+  const pos=boardImagePosition(band.location);
+  if(!pos)return [];
+  // Actual possessions travel with the Band counter, not in an invented tray.
+  return goods.map((p,i)=>printedCounter(p,pos[0]+20+(i%3)*11,pos[1]+17+Math.floor(i/3)*11,12));
+ }).join('');
+}
+function printedBoardCounters(){return `<g class="printed-real-board-counters">${printedRancherias()}${printedInstructions()}${printedSupply()}${printedTracks()}${printedHeldOnMap()}${printedCards()}</g>`;}
 // A staged human confirmation, kept entirely in the existing board HUD.
 // There are no synthetic History effects or silent passage across printed rules.
 function boardHistoryVerification(prompt){
@@ -1224,6 +1287,7 @@ function cleanupPlayerGuide(){
  return `<div class="player-phase-help"><strong>Cleanup · ${p.completed}/${p.total} checkpoints</strong><p>${esc(p.next?.label||'Cleanup checkpoints complete')}</p><p>${esc(prompt.detail||'Follow the printed Cleanup procedure.')}</p></div>${prompt.kind==='automatic'&&prompt.command?'<button type="button" class="board-turn-command primary" data-action="director-auto">Apply verified Cleanup rule</button>':choices.length?`<div class="player-panel-choices">${choices.map((c,i)=>`<button type="button" class="board-turn-command" data-action="director-choice" data-choice-index="${i}">${esc(c.label)}</button>`).join('')}</div>`:''}${procedurePanel({currentOnly:true})}${state.cleanupCupResult||state.enemyFlow?cupInventoryPanel():''}`;
 }
 function guidedProcedureForPlayer(){
+ if(state.phase==='setup')return officialSetupPanel();
  if(state.phase==='execution'&&state.operation==='Passage of Time')return passagePlayerGuide();
  if(state.phase==='cleanup')return cleanupPlayerGuide();
  const e=currentEncounter();
@@ -1235,15 +1299,30 @@ function playerBoardPanel(){
  const mode=stateUI.playerPanel;
  if(!mode)return '';
  const prompt=nextPlayerPrompt(state);
- const recent=(state.log||[]).slice(0,12);
- const current=(prompt.choices||[]);const activeChoices=state.phase==='execution'&&state.operation==='Take Actions'&&state.activeBandId?activeBandChoices(state):[];
- const overview=`<div class="player-panel-meta"><b>${esc(prompt.title)}</b><p>${esc(prompt.detail||'Choose a legal action from the board.')}</p><small>${esc(state.phase)} · ${esc(state.operation||'No operation selected')} · Period ${state.period}</small></div>`;
- let body='';
- if(mode==='decisions')body=`${overview}<h3>${activeChoices.length?'Actions for active Band':'Current legal decisions'}</h3>${activeChoices.length?`<div class="player-panel-choices">${activeChoices.map(action=>`<button type="button" class="board-turn-command" data-action="guided-band-choice" data-guided-id="${esc(action.id)}" title="${esc(action.detail)}">${esc(action.label)} · ${esc(action.detail)}</button>`).join('')}</div>`:prompt.kind==='automatic'&&prompt.command?'<button type="button" class="board-turn-command primary" data-action="director-auto">Continue the current rule</button>':current.length?`<div class="player-panel-choices">${current.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="director-choice" data-choice-index="${i}" title="${esc(choice.detail||'')}">${esc(choice.label)}</button>`).join('')}</div>`:'<p>No verified direct action is available. Open Guided resolution to inspect the exact rule blocker; no counters will be changed automatically.</p>'}`;
- else if(mode==='events')body=`${overview}<h3>Recent events</h3>${recent.length?`<ol class="player-panel-events">${recent.map(event=>`<li><strong>${esc(event.command||'Event')}</strong><p>${esc(event.description||'Game state changed')}</p></li>`).join('')}</ol>`:'<p>No events recorded yet.</p>'}`;
- else if(mode==='guided')body=`${overview}<div class="notice alert"><b>Guided rules assistance.</b> The options below use existing engine commands. Corrections, physical confirmations and uncertified card effects must not be treated as automatically resolved.</div>${guidedProcedureForPlayer()}`;
- return `<div class="player-panel-shade"><aside class="player-panel" role="dialog" aria-modal="true" aria-label="Game actions and information"><div class="player-panel-head"><strong>${mode==='guided'?'Guided resolution':mode==='events'?'Game journal':'All legal decisions'}</strong><button type="button" data-action="player-panel-close" aria-label="Close panel">✕</button></div><div class="player-panel-body">${body}</div></aside></div>`;
+ const guidance=boardTurnGuidance(prompt);
+ const setup=state.phase==='setup';
+ // Reuse the same legally filtered commands as the printed-board targets.
+ // This prevents the overlay from proposing a different action set.
+ const selectedPiece=stateUI.contextPieceId?state.pieces.find(piece=>piece.id===stateUI.contextPieceId):null;
+ const pieceChoices=selectedPiece?printedCounterChoices(state,selectedPiece.id,prompt):[];
+ const pieceContext=Boolean(mode==='piece'&&selectedPiece&&pieceChoices.length);
+ const rancheria=stateUI.contextRancheriaId?state.pieces.find(piece=>piece.id===stateUI.contextRancheriaId&&piece.type==='Rancheria'):null;
+ const rancheriaChoices=rancheria?rancheriaBoardActions(rancheria.id):[];
+ const rancheriaContext=mode==='rancheria'&&rancheriaChoices.length>0;
+ const card=stateUI.contextCardId?state.cards.find(c=>c.id===stateUI.contextCardId):null;
+ const cardChoices=card?printedCardActions(card.id):[];
+ const cardContext=mode==='card'&&cardChoices.length>0;
+ const targetChoices=mode==='target'?(stateUI.targetMoveChoices||[]):[];
+ const targetContext=mode==='target'&&targetChoices.length>0;
+ const actions=cardContext?`<div class="board-turn-actions">${cardChoices.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="board-card-choice" data-choice-index="${i}">${esc(choice.label)}</button>`).join('')}</div>`:targetContext?`<div class="board-turn-actions">${targetChoices.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="board-target-choice" data-choice-index="${i}">${esc(choice.label)}</button>`).join('')}</div>`:rancheriaContext?`<div class="board-turn-actions">${rancheriaChoices.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="board-rancheria-choice" data-choice-index="${i}">${esc(choice.label)}</button>`).join('')}</div>`:pieceContext?`<div class="board-turn-actions">${pieceChoices.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="board-context-choice" data-choice-index="${i}">${esc(choice.label)}</button>`).join('')}</div>`:setup?officialSetupPanel():boardTurnCommands(prompt);
+ const overview=`<div class="player-panel-meta"><small>${esc(guidance.tag||'YOUR TURN')} · PERIOD ${state.period}</small><b>${esc(guidance.headline||prompt.title)}</b><p>${esc(guidance.detail||prompt.detail||'Select a counter or location on the printed board.')}</p></div>`;
+ const body=cardContext?`<div class="player-panel-meta"><small>PRINTED CARD</small><b>${esc(card.title||card.identifier||card.kind)}</b><p>Select a currently legal effect for this exact card.</p></div><div class="player-panel-choices board-legal-decisions">${actions}</div>`:targetContext?`<div class="player-panel-meta"><small>PRINTED DESTINATION</small><b>Choose exact placement</b><p>${targetChoices.length} different rules-legal actions lead here.</p></div><div class="player-panel-choices board-legal-decisions">${actions}</div>`:rancheriaContext?`<div class="player-panel-meta"><small>PRINTED RANCHERÍA</small><b>${esc(rancheria.label||rancheria.id)}</b><p>Only actions currently legal for this Ranchería are shown.</p></div><div class="player-panel-choices board-legal-decisions">${actions}</div>`:mode==='guided'?`<div class="player-phase-help"><strong>${setup?'Scenario setup':'Current rule resolution'}</strong><p>Resolve only the current printed rule or card effect, then return to the board.</p></div>${guidedProcedureForPlayer()}`:
+  pieceContext?`<div class="player-panel-meta"><small>PRINTED COUNTER</small><b>${esc(selectedPiece.label||selectedPiece.type)}</b><p>${pieceChoices.length} currently legal actions for this counter. Choose one; no action is assumed.</p></div><div class="player-panel-choices board-legal-decisions">${actions}</div>`:
+  `${overview}<div class="player-panel-choices board-legal-decisions">${actions}</div>`;
+
+ return `<div class="player-panel-shade"><section class="player-panel" role="dialog" aria-modal="true" aria-label="Board decision"><div class="player-panel-head"><strong>${cardContext?'Card decision':targetContext?'Choose destination action':rancheriaContext?'Ranchería decisions':pieceContext?'Choose counter action':mode==='guided'?'Resolve current decision':'Choose an action'}</strong><button type="button" data-action="player-panel-close" aria-label="Return to board">✕</button></div><div class="player-panel-body">${body}<div class="player-panel-footer">${mode==='guided'||pieceContext||rancheriaContext||targetContext||cardContext?'<button type="button" class="board-turn-command" data-action="player-panel-decisions">All decisions</button>':'<button type="button" class="board-turn-command" data-action="player-panel-guided">Guided resolution</button>'}${setup?'':`<button type="button" class="board-turn-command" data-action="home-new">New game</button>`}<button type="button" class="board-turn-command" data-action="undo" ${history.past.length?'':'disabled'}>Undo</button><button type="button" class="board-turn-command" data-action="redo" ${history.future.length?'':'disabled'}>Redo</button></div></div></section></div>`;
 }
+
 function playerTurnStages(){
  const stages=[['war','War'],['selection','Choose operation'],['execution','Your operation'],['cleanup','Cleanup']];
  if(state.phase==='setup')return '<div class="player-turn-stages"><strong>Scenario setup</strong><span>Complete the opening decisions to begin</span></div>';
@@ -1265,22 +1344,20 @@ function restoreTableActionLog(previous){
  log.scrollTop=Math.max(0,latest.offsetTop-log.offsetTop-(log.clientHeight-latest.offsetHeight)/2);
 }
 function tabletopPage(){
- // Setup uses the same game director and visible board; the old setup form
- // is not a separate gameplay screen. The player clicks explicit scenario
- // choices and observes actual pieces as the engine places them.
-
- const prompt=nextPlayerPrompt(state),guide=boardTurnGuidance(prompt);
+ // Gameplay never mounts a toolbar, rail, menu or side panel outside the board.
+ // All decisions are transient board overlays; the chronological action log
+ // remains the sole separate surface.
  const importBoard=!boardImageUrl()?`<div class="printed-board-import"><h2>Load your Comanchería board image</h2><p>The printed board is the playing surface.</p><button data-action="choose-tts-folder">Select your TTS Images folder</button><small>Artwork remains in this browser.</small></div>`:'';
+ const prompt=nextPlayerPrompt(state);
+ const decisionAvailable=true; // Every phase must remain reachable, even with zero prompt choices.
  return `<section class="tt-surface tt-printed-only" aria-label="Comanchería printed board gameplay">
   ${tabletopActionLog()}
-  <div class="tt-printed-board">${boardImageUrl()?boardMap(true):''}${importBoard}</div>
-  <section class="board-turn-hud" aria-label="Current turn and legal actions" aria-live="polite">
-   <div class="board-turn-summary">${playerTurnStages()}${playerPhaseStatus()}${encounterStrip()}<span class="board-turn-kicker">${esc(guide.tag)} · ${esc(state.phase)} · Period ${state.period}</span><strong>${esc(guide.headline)}</strong><p>${esc(guide.detail)}</p><div class="board-turn-track" aria-label="Current game tracks"><span>Military <b>${state.tracks.military}</b></span><span>Culture <b>${state.tracks.culture}</b></span><span>AP <b>${state.tracks.ap}</b></span><span>Enemy AP <b>${state.tracks.enemyAp}</b></span></div></div>
-   ${boardTurnCommands(prompt)}${allianceChoiceTray(prompt)}${activationChoiceTray(prompt)}${directorCounterActionTray(prompt)}${playerPlacementTray(prompt)}${resourceTransferTray()}${possessionActionTray()}
-  </section>
-  <div class="printed-utility" aria-label="Game utilities"><button data-action="player-panel-decisions" title="All decisions" aria-label="See all legal decisions">☰</button><button data-action="player-panel-events" title="Recent events" aria-label="See recent events">☷</button><button data-action="player-panel-guided" title="Guided procedures" aria-label="Open guided rules assistance">?</button><button data-action="undo" ${history.past.length?'':'disabled'} title="Undo">↶</button><button data-action="redo" ${history.future.length?'':'disabled'} title="Redo">↷</button></div>
+  <div class="tt-printed-board" aria-label="Game board. Select a counter or empty board to see legal actions">${boardImageUrl()?boardMap(true):''}${importBoard}</div>
+  ${!stateUI.playerPanel&&decisionAvailable?`<button type="button" class="printed-decision-cue" data-action="player-panel-decisions" aria-label="Show current board decision">${esc(state.phase==='setup'?'Set up scenario':boardTurnGuidance(prompt).headline||prompt.title||'Choose action')}</button>`:''}
   ${gameplayCeremonyOverlay()}
   ${playerBoardPanel()}
+  <div id="modal-root"></div>
+  <div id="card-reveal-root">${cardRevealOverlay()}</div>
  </section>`;
 }
 
@@ -1922,14 +1999,25 @@ async function primeSetupCardArt(){
 function render(){const root=$('app');
  const previousLog=document.querySelector('.table-action-log');
  const previousLogState=previousLog?{top:previousLog.scrollTop,lastSeq:previousLog.querySelector('[data-log-seq]:last-child')?.getAttribute('data-log-seq')}:null;
- if(stateUI.home){root.innerHTML=homePage()+`<div id="toast-root" class="toast-wrap" role="status"></div>`;renderToast();return;}
- root.innerHTML=`${cardRevealOverlay()}${tabletopPage()}<input id="tts-unified-picker" type="file" webkitdirectory directory multiple accept="image/png,image/jpeg,image/webp" hidden><div id="modal-root"></div><div id="toast-root" class="toast-wrap" role="status" aria-live="polite"></div>`;
+
+ root.innerHTML=`${tabletopPage()}<input id="tts-unified-picker" type="file" webkitdirectory directory multiple accept="image/png,image/jpeg,image/webp" hidden><div id="toast-root" class="toast-wrap" role="status" aria-live="polite"></div>`;
  restoreTableActionLog(previousLogState);renderModal();renderToast();if(activeCardReveal())focusCardReveal();else if(stateUI.eventNotice)root.querySelector('.game-cinematic-continue')?.focus({preventScroll:true});if(state.phase==='setup')void primeSetupCardArt();}
 
 function renderToast(){const root=$('toast-root');if(root)root.innerHTML=stateUI.toasts?`<div class="toast ${stateUI.toastError?'error':''}"><button data-action="dismiss-toast" aria-label="Dismiss">×</button>${esc(stateUI.toasts)}</div>`:'';}
 function modalContainer(title,content){return `<div class="modal-bg" data-modal-backdrop="true"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-header"><h2>${esc(title)}</h2><button type="button" class="close" data-action="close-modal" aria-label="Close">×</button></div><div class="modal-body">${content}</div></div></div>`;}
 function pieceForm(p,locationOverride){const isEdit=Boolean(p);const type=p?.type||'Band';const subtype=p?.subtype||'';const location=locationOverride||p?.location||'reserve';return `<form id="piece-form"><div class="form-grid"><label class="field"><span>Counter type</span><select name="type" id="piece-type" ${isEdit?'disabled':''}>${options(PIECE_TYPES,type)}</select></label><label class="field"><span>Subtype / printed marker</span><input name="subtype" value="${esc(subtype)}" placeholder="Horse, Ravaged, Spain, …"></label><label class="field"><span>Counter label</span><input required maxlength="100" name="label" value="${esc(p?.label||'')}" placeholder="e.g. Band A1, Ranchería B"></label><label class="field"><span>Owner</span><input name="owner" value="${esc(p?.owner||'Comanche')}" placeholder="Comanche, Spain, North…"></label><label class="field"><span>${type==='Band'?'Printed Band strength (MP derives automatically)':'Strength (if printed)'}</span><input name="strength" type="number" min="${type==='Band'?1:0}" max="${type==='Band'?3:20}" value="${p?.strength??(type==='Band'?1:0)}"></label>${type==='Band'?'<p class="small muted">Band faces: 1–6, 2–5, 3–4. MP is never independently entered.</p>':`<label class="field"><span>Printed Movement rating (non-Band)</span><input name="mpRating" type="number" min="0" max="20" value="${p?.mpRating??4}"></label>`}</div><label class="field" style="margin-top:12px"><span>Location / possessor</span><select name="location" ${isEdit?'disabled':''}>${allLocations(state,location)}</select></label><label class="field"><span>Notes or printed detail</span><textarea name="notes" maxlength="1000">${esc(p?.notes||'')}</textarea></label>${isEdit?`<label class="field"><span>Finished side?</span><select name="finished">${option('false','Unfinished',!p.finished?'false':'')}${option('true','Finished',p.finished?'true':'')}</select></label>`:''}<div class="form-end"><button type="submit" class="btn primary">${isEdit?'Save counter details':'Record counter'}</button>${isEdit?hButton('modal-move-piece','Change location','btn sm'):''}${isEdit?hButton('delete-piece','Delete ledger entry','btn red sm',`data-id="${p.id}"`):''}</div></form>`;}
 function modalContent(){const m=stateUI.modal;if(!m)return null;
+ if(m==='inspect-history'){
+  const card=state.cards.find(c=>c.id===stateUI.modalId&&c.kind==='History')||state.cards.find(c=>c.kind==='History'&&['In play','Display','History','Current','Active'].includes(c.zone));
+  const art=card?cardImageUrl(artReferenceForCard(card)):null;
+  const check=boardHistoryVerification(nextPlayerPrompt(state));
+  return ['History Card',`${art?`<img src="${esc(art)}" alt="${esc(card?.title||'History Card')}" style="width:min(100%,390px);height:auto;display:block;margin:0 auto">`:`<p>${esc(card?.title||'Current printed History Card')}</p>`}${check?`<p>${esc(check.detail)}</p><div class="board-turn-actions">${check.buttons}</div>`:'<p>No History check is currently pending. Inspect the printed History Card on the board.</p>'}`];
+ }
+ if(m==='inspect-printed-card'){
+  const card=state.cards.find(c=>c.id===stateUI.modalId);if(!card)return null;
+  const art=cardImageUrl(artReferenceForCard(card));
+  return [card.title||card.identifier||card.kind,`${art?`<img src="${esc(art)}" alt="${esc(card.title||card.kind)}" style="width:min(100%,390px);height:auto;display:block;margin:0 auto">`:`<p>Imported card artwork is not available for ${esc(card.identifier||card.kind)}.</p>`}<p>${esc(card.kind)} · ${esc(card.zone)} · ${esc(card.identifier||'')}</p><p>Use the current printed-card rules and the game's legal decisions to resolve its effect.</p>`];
+ }
  if(m==='add-piece')return ['Record physical counter',pieceForm(null,stateUI.selectedSpace&&stateUI.modalId==='here'?stateUI.selectedSpace:null)];
  if(m==='edit-piece'){const p=state.pieces.find(x=>x.id===stateUI.modalId);return p?['Edit '+p.label,pieceForm(p)]:null;}
  if(m==='move-piece'){const p=state.pieces.find(x=>x.id===stateUI.modalId);if(!p)return null;return [`Reconcile ${p.label}`,`<div class="notice alert">This is a <b>manual correction</b>, not a validated game action. For Band moves, use Take Actions → Move. Reconcile the physical counter before continuing.</div><form id="move-piece-form"><label class="field"><span>Destination</span><select name="location">${allLocations(state,p.location)}</select></label><button class="btn primary" type="submit">Record physical position</button></form>`];}
@@ -1958,7 +2046,7 @@ const CORRECTION_DIALOGS=new Set(['add-piece','edit-piece','move-piece','add-car
 function openModal(modal,id){
  // The verified connection graph is immutable; do not bring back manual edge entry.
  if(modal==='edge'){notify('The printed map connections are verified and locked. No map editing is necessary.',true);return;}
- if(!GAMEPLAY_DIALOGS.has(modal)&&!CORRECTION_DIALOGS.has(modal)){
+ if(!GAMEPLAY_DIALOGS.has(modal)&&!CORRECTION_DIALOGS.has(modal)&&!['inspect-history','inspect-printed-card'].includes(modal)){
   notify('This procedure has no supported guided interface.',true);return;
  }
  if(modal==='move-band'&&(!state.activeBandId||state.phase!=='execution')){
@@ -1990,7 +2078,8 @@ function actionClick(e){
  const actionTarget=e.target.closest('[data-action]');
  if(actionTarget?.dataset.action==='choose-tts-folder'){document.getElementById('tts-unified-picker')?.click();return;}
  if(actionTarget?.dataset.action==='clear-tts-images'){if(!confirm('Remove all locally cached Comanchería artwork? Saved games remain untouched.'))return;clearLocalArt().then(()=>{notify('Local artwork removed; saves preserved.');render();}).catch(error=>notify(error.message,true));return;}
-const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action;if(activeCardReveal()&&a!=='next-card-reveal')return;const d=btn.dataset;if(a==='history-ledger-resolve'){commit({type:'RESOLVE_VICTORY_FROM_LEDGER',ack:Boolean(document.getElementById('history-ledger-ack')?.checked),transitionAck:Boolean(document.querySelector('#victory-check-form [name=transitionAck]')?.checked)});return;}if(a==='passage-auto-progress'){commit({type:'PASSAGE_AUTO_PROGRESS'});return;}if(a==='war-auto-progress'){commit({type:'WAR_AUTO_PROGRESS'});return;}if(a==='war-auto-until-choice'){commit({type:'WAR_AUTO_UNTIL_CHOICE'});return;}if(a==='war-draw-movement'){commit({type:'WAR_DRAW_MOVEMENT'});return;}if(a==='war-draw-event'){commit({type:'WAR_DRAW_EVENT'});return;}if(a==='war-auto-attrition'){commit({type:'WAR_AUTO_ATTRITION'});return;}if(a==='battle-auto-reconcile'){commit({type:'BATTLE_AUTO_RECONCILE'});return;}if(a==='battle-safe-round'){commit({type:'BATTLE_SAFE_ROUND'});return;}if(a==='culture-ledger-gain'){commit({type:'CULTURE_LEDGER_GAIN',ack:confirm('Does the digital territory ledger exactly match the physical board, including Peace counters and active card effects?')});return;}if(a==='operations-digital-roll'){commit({type:'OPERATIONS_DIGITAL_ROLL',ack:confirm('Have you checked that no active printed card changes the Operations track procedure?')});return;}
+if(!actionTarget&&e.target.closest('.tt-printed-board')&&!stateUI.playerPanel&&!activeCardReveal()){stateUI.playerPanel='decisions';render();return;}
+ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action;if(activeCardReveal()&&a!=='next-card-reveal')return;const d=btn.dataset;if(a==='history-ledger-resolve'){commit({type:'RESOLVE_VICTORY_FROM_LEDGER',ack:Boolean(document.getElementById('history-ledger-ack')?.checked),transitionAck:Boolean(document.querySelector('#victory-check-form [name=transitionAck]')?.checked)});return;}if(a==='passage-auto-progress'){commit({type:'PASSAGE_AUTO_PROGRESS'});return;}if(a==='war-auto-progress'){commit({type:'WAR_AUTO_PROGRESS'});return;}if(a==='war-auto-until-choice'){commit({type:'WAR_AUTO_UNTIL_CHOICE'});return;}if(a==='war-draw-movement'){commit({type:'WAR_DRAW_MOVEMENT'});return;}if(a==='war-draw-event'){commit({type:'WAR_DRAW_EVENT'});return;}if(a==='war-auto-attrition'){commit({type:'WAR_AUTO_ATTRITION'});return;}if(a==='battle-auto-reconcile'){commit({type:'BATTLE_AUTO_RECONCILE'});return;}if(a==='battle-safe-round'){commit({type:'BATTLE_SAFE_ROUND'});return;}if(a==='culture-ledger-gain'){commit({type:'CULTURE_LEDGER_GAIN',ack:confirm('Does the digital territory ledger exactly match the physical board, including Peace counters and active card effects?')});return;}if(a==='operations-digital-roll'){commit({type:'OPERATIONS_DIGITAL_ROLL',ack:confirm('Have you checked that no active printed card changes the Operations track procedure?')});return;}
  if(a==='board-clear-map-choice'){stateUI.spatialChoice=null;stateUI.choicePage=0;render();return;}
  if(a==='director-map-target'){
   const choices=directorSpatialTargets().get(d.id)||[];
@@ -1999,6 +2088,8 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
    stateUI.selectedSpace=d.id;
    stateUI.choicePage=0;
    stateUI.spatialChoice=d.id;
+   stateUI.contextPieceId=null;
+   stateUI.playerPanel='decisions';
    render();return;
   }
   notify('This map target is no longer a legal action.',true);return;
@@ -2016,8 +2107,32 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
   if(pending?.kind!=='horse-discard'||selected.length!==pending.required||selected.some(id=>!pending.horseIds.includes(id)))return;
   commit({type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:[...selected]});stateUI.horseDiscardSelection=[];stateUI.horseDiscardKey=null;return;
  }
- if(a==='player-panel-decisions'||a==='player-panel-events'||a==='player-panel-guided'){stateUI.playerPanel=a.replace('player-panel-','');render();return;}
- if(a==='player-panel-close'){stateUI.playerPanel=null;render();return;}
+ 
+ if(a==='board-card-choice'){
+  const choice=printedCardActions(stateUI.contextCardId)[Number(d.choiceIndex)];
+  if(choice?.command)commit(choice.command);
+  else {stateUI.contextCardId=null;stateUI.playerPanel='decisions';render();notify('This card action is no longer legal.',true);}
+  return;
+ }
+ if(a==='board-target-choice'){
+  const choices=stateUI.targetMoveChoices||[],choice=choices[Number(d.choiceIndex)];
+  if(choice?.command){try{perform(state,choice.command);commit(choice.command);}catch{stateUI.targetMoveChoices=null;stateUI.playerPanel='decisions';render();notify('That placement is no longer legal.',true);}}
+  return;
+ }
+ if(a==='board-rancheria-choice'){
+  const choice=rancheriaBoardActions(stateUI.contextRancheriaId)[Number(d.choiceIndex)];
+  if(choice?.command)commit(choice.command);
+  else {stateUI.contextRancheriaId=null;stateUI.playerPanel='decisions';render();notify('That Ranchería action is no longer legal.',true);}
+  return;
+ }
+ if(a==='board-context-choice'){
+  const piece=state.pieces.find(p=>p.id===stateUI.contextPieceId);
+  const choice=piece?printedCounterChoices(state,piece.id,nextPlayerPrompt(state))[Number(d.choiceIndex)]:null;
+  if(choice?.command){commit(choice.command);}else{stateUI.contextPieceId=null;stateUI.playerPanel='decisions';render();notify('That counter action is no longer legal.',true);}
+  return;
+ }
+ if(a==='player-panel-decisions'||a==='player-panel-events'||a==='player-panel-guided'){stateUI.contextPieceId=null;stateUI.playerPanel=a.replace('player-panel-','');render();return;}
+ if(a==='player-panel-close'){stateUI.contextPieceId=null;stateUI.contextRancheriaId=null;stateUI.contextCardId=null;stateUI.targetMoveChoices=null;stateUI.playerPanel=null;render();return;}
  if(a==='board-next-choices'){stateUI.choicePage++;render();return;}
  if(a==='board-band-choice'){
   const available=activeBandChoices(state).filter(x=>x.kind!=='move');
@@ -2033,7 +2148,7 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
   if(pending){animateInstructionChanges(pending.before,state,pending.origins);animatePhysicalPieceChanges(pending.before,state,pending.pieces);animateVisualMarkerChanges(pending.before,state,pending.markers);showBoardConsequenceHighlights(pending.before,state);animateBoardConsequenceCaptions(pending.before,state);}
   return;
  }
- if(a==='home-menu'){stateUI.playerPanel=null;stateUI.home=true;stateUI.modal=null;render();return;}
+ if(a==='home-menu'){stateUI.playerPanel='decisions';stateUI.home=false;stateUI.modal=null;render();return;}
  if(a==='home-continue'){stateUI.playerPanel=null;stateUI.home=false;render();return;}
  if(a==='home-new'){
   stateUI.cardReveals=[];stateUI.cardRevealArt=null;
@@ -2051,9 +2166,95 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  }
  if(a==='nav'){choose(d.tab);return;}
  if(a==='digital-operations'){const drawer=document.querySelector('.board-drawer');if(drawer){drawer.open=true;drawer.scrollIntoView({block:'start'});}return;}
- if(a==='tabletop-instruction'){const piece=state.pieces.find(p=>p.type==='Instruction'&&p.id===d.id);if(!piece)return;stateUI.instructionFocus=piece.id;if(SPACE[piece.location])stateUI.selectedSpace=piece.location;render();return;}
+ if(a==='printed-card-inspect'){
+  const card=state.cards.find(c=>c.id===d.id);
+  if(!card)return;
+  const actions=printedCardActions(card.id);
+  if(actions.length===1){commit(actions[0].command);return;}
+  if(actions.length>1){stateUI.contextCardId=card.id;stateUI.playerPanel='card';render();return;}
+  openModal(card.kind==='History'?'inspect-history':'inspect-printed-card',d.id);return;
+ }
+ if(a==='printed-history'){openModal('inspect-history');return;}
+ if(a==='printed-operations'){const p=nextPlayerPrompt(state);if(p.kind==='automatic'&&p.command)commit(p.command);else notify('Select the applicable printed counter or current legal decision.');return;}
+ if(a==='printed-rancheria-resources'){
+  const result=printedMedicineTrackFinish(state,d.id,false,nextPlayerPrompt(state));
+  if(result?.ok){commit(result.command);return;}
+  // The printed Ranchería itself is the contextual decision target.
+  const actions=rancheriaBoardActions(d.id);
+  stateUI.digitalSelectedPieceId=d.id;
+  if(actions.length===1){commit(actions[0].command);return;}
+  if(actions.length>1){stateUI.contextRancheriaId=d.id;stateUI.playerPanel='rancheria';render();return;}
+  render();return;
+ }
+ if(a==='printed-record-ap'){
+  const planningAP=printedPlanningTrackChoice(state,'ap',nextPlayerPrompt(state),stateUI.digitalSelectedPieceId);
+  if(planningAP?.ok){commit(planningAP.command);return;}
+  if(planningAP?.ok===false){notify(planningAP.reason,true);return;}
+  const track=state.rancheriaActivation;
+  const done=track?printedMedicineTrackFinish(state,track.rancheriaId,true,nextPlayerPrompt(state)):null;
+  if(done?.ok){commit(done.command);return;}
+  const selected=stateUI.digitalSelectedPieceId;
+  const choice=activationCounterDropOptions(state,selected,nextPlayerPrompt(state)).find(c=>c.target==='activate:ap');
+  if(choice){commit(choice.command);return;}
+  notify('The AP track has no currently legal action.');return;
+ }
+ if(a==='printed-record-military'){
+  const military=printedPlanningTrackChoice(state,'military',nextPlayerPrompt(state),stateUI.digitalSelectedPieceId);
+  if(military?.ok){commit(military.command);return;}
+  notify(military?.reason||'No eligible Headman can convert Culture to Military now.',true);return;
+ }
+ if(a==='printed-record-culture'){
+  const p=nextPlayerPrompt(state);
+  if(p.kind==='automatic'&&p.command?.type==='CULTURE_LEDGER_GAIN'){commit(p.command);return;}
+  notify('Select the eligible printed Culture card or the current Culture decision.');return;
+ }
+ if(a==='tabletop-instruction'){const piece=state.pieces.find(p=>p.type==='Instruction'&&p.id===d.id);if(!piece)return;const headmanTarget=printedHeadmanTargetChoice(state,stateUI.digitalSelectedPieceId,piece.id,nextPlayerPrompt(state));if(headmanTarget?.ok){commit(headmanTarget.command);return;}if(headmanTarget?.ok===false){notify(headmanTarget.reason,true);return;}stateUI.instructionFocus=piece.id;if(SPACE[piece.location])stateUI.selectedSpace=piece.location;render();return;}
  if(a==='board-select-piece'||a==='digital-pick'){
   const piece=state.pieces.find(p=>p.id===d.id);if(!piece)return;
+  if(a==='board-select-piece'){
+   const headmanTarget=printedHeadmanTargetChoice(state,stateUI.digitalSelectedPieceId,piece.id,nextPlayerPrompt(state));
+   if(headmanTarget?.ok){commit(headmanTarget.command);return;}
+   if(headmanTarget?.ok===false){notify(headmanTarget.reason,true);return;}
+   // A multi-territory Epidemic is selected on the affected Band counters,
+   // one Band per printed map space, not through a synthetic allocation menu.
+   const epidKey=state.developmentPending?.kind==='epidemic'?JSON.stringify(state.developmentPending):null;
+   if(stateUI.epidemicKey!==epidKey){stateUI.epidemicKey=epidKey;stateUI.epidemicSelection={};}
+   const epidemic=printedEpidemicBandSelection(state,piece.id,stateUI.epidemicSelection,nextPlayerPrompt(state));
+   if(epidemic){
+    if(!epidemic.ok){notify(epidemic.reason,true);return;}
+    stateUI.epidemicSelection=epidemic.selected;
+    if(epidemic.command){stateUI.epidemicSelection={};commit(epidemic.command);}
+    else {render();notify(`${epidemic.remaining} affected space${epidemic.remaining===1?'':'s'} remaining. Select the Band on the printed board.`);}
+    return;
+   }
+   // A card asking for physical Horses is resolved by choosing those actual
+   // counters on the board, not through a separate horse-selection menu.
+   const discard=printedHorseDiscardSelection(state,piece.id,stateUI.horseDiscardSelection);
+   if(discard){
+    if(!discard.ok){notify(discard.reason,true);return;}
+    stateUI.horseDiscardSelection=discard.selected;
+    if(discard.command){stateUI.horseDiscardSelection=[];commit(discard.command);}
+    else render();
+    return;
+   }
+   const prompt=nextPlayerPrompt(state);
+   if(piece.subtype==='Success'&&['out-of-play','success-out'].includes(piece.location)){
+    const returnSuccess=printedPlanningTrackChoice(state,'out',prompt,stateUI.digitalSelectedPieceId);
+    if(returnSuccess?.ok){commit(returnSuccess.command);return;}
+    if(returnSuccess?.ok===false){notify(returnSuccess.reason,true);return;}
+   }
+   const direct=printedCounterChoice(state,piece.id,prompt);
+   // A unique validated physical-counter decision is a direct click; an
+   // ambiguous choice must still be made explicitly by the human player.
+   if(direct?.ok){commit(direct.command);return;}
+   const counterChoices=printedCounterChoices(state,piece.id,prompt);
+   if(counterChoices.length>1){
+    stateUI.digitalSelectedPieceId=piece.id;
+    if(SPACE[piece.location])stateUI.selectedSpace=piece.location;
+    stateUI.contextPieceId=piece.id;
+    stateUI.playerPanel='piece';render();return;
+   }
+  }
   stateUI.digitalSelectedPieceId=piece.id;stateUI.medicinePendingBandId=null;
   if(SPACE[piece.location])stateUI.selectedSpace=piece.location;
   render();return;
@@ -2061,7 +2262,16 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  if(a==='tabletop-order-band'||a==='tabletop-unorder-band'){
   const band=state.pieces.find(p=>p.id===d.id&&p.type==='Band'&&p.location.startsWith('box:'));
   if(!band)return;const id=band.location.slice(4),order=stateUI.rancheriaBandOrder[id]||[];
-  stateUI.rancheriaBandOrder[id]=a==='tabletop-order-band'?[...order.filter(x=>x!==band.id),band.id]:order.filter(x=>x!==band.id);
+  const updated=a==='tabletop-order-band'?[...order.filter(x=>x!==band.id),band.id]:order.filter(x=>x!==band.id);
+  stateUI.rancheriaBandOrder[id]=updated;
+  // Clicking physical Bands is an alternative to dragging them into the
+  // printed Medicine slots. The final counter completes the chosen order;
+  // validate it through the reducer before starting the track.
+  const all=state.pieces.filter(p=>p.type==='Band'&&p.location===`box:${id}`);
+  if(a==='tabletop-order-band'&&all.length===updated.length&&!state.activeBandId&&!state.rancheriaActivation){
+   const command={type:'RANCHERIA_TRACK_START',rancheriaId:id,bandIds:updated};
+   try{perform(state,command);commit(command);return;}catch(error){notify(String(error.message||error),true);}
+  }
   render();return;
  }
  if(a==='tabletop-track-start'){
@@ -2150,6 +2360,10 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  if(a==='select-space'){
    if(!SPACE[d.id])return;
    if(!stateUI.mapConnectMode&&stateUI.digitalSelectedPieceId){
+     const options=selectedCounterMapActions(stateUI.digitalSelectedPieceId).filter(option=>option.to===d.id);
+     if(options.length===1){stateUI.selectedSpace=d.id;commit(options[0].command);return;}
+     if(options.length>1){stateUI.selectedSpace=d.id;stateUI.targetMoveChoices=options;stateUI.playerPanel='target';render();return;}
+
      const piece=state.pieces.find(p=>p.id===stateUI.digitalSelectedPieceId);
      if(!piece){stateUI.digitalSelectedPieceId=null;render();return;}
      if(piece.type==='Band'&&piece.id===state.activeBandId&&piece.location!==d.id){
@@ -2177,7 +2391,7 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
    if(!state.victoryPending||!stateUI.historyVerification?.met)return;
    if(stateUI.historyVerification.stage<2){stateUI.historyVerification.stage++;render();return;}
    const audit=historyObjectiveAudit(state);
-   commit({type:'RESOLVE_VICTORY',met:true,ack:true,transitionAck:true,objectiveNote:`Player verified ${audit.history} printed objective, removed old cards, revealed the next History Card, and applied its printed transition effects.`});stateUI.historyVerification=null;return;
+   stateUI.modal=null;commit({type:'RESOLVE_VICTORY',met:true,ack:true,transitionAck:true,objectiveNote:`Player verified ${audit.history} printed objective, removed old cards, revealed the next History Card, and applied its printed transition effects.`});stateUI.historyVerification=null;return;
  }
  if(a==='board-history-back'){
    if(!state.victoryPending)return;
@@ -2188,7 +2402,7 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  if(a==='board-history-commit'){
    if(!state.victoryPending||stateUI.historyVerification?.met===null)return;
    const audit=historyObjectiveAudit(state),met=stateUI.historyVerification.met;
-   commit({type:'RESOLVE_VICTORY',met,ack:true,objectiveNote:`Player verified ${audit.history} printed objective against the original board and active History Card.`});stateUI.historyVerification=null;return;
+   stateUI.modal=null;commit({type:'RESOLVE_VICTORY',met,ack:true,objectiveNote:`Player verified ${audit.history} printed objective against the original board and active History Card.`});stateUI.historyVerification=null;return;
  }
  if(a==='director-choice'){stateUI.tabletopChoices=false;const p=nextPlayerPrompt(state),c=p.choices?.[Number(d.choiceIndex)];if(p.kind==='player'&&c?.command){if(c.command.type==='OPERATIONS_DIGITAL_ROLL'){if(confirm('Have you checked that no active printed card changes the Operations track procedure?'))commit({...c.command,ack:true});}else commit(c.command);}return;}if(a==='director-auto'){const p=nextPlayerPrompt(state);if(p.kind==='automatic'&&p.command)commit(p.command);return;}if(a==='select-operation'){commit({type:'SELECT_OPERATION',value:d.value});return;}
  if(a==='passage-retirement-done'){commit({type:'PASSAGE_FINISH_RETIREMENT'});return;}
@@ -2432,9 +2646,14 @@ function dragSpaceAt(x,y,svg){
   const d=Math.hypot(p.x-pos[0],p.y-pos[1]);if(d<best){winner=sp.id;best=d;}}
  return best<=31?winner:null;
 }
+function pointerPrintedCoordinates(svg,x,y){
+ const ctm=svg?.getScreenCTM();if(!ctm)return null;
+ const p=new DOMPoint(x,y).matrixTransform(ctm.inverse());
+ return p.x>=0&&p.x<=BOARD_WIDTH&&p.y>=0&&p.y<=BOARD_HEIGHT?p:null;
+}
 function disposePieceDrag(d,back=false){
  d.source.classList.remove('piece-drag-source');
- document.querySelectorAll('.map-node.piece-drop-legal,.map-node.piece-drop-hover,.board-possession-drop.piece-drop-legal,.board-possession-drop.piece-drop-hover').forEach(n=>n.classList.remove('piece-drop-legal','piece-drop-hover'));
+ document.querySelectorAll('.map-node.piece-drop-legal,.map-node.piece-drop-hover,.board-possession-drop.piece-drop-legal,.board-possession-drop.piece-drop-hover,.printed-medicine.piece-drop-legal,.printed-medicine.piece-drop-hover,.printed-resource-hit.piece-drop-legal,.printed-resource-hit.piece-drop-hover,.printed-supply-hit.piece-drop-legal,.printed-supply-hit.piece-drop-hover,.printed-medicine-slot.piece-drop-legal,.printed-medicine-slot.piece-drop-hover,[data-physical-piece-id].piece-drop-legal').forEach(n=>n.classList.remove('piece-drop-legal','piece-drop-hover'));
  if(!d.ghost)return;
  if(back&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches!==true){
   d.ghost.style.transition='left .17s ease-out, top .17s ease-out, opacity .17s';
@@ -2446,9 +2665,14 @@ function onPiecePointerDown(e){
  if(e.button!==0||pieceDrag||stateUI.home||stateUI.modal||activeCardReveal())return;
  const source=e.target.closest?.('[data-physical-piece-id]');
  const svg=source?.closest('svg.world-board')||(source?.closest('.board-placement-tray, .board-counter-action-tray')?document.querySelector('.tt-printed-board svg.world-board'):null);
- if(!svg||!source||source.dataset.action!=='board-select-piece')return;
+ if(!svg||!source)return;
+ // Any real counter drawn in a printed board box can be physically picked up.
+ // Its eventual drop remains strictly engine-validated; its existing click
+ // action still works if the pointer never becomes a drag.
+ const onPrintedBoard=Boolean(source.closest('.printed-real-board-counters'));
+ if(!onPrintedBoard&&source.dataset.action!=='board-select-piece')return;
  const piece=state.pieces.find(p=>p.id===source.dataset.physicalPieceId);
- if(!piece||(!SPACE[piece.location]&&!source.closest('.board-placement-tray, .board-counter-action-tray')&&!source.closest('.tt-band-cargo')))return;
+ if(!piece||(!onPrintedBoard&&!SPACE[piece.location]&&!source.closest('.board-placement-tray, .board-counter-action-tray')&&!source.closest('.tt-band-cargo')))return;
  const rect=source.getBoundingClientRect();
  pieceDrag={id:piece.id,source,svg,pointerId:e.pointerId,x:e.clientX,y:e.clientY,
   startX:rect.left+rect.width/2,startY:rect.top+rect.height/2,active:false,ghost:null,over:null};
@@ -2464,8 +2688,47 @@ function onPiecePointerMove(e){
   if(image){const img=document.createElement('img');img.src=image;img.alt='';img.draggable=false;ghost.append(img);}
   else ghost.textContent=smallIcon(piece?.type);
   document.body.append(ghost);d.ghost=ghost;
+  for(const option of resourceDropOptions(state,d.id)){
+   d.svg.querySelector(`[data-printed-rancheria-resources="${CSS.escape(option.command.rancheriaId)}"]`)?.classList.add('piece-drop-legal');
+  }
+  if(piece?.type==='Band')for(const choice of nextPlayerPrompt(state).choices||[]){
+   const c=choice.command;
+   if(['PASSAGE_RECRUIT_BAND','CLEANUP_ABSORB_BAND'].includes(c?.type)&&c.bandId===piece.id){
+    d.svg.querySelector(`[data-printed-rancheria-resources="${CSS.escape(c.rancheriaId)}"]`)?.classList.add('piece-drop-legal');
+   }
+   if(c?.type==='PASSAGE_STRENGTHEN_BAND'&&c.bandId===piece.id){
+    d.svg.querySelector(`[data-physical-piece-id="${CSS.escape(c.replacementBandId)}"]`)?.classList.add('piece-drop-legal');
+   }
+  }
+  if(piece?.type==='Band'&&piece.location.startsWith('box:')&&state.phase==='execution'&&state.operation==='Take Actions'&&!state.activeBandId&&!state.rancheriaActivation){
+   const ranchId=piece.location.slice(4);
+   const order=stateUI.rancheriaBandOrder[ranchId]||[];
+   for(const el of d.svg.querySelectorAll(`[data-printed-medicine-slot^="${CSS.escape(ranchId)}:"]`)){
+    const slot=Number(el.dataset.printedMedicineSlot.split(':').pop());
+    const own=state.pieces.find(p=>p.type==='Paraibo'&&(p.affiliatedRancheriaId===ranchId||p.location===`box:${ranchId}`));
+    if(own&&own.medicine-slot-1===order.length)el.classList.add('piece-drop-legal');
+   }
+   if(order.length>=Math.min(state.pieces.find(p=>p.type==='Paraibo'&&(p.affiliatedRancheriaId===ranchId||p.location===`box:${ranchId}`))?.medicine||0,6))
+    d.svg.querySelector(`[data-printed-rancheria-resources="${CSS.escape(ranchId)}"]`)?.classList.add('piece-drop-legal');
+  }
+  if(directorCounterActionDropOptions(state,d.id,nextPlayerPrompt(state)).some(o=>o.target==='card:remove-bison') ||
+     (state.developmentPending?.kind==='horse-discard'&&state.developmentPending.horseIds?.includes(d.id))){
+   d.svg.querySelector('[data-printed-supply="out"]')?.classList.add('piece-drop-legal');
+  }
   for(const option of possessionActionDropOptions(state,d.id)){document.querySelector(`[data-possession-drop="${CSS.escape(option.target)}"]`)?.classList.add('piece-drop-legal');}
-  for(const option of activationCounterDropOptions(state,d.id,nextPlayerPrompt(state))){document.querySelector(`[data-activation-drop="${CSS.escape(option.target)}"]`)?.classList.add('piece-drop-legal');}
+  for(const option of activationCounterDropOptions(state,d.id,nextPlayerPrompt(state))){
+   document.querySelector(`[data-activation-drop="${CSS.escape(option.target)}"]`)?.classList.add('piece-drop-legal');
+   // The Medicine markers are on the ACTUAL PRINTED Ranchería tracks.
+   // Highlight those destinations; never create a substitute activation tray.
+   if(option.target==='activate:medicine'||option.target==='activate:prepare'){
+    const sourcePiece=state.pieces.find(p=>p.id===d.id);
+    const ranchId=sourcePiece?.type==='Rancheria'?sourcePiece.id:sourcePiece?.location?.startsWith('box:')?sourcePiece.location.slice(4):null;
+    if(ranchId){
+     for(const h of state.pieces.filter(p=>p.type==='Paraibo'&&p.affiliatedRancheriaId===ranchId))
+      d.svg.querySelector(`[data-medicine-marker-for="${CSS.escape(h.id)}"]`)?.classList.add('piece-drop-legal');
+    }
+   }
+  }
   for(const option of allianceTribeDropOptions(state,d.id,nextPlayerPrompt(state))){document.querySelector(`[data-alliance-drop="${CSS.escape(option.target)}"]`)?.classList.add('piece-drop-legal');}
   for(const option of directorCounterActionDropOptions(state,d.id,nextPlayerPrompt(state))){document.querySelector(`[data-counter-action-drop="${CSS.escape(option.target)}"]`)?.classList.add('piece-drop-legal');}
   if(piece?.type==='Band'&&piece.id===state.activeBandId){
@@ -2502,9 +2765,54 @@ function onPiecePointerUp(e){
  const physicalTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-possession-drop]')?.dataset.possessionDrop;
  const counterActionTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-counter-action-drop]')?.dataset.counterActionDrop;
  const allianceTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-alliance-drop]')?.dataset.allianceDrop;
- const activationTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-activation-drop]')?.dataset.activationDrop;
  const draggedPiece=state.pieces.find(p=>p.id===d.id);
- const outcome=activationTarget?resolveActivationCounterDrop(state,d.id,activationTarget,nextPlayerPrompt(state))
+ const activationTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-activation-drop]')?.dataset.activationDrop;
+ // A Band counter can physically cover the printed marker underneath it.
+ // Use the marker's actual on-board screen bounds so the underlying Medicine
+ // cell is a usable drop target even when stacked pieces obscure its DOM node.
+ const markerAtPointer=[...d.svg.querySelectorAll('[data-medicine-marker-for]')].find(el=>{
+  const box=el.getBoundingClientRect(),radius=Math.max(9,Math.min(24,box.width*.8));
+  return Math.abs(e.clientX-(box.left+box.width/2))<=radius&&Math.abs(e.clientY-(box.top+box.height/2))<=radius;
+ });
+ const printedMedicineTarget=markerAtPointer?.dataset.medicineMarkerFor;
+ const medicineHeadman=state.pieces.find(p=>p.id===printedMedicineTarget&&p.type==='Paraibo');
+ const sourceRanch=state.pieces.find(p=>p.id===d.id)?.location?.replace(/^box:/,'');
+ const printedActivation=(medicineHeadman&&medicineHeadman.affiliatedRancheriaId===(draggedPiece?.type==='Rancheria'?d.id:sourceRanch))
+  ?activationCounterDropOptions(state,d.id,nextPlayerPrompt(state)).find(x=>x.target===(draggedPiece?.type==='Rancheria'?'activate:prepare':'activate:medicine'))?.target:null;
+ const printedPoint=pointerPrintedCoordinates(d.svg,e.clientX,e.clientY);
+ const horseDiscard=printedPoint&&printedSupplyAt(printedPoint.x,printedPoint.y)==='out'
+  ?printedHorseDiscardSelection(state,d.id,stateUI.horseDiscardSelection):null;
+ if(horseDiscard?.ok){
+  disposePieceDrag(d);
+  stateUI.horseDiscardSelection=horseDiscard.selected;
+  if(horseDiscard.command){stateUI.horseDiscardSelection=[];commit(horseDiscard.command);}
+  else render();
+  return;
+ }
+ const arrangement=printedPoint?printedMedicineArrangement(state,d.id,printedPoint.x,printedPoint.y,stateUI.rancheriaBandOrder[draggedPiece?.location?.slice(4)]):null;
+ const exactTarget=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-physical-piece-id]')?.dataset.physicalPieceId;
+ const physicalExchange=printedPoint?printedPossessionDrop(state,d.id,exactTarget,printedPoint.x,printedPoint.y):null;
+ const bandExchange=printedPoint?printedBandExchangeDrop(state,d.id,exactTarget,nextPlayerPrompt(state)):null;
+ const actualBattle=printedPoint?printedBattleDrop(state,d.id,printedPoint.x,printedPoint.y,nextPlayerPrompt(state),boardImagePosition):null;
+ const printedAP=printedPoint?printedAPActivationDrop(state,d.id,printedPoint.x,printedPoint.y,nextPlayerPrompt(state)):null;
+ const physicalBoardDrop=printedPoint?printedPieceDrop(state,d.id,printedPoint.x,printedPoint.y,nextPlayerPrompt(state)):null;
+ const medicineToMap=destination?printedMedicineBandActivationAtMap(state,d.id,destination,nextPlayerPrompt(state)):null;
+ const sameSpace=draggedPiece&&SPACE[draggedPiece.location]&&destination===draggedPiece.location;
+ const legalPrintedDrop=physicalBoardDrop?.requiresOwnSpace&&!sameSpace?null:physicalBoardDrop;
+ if(arrangement?.ok){
+  disposePieceDrag(d);
+  stateUI.rancheriaBandOrder[draggedPiece.location.slice(4)]=arrangement.order;
+  if(arrangement.command)commit(arrangement.command);else render();
+  return;
+ }
+ const outcome=arrangement?.ok===false?arrangement
+  :actualBattle?actualBattle
+  :medicineToMap?medicineToMap
+  :physicalExchange?physicalExchange
+  :bandExchange?bandExchange
+  :printedAP?printedAP
+  :legalPrintedDrop?legalPrintedDrop
+  :(activationTarget||printedActivation)?resolveActivationCounterDrop(state,d.id,activationTarget||printedActivation,nextPlayerPrompt(state))
   :allianceTarget?resolveAllianceTribeDrop(state,d.id,allianceTarget,nextPlayerPrompt(state))
   :counterActionTarget?resolveDirectorCounterActionDrop(state,d.id,counterActionTarget,nextPlayerPrompt(state))
   :physicalTarget?resolvePossessionActionDrop(state,d.id,physicalTarget)
@@ -2536,7 +2844,7 @@ document.addEventListener('click',actionClick);
 document.addEventListener('submit',submitForm);
 document.addEventListener('change',onChange);
 document.addEventListener('input',e=>{if(e.target.id==='piece-filter'){stateUI.pieceFilter=e.target.value;const r=$('piece-results');if(r)r.innerHTML=piecesTable();}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pieceDrag){cancelPiecePointerDrag();return;}if(activeCardReveal()&&e.key==='Escape'){e.preventDefault();void placeRevealedCard();return;}if(activeCardReveal()&&(e.key==='Enter'||e.key===' ')&&e.target.matches('[data-reveal-flight-source]')){e.preventDefault();void placeRevealedCard();return;}if(activeCardReveal()&&e.key==='Tab'){const next=document.querySelector('.card-reveal-dialog [data-action=next-card-reveal]');if(next){e.preventDefault();next.focus();}return;}if((e.key==='Enter'||e.key===' ')&&e.target.matches('.map-node[data-action], .map-piece-target[data-action]')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(e.key==='Escape'&&stateUI.tabletopChoices){stateUI.tabletopChoices=false;render();return;}if(e.key==='Escape'&&stateUI.tabletopDetails){stateUI.tabletopDetails=false;render();return;}if(e.key==='Escape'&&stateUI.mapConnectMode){stateUI.mapConnectMode=false;stateUI.edgeStart=null;render();}if(e.key==='Escape'&&stateUI.modal)closeModal();if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.target.matches('input, textarea')){e.preventDefault();undo();}});
+document.addEventListener('keydown',e=>{if((e.key==='d'||e.key==='D')&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.target.matches('input, textarea, select')&&!stateUI.playerPanel&&!activeCardReveal()){stateUI.playerPanel='decisions';render();return;}if(e.key==='Escape'&&pieceDrag){cancelPiecePointerDrag();return;}if(activeCardReveal()&&e.key==='Escape'){e.preventDefault();void placeRevealedCard();return;}if(activeCardReveal()&&(e.key==='Enter'||e.key===' ')&&e.target.matches('[data-reveal-flight-source]')){e.preventDefault();void placeRevealedCard();return;}if(activeCardReveal()&&e.key==='Tab'){const next=document.querySelector('.card-reveal-dialog [data-action=next-card-reveal]');if(next){e.preventDefault();next.focus();}return;}if((e.key==='Enter'||e.key===' ')&&e.target.matches('.map-node[data-action], .map-piece-target[data-action], .printed-card[data-action], .printed-track-marker[data-action], [data-action=printed-history], [data-action=printed-rancheria-resources]')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(e.key==='Escape'&&stateUI.playerPanel){stateUI.playerPanel=null;stateUI.contextPieceId=null;stateUI.contextRancheriaId=null;stateUI.contextCardId=null;stateUI.targetMoveChoices=null;render();return;}if(e.key==='Escape'&&stateUI.tabletopChoices){stateUI.tabletopChoices=false;render();return;}if(e.key==='Escape'&&stateUI.tabletopDetails){stateUI.tabletopDetails=false;render();return;}if(e.key==='Escape'&&stateUI.mapConnectMode){stateUI.mapConnectMode=false;stateUI.edgeStart=null;render();}if(e.key==='Escape'&&stateUI.modal)closeModal();if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.target.matches('input, textarea')){e.preventDefault();undo();}});
 document.addEventListener('click',e=>{if(e.target.matches('[data-modal-backdrop]'))closeModal();});
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 render();

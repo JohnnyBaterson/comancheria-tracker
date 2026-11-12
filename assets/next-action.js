@@ -628,7 +628,7 @@ export function nextPlayerPrompt(s) {
           }
         }
         const candidates=s.pieces.filter(p=>p.type==='Band'&&Boolean(SPACE[p.location])&&!p.finished&&p.ratingConfirmed!==false&&s.tracks.ap>=p.strength);
-        return decision('Choose your next Band',`Activate a Band by paying its strength in AP. ${candidates.length?'Or finish taking actions when ready.':'No eligible AP activations are recorded.'}`,[...startChoices,...candidates.slice(0,8).map(p=>({label:`Activate ${p.label} (${p.strength} AP)`,command:{type:'ACTIVATE_BAND',id:p.id,mode:'ap'}})),...husbandry,...(s.tracks.operations===0?[{label:'Finish actions · advance Operations to 1',command:{type:'OPERATIONS_START_ADVANCE'}}]:[{label:'I checked printed card modifiers · roll Operations die',command:{type:'OPERATIONS_DIGITAL_ROLL',ack:true}}])]);
+        return decision('Choose your next Band',`Activate a Band by paying its strength in AP. ${candidates.length?'Or finish taking actions when ready.':'No eligible AP activations are recorded.'}`,[...startChoices,...candidates.map(p=>({label:`Activate ${p.label} (${p.strength} AP)`,command:{type:'ACTIVATE_BAND',id:p.id,mode:'ap'}})),...husbandry,...(s.tracks.operations===0?[{label:'Finish actions · advance Operations to 1',command:{type:'OPERATIONS_START_ADVANCE'}}]:[{label:'I checked printed card modifiers · roll Operations die',command:{type:'OPERATIONS_DIGITAL_ROLL',ack:true}}])]);
       }
     }
     if(s.operation==='Planning'){
