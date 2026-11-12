@@ -41,3 +41,8 @@ Saved-game import remains disabled. Do not commit original artwork or credential
 - New actions do not add navigation bars, side panels, off-board buttons or non-gameplay screens.
 
 Validation: JavaScript syntax checks across all files and 25 initial scenario choice reducer checks passed. Browser navigation was blocked in the test environment; interactive full-game verification is still required. No imported artwork is bundled.
+
+## v2.07 startup hotfix
+- Fixed startup ReferenceError: `clickDestinations is not defined` by accepting the destination set in `mapSpaceNode` (as passed by `boardMap`). The previous exception was incorrectly caught and labelled as local artwork failure.
+- Bumped service-worker cache key to `v2.07-click-destinations-fix` to prevent a stale offline app.js from surviving deployment.
+- Verified JavaScript syntax with Node.js. Browser smoke test was attempted but the environment rejected navigation to a local HTTP server (`net::ERR_BLOCKED_BY_ADMINISTRATOR`).

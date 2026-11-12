@@ -455,7 +455,7 @@ function bandActions(){const active=state.activeBandId&&state.pieces.find(p=>p.i
 }
 function spaceCount(id){return state.pieces.filter(x=>x.location===id).length;}
 function nodePieceGlyph(p){if(p.faceDown)return '?';return ({Band:'♞',Rancheria:'⌂',Settlement:'▥','War Column':'⚔',Bison:'◈',Resource:'◆',Tribe:'✽',Instruction:'✧',Marker:'●'})[p.type]||'●';}
-function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]}){
+function mapSpaceNode(sp,overlay,routePath=[],candidate={legal:[],blocked:[]},clickDestinations=new Set()){
  const id=sp.id,pos=boardImageUrl()?boardImagePosition(id):boardPosition(id);
  if(!pos)return '';
  const [x,y]=pos,here=state.pieces.filter(p=>p.location===id),count=here.length;
