@@ -1,15 +1,15 @@
 import {cupInventory,drawCupCounter,cupDrawable,revealCupCounter,recycleSpentEnemyAp} from './cup-system.js';
 import {componentStockAudit,componentStockKey,stockCertifiedTotal} from './component-stock.js';
 import {warCard,warMovementAllowance,warEventPreview} from './war-card-effects.js';
-import {MAP_EVIDENCE_EDGES, MAP_EVIDENCE_SOURCE, mapConnectionReconciliation} from './map-evidence.js';
+import {MAP_EVIDENCE_EDGES, MAP_EVIDENCE_SOURCE, MAP_TOPOLOGY_VERIFIED, canonicalBoardEdges, canonicalMapAudit, mapConnectionReconciliation} from './map-evidence.js';
 import {assertNoContradictedSouthLinks} from './map-fact-checks.js';
 /**
  * Comanchería tabletop companion — intentionally partial, versioned rules engine.
  * No GMT imagery or card text is redistributed. Source: Spring 2024 Living Rules.
  * A validated command is NOT a claim of full rules compliance. See README.
  */
-export const VERSION = '1.45.0-physical-artwork';
-const RAID_CUP_COMMANDS=['RAID_CUP_EMPTY_REDIRECT','RAID_CUP_SINGLE_BISON_HUNT','RAID_CUP_SAME_TERRITORY_HUNT','RAID_CUP_GUIDED_HUNT','RAID_CUP_GUIDED_ENCROACH','RAID_CUP_FORCED_ENCROACH','RAID_CUP_SINGLE_ALLY','RAID_CUP_CHOOSE_ALLY','RAID_CUP_CULTURE_ATTACK','RAID_CUP_SETTLE','RAID_CUP_SUBJUGATE','RAID_CUP_WAR_RAID','RAID_CUP_PEACE','RAID_CUP_EMPTY_HUNT','RAID_CUP_CONFIRM_EFFECT','RAID_CUP_ROLL_SWAP','RAID_CUP_REROLL_SWAP','RAID_CUP_EXCHANGE'];
+export const VERSION = '1.96.0-private-physical-activation';
+const RAID_CUP_COMMANDS=['RAID_CUP_AUTO_COLONIAL','RAID_CUP_AUTO_WAR_RAID','RAID_CUP_EMPTY_REDIRECT','RAID_CUP_SINGLE_BISON_HUNT','RAID_CUP_SAME_TERRITORY_HUNT','RAID_CUP_GUIDED_HUNT','RAID_CUP_GUIDED_ENCROACH','RAID_CUP_FORCED_ENCROACH','RAID_CUP_SINGLE_ALLY','RAID_CUP_CHOOSE_ALLY','RAID_CUP_CULTURE_ATTACK','RAID_CUP_SETTLE','RAID_CUP_SUBJUGATE','RAID_CUP_WAR_RAID','RAID_CUP_PEACE','RAID_CUP_EMPTY_HUNT','RAID_CUP_CONFIRM_EFFECT','RAID_CUP_ROLL_SWAP','RAID_CUP_REROLL_SWAP','RAID_CUP_EXCHANGE'];
 export const RULES_SOURCE = 'GMT Games, Comanchería Second Edition Living Rules, Spring 2024';
 // Die faces printed on the physical map; these are not geographical sort order.
 // 1 UA, 2 LA, 3 LE, 4 RR, 5 RG, 6 BC.
@@ -308,6 +308,9 @@ const CULTURE_NON_MODIFIER_CARDS=Object.freeze({
  '03':'War of Spanish Succession: Enemy Instruction exception',
  '09':'Counting Coup: rerolls only when held and played; in-play/display copy does not modify Culture or Operations',
  '21':'Mild Winter: when-revealed Bison replenishment, not a Culture/Operations modifier',
+ '06':'Epidemic: revealed effect and end-of-Take-Actions event; does not change the Planning Operations die',
+ '15':'Negotiation: optional Planning Headman Action ending a War; does not change the Operations die',
+ '18':'No Relief from War: hand-play during Recover; does not change the Operations die',
  '19':'End of Ute Alliance: Upper Arkansas control exception already evaluated in territoryControlAudit',
  '35':'Vibrant Population: played from hand to unfinish Bands',
  '36':'Painted Shields: hand-play during a Success Check'
@@ -325,7 +328,9 @@ export function cultureCardEffectAudit(s){
   const cultureId=c.kind==='Culture'?cultureIdentity(c)?.id:null;
   if(n&&Object.hasOwn(CULTURE_NON_MODIFIER_CARDS,n)) reviewed.push({cardId:c.id,number:n,reason:CULTURE_NON_MODIFIER_CARDS[n]});
   else if(cultureId&&Object.hasOwn(CULTURE_OPERATION_NON_MODIFIER_CARDS,cultureId))reviewed.push({cardId:c.id,number:cultureId,reason:CULTURE_OPERATION_NON_MODIFIER_CARDS[cultureId]});
-  else blockers.push({cardId:c.id,kind:c.kind,number:n||cultureId,reason:'No verified Culture/Operations non-modifier proof for this active card'});
+  else if(c.kind==='War'&&String(c.identifier||'').toUpperCase()==='W01')reviewed.push({cardId:c.id,number:'W01',reason:'Alert Pickets suppresses Tactics/Lords effects while in play; does not modify the Planning Operations check'});
+  else if(c.kind==='War'&&String(c.identifier||'').toUpperCase()==='W18')reviewed.push({cardId:c.id,number:'W18',reason:'Surrender Captives triggers after FINISH_BAND in a War Space, not during Planning Culture/Operations rolls'});
+  else blockers.push({cardId:c.id,kind:c.kind,number:n||cultureId||String(c.identifier||''),reason:'No verified Culture/Operations non-modifier proof for this active card'});
  }
  return {safe:!blockers.length,reviewed,blockers};
 }
@@ -394,7 +399,6 @@ export function rancheriaSacrificePreview(s,rancheriaId){
   return {ready:false,reason:`Resolve the ${cardId} War Event before choosing a Ranchería response.`};
  const obligation=warRancheriaObligations(s).find(x=>x.rancheriaId===rancheriaId);
  if(!obligation||!obligation.bandIds.length)return {ready:false,reason:'Choose a besieged Ranchería with at least one defending Band.'};
- if(obligation.warIds.length>6)return {ready:false,reason:'More than six columns require a separately verified random-selection procedure.'};
  const wars=obligation.warIds.map(id=>item(s,id));
  for(const w of wars){
   if(!ENEMY_COLUMNS.includes(w.owner))return {ready:false,reason:'An attacking War Column has an unknown enemy affiliation.'};
@@ -423,7 +427,6 @@ export function rancheriaFightPreview(s,rancheriaId){
  if(s.steps.w3==='done'&&card&&cardId!==s.warEventResolved&&(['W09','W10','W11','W12','W13'].includes(cardId)||(['W03','W04','W22'].includes(cardId)&&fastColumnEligible(s).length)))return {ready:false,reason:`Resolve the ${cardId} War Event first.`};
  const o=warRancheriaObligations(s).find(x=>x.rancheriaId===rancheriaId);
  if(!o||!o.bandIds.length)return {ready:false,reason:'This Ranchería has no eligible defending Band or War Column.'};
- if(o.warIds.length>6)return {ready:false,reason:'More than six War Columns requires a separate printed random-selection procedure.'};
  for(const id of o.warIds){
   const w=item(s,id);
   if(!ENEMY_COLUMNS.includes(w.owner))return {ready:false,reason:`${id} has no known Enemy affiliation.`};
@@ -494,6 +497,62 @@ export function battleRollPreview(s,cmd){
  const expected=won?(war.strength===1?'War Ends: return War Column and its paired Instruction to proper stock/display; participating Mahimiana medicine +1.':`Reduce War Column strength ${war.strength} → ${war.strength-1}; continue battle rounds.`):unit.type==='Tribe'?'Ally counter returns to its Enemy Instruction display; Tribe remains. Battle Ends; War does not end.':unit.strength===1?'Band reduced to zero: remove Band, return resources, resolve Mahimiana death; check Ranchería destruction or Battle End.':`Reduce Band strength ${unit.strength} → ${unit.strength-1}; fight another round.`;
  return {warId:war.id,warLocation:war.location,warStrength:war.strength,unitId:unit.id,unitType:unit.type,unitStrength:unit.strength,unitLocation:unit.location,rancheriaId:rancheria?.id||null,
    gunId,mahimianaId,dice,natural,warDrm,cardDrm,cultureDrm,mountainHowitzersDrm,coltWalkerDrm,cardReason:reason,base,finished,modified,won,expected};
+}
+/** A strictly constrained Battle round that can be calculated and reconciled
+ * as one undoable transaction. This does not choose optional Guns, medicine,
+ * defender order or unverified card effects on the player's behalf. */
+export function battleSafeRoundPreview(s, selectedUnitId=null){
+ if(s.phase!=='war'||s.battlePending||s.pending||s.successCheck||s.warMovement||s.developmentPending||s.enemyFlow)
+  return {ready:false,reason:'Finish the pending procedure before another Battle round.'};
+ const continuing=s.battleContinuation;
+ if(!continuing)return {ready:false,reason:'Begin the Battle normally; only its continuing rounds can be automated.'};
+ let eligible;
+ try{eligible=eligibleBattleUnits(s,continuing.warId);}catch(err){return {ready:false,reason:err.message};}
+ if(eligible.war.location!==continuing.warLocation)return {ready:false,reason:'The War Column moved during the Battle.'};
+ if(!eligible.units.length)return {ready:false,reason:'No eligible defending Band or Allied Tribe is recorded; reconcile the board before continuing.'};
+ if(eligible.units.length!==1 && !selectedUnitId)return {ready:false,reason:'Choose which eligible defender fights this Battle round.'};
+ const unit=selectedUnitId?eligible.units.find(u=>u.id===selectedUnitId):eligible.units[0];
+ if(!unit)return {ready:false,reason:'Chosen defender is not eligible to fight at this War Column.'};
+ if(s.pieces.some(p=>p.location===`held:${unit.id}`&&(p.subtype==='Guns'||p.type==='Mahimiana')))
+  return {ready:false,reason:'Guns or Mahimiana use is an optional player decision.'};
+ if(!warColumnBattleModifier(s,eligible.war))return {ready:false,reason:'The printed War Column DRM is unidentified.'};
+ // Only effects independently verified as Battle-neutral or already accounted for
+ // by battleRollPreview may pass the automated round preflight. 49/81 are
+ // calculated above (Colt-Walker and Mountain Howitzers); all others remain gated.
+ const battleReviewedDevelopment=new Set(['1','2','3','6','15','18','49','81']);
+ const unidentified=s.cards.find(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&!battleReviewedDevelopment.has(String(Number(c.identifier))));
+ if(unidentified)return {ready:false,reason:`An active Development #${unidentified.identifier} (${DEVELOPMENT_EFFECT_CATALOG[devNumber(unidentified)]?.name||'unverified'}) needs Battle-specific review; use the guided scorecard.`};
+ const unresolvedWarEvent=s.cards.find(c=>c.kind==='War'&&c.zone==='War Event');
+ // W01/W02 Alert Pickets suppress Tactics/Lords effects (already reflected
+ // in battleRollPreview); W18 Surrender Captives is a separate finish trigger.
+ // These verified faces do not introduce a Battle die modifier.
+ if(unresolvedWarEvent&&!['W01','W02','W18'].includes(String(unresolvedWarEvent.identifier).toUpperCase()))return {ready:false,reason:`War Event ${unresolvedWarEvent.identifier} requires its printed Battle effects reviewed.`};
+ if(s.cards.some(c=>c.kind==='Culture'&&c.zone==='In play'&&!['C01','C02','C05'].includes(String(c.identifier))))
+  return {ready:false,reason:'An active Culture effect requires Battle review.'};
+ if(s.cards.some(c=>c.kind==='Development'&&c.zone==='Hand'&&String(Number(c.identifier))==='9'))
+  return {ready:false,reason:'Counting Coup can reroll a Battle die; use the guided procedure.'};
+ try{
+  // Check the full card-independent roll preconditions before spending RNG.
+  battleRollPreview(s,{warId:eligible.war.id,unitId:unit.id,dice:[3],cardDrm:0,ack:true});
+ }catch(err){return {ready:false,reason:err.message};}
+ return {ready:true,warId:eligible.war.id,unitId:unit.id,reason:'Roll one seeded die and reconcile its verified consequences; the Battle continues or ends according to the counter ledger.'};
+}
+/** A War step-4 Battle can start through the same certified one-round
+ * transaction as continuation, but only after War movement, attrition and
+ * event steps. A Ranchería siege must use its separate paid defence choice.
+ * No defender, equipment, or unknown card exception is guessed. */
+export function battleSafeStartPreview(s, selectedUnitId=null){
+ if(s.phase!=='war'||s.battlePending||s.battleContinuation||s.pending||s.successCheck||s.warMovement||s.enemyFlow||s.developmentPending)
+  return {ready:false,reason:'Finish the current War procedure first.'};
+ if(!['done','na'].includes(s.steps?.w1)||!['done','na'].includes(s.steps?.w2)||!['done','na'].includes(s.steps?.w3)||s.steps?.w4==='done')
+  return {ready:false,reason:'War step 4 is not ready for a Battle.'};
+ const obligations=warBattleObligations(s).filter(o=>!o.exempt && !s.pieces.some(p=>p.type==='Rancheria'&&p.location===o.location));
+ if(!obligations.length)return {ready:false,reason:'No ordinary War-space Battle is due.'};
+ const o=obligations[0];
+ const probe=structuredClone(s);
+ probe.battleContinuation={warId:o.warId,warLocation:o.location};
+ const result=battleSafeRoundPreview(probe,selectedUnitId);
+ return result.ready?{...result,location:o.location}:{...result,warId:o.warId,location:o.location};
 }
 /** §7.2 / §2.6.1: settle a Band's defeat without orphaning possessions.
  * Unrelated Mahimianas may legally be held by this Band. All counter moves
@@ -758,7 +817,7 @@ export function resetEnemyDisplay(s){
 }
 /** Safeguard only verified adjacency and normal dashed-line restriction (§1.2, §3.1).
  * Nearest Ranchería / card-selected active War Column is still a MANUAL decision.
- * A recorded graph may omit map lines, so we do not declare targets legal or illegal. */
+ * The user-confirmed graph is complete; card effects can still change target legality. */
 export function warColumnStopUnits(s,warId){
  const w=item(s,warId), loc=w.location;
  if(w.type!=='War Column'||!SPACE[loc])fail('Select a War Column in a map space.');
@@ -790,6 +849,15 @@ export function warEndsPreview(s, warId){
  if(war.specialNorthInstructionG)fail('A North G War Column is governed by the special card restriction: do not return G to the Instruction Display. Resolve its destination under the printed rules before War Ends.');
  const slot=DISPLAY_ROWS.find(row=>!s.pieces.some(p=>p.id!==instruction.id&&p.location===`enemy-display:${war.owner}:${row}`));
  return {warId:war.id,instructionId:instruction.id,enemy:war.owner,from:war.location,destination:slot?`enemy-display:${war.owner}:${slot}`:'cup'};
+}
+/** War movement carries its paired War/Raid Instruction. A War Column
+ * cannot be moved alone when its paired printed counter is on that space.
+ * Missing pairs are left to legacy reconciliation rather than fabricated. */
+function relocateWarWithPairedInstruction(s,w,to){
+ const partners=s.pieces.filter(p=>p.type==='Instruction'&&p.owner===w.owner&&p.location===w.location&&['War','Raid'].includes(p.subtype));
+ if(partners.length>1)fail(`War Column ${w.id} has multiple paired Instructions; reconcile before movement.`);
+ if(partners.length===1)partners[0].location=to;
+ w.location=to;
 }
 export function resolveWarEnds(s, warId){
  const plan=warEndsPreview(s,warId);
@@ -859,17 +927,63 @@ export function peaceWarColumnPreview(s){
  if(mode==='war-ends'||mode==='no-targets'&&war.strength===1){
   try{warEndsPreview(s,war.id);}catch(e){return {ready:false,reason:e.message};}
  }
- return {ready:true,mode,warId:war.id,from:war.location,cost:peace.strength,strength:war.strength,
-  reason:mode==='engaged'?'War Column shares a space with a defender: Peace has no other effect.':mode==='war-ends'?'War strength is below Peace AP cost: War Ends.':mode==='no-targets'?'No visible Ranchería/Band: verify no target, lose 1 strength, then check attrition if column survives.':'Move one map connection according to §3.1, then roll attrition.'};
+ // Peace follows the same War Column shortest-route restriction. Only expose
+ // automatic movement if the path is unique and no unhandled Development
+ // modifier can change targeting, movement, or attrition.
+ const path=mode==='advance'?enemyWarAdvanceAudit(s,war.id):null;
+ const unhandled=s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&
+  (!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required')));
+ const automaticTo=mode==='advance'&&path?.ready&&!unhandled?path.to:null;
+ return {ready:true,mode,warId:war.id,from:war.location,cost:peace.strength,strength:war.strength,automaticTo,
+  reason:mode==='engaged'?'War Column shares a space with a defender: Peace has no other effect.':mode==='war-ends'?'War strength is below Peace AP cost: War Ends.':mode==='no-targets'?'No visible Ranchería/Band: verify no target, lose 1 strength, then check attrition if column survives.':automaticTo?'Unique next War connection for Peace is calculated from the confirmed graph.':path?.reason||'Uncertified card effects prevent automatic Peace movement.'};
+}
+/** Canonical-graph one-space War/Raid advance. Only return a target when
+ * the rules' Rancheria-before-Band preference and shortest-path movement
+ * leave exactly one next connection. Ambiguous next steps remain guided.
+ * This is used by display and cup Instructions alike. */
+export function enemyWarAdvanceAudit(s, warId){
+ const war=item(s,warId);
+ if(war.type!=='War Column'||!SPACE[war.location]||!ENEMY_COLUMNS.includes(war.owner))fail('A mapped War Column is required.');
+ const legal=s.edges.filter(e=>(e.a===war.location||e.b===war.location)&&(war.owner==='North'||e.kind!=='dashed'))
+  .map(e=>e.a===war.location?e.b:e.a).filter(to=>SPACE[to]);
+ const visible=p=>SPACE[p.location]&&(war.owner==='North'||p.location!=='PD');
+ const rancherias=s.pieces.filter(p=>p.type==='Rancheria'&&visible(p));
+ const bands=s.pieces.filter(p=>p.type==='Band'&&p.strength>0&&visible(p));
+ const targets=rancherias.length?rancherias:bands;
+ if(!targets.length)return {ready:false,reason:'No visible Rancheria or Band; resolve the printed no-target War rule.',legal,targets:[]};
+ const ranked=targets.map(p=>({id:p.id,location:p.location,distance:shortestRecordedDistance(s,war.location,p.location,{war:war.owner!=='North'})}))
+  .filter(x=>x.distance!==null).sort((a,b)=>a.distance-b.distance||a.location.localeCompare(b.location)||a.id.localeCompare(b.id));
+ if(!ranked.length)return {ready:false,reason:'No legal path to a visible defender on the fixed map.',legal,targets:[]};
+ const nearest=ranked.filter(x=>x.distance===ranked[0].distance);
+ // An equal-distance target tie must never be silently resolved by the
+ // alphabetical sort used to make audits deterministic. Moving is safe
+ // only if *every* equally nearest target has the same single next step.
+ const nextSteps=nearest.map(target=>({target,steps:legal.filter(to=>shortestRecordedDistance(s,to,target.location,{war:war.owner!=='North'})===target.distance-1).sort()}));
+ const common=nextSteps.length&&nextSteps.every(x=>x.steps.length===1&&x.steps[0]===nextSteps[0].steps[0]);
+ if(!common)return {ready:false,reason:`${nearest.length} equally near defender(s) do not determine a single shared next connection; resolve the printed target/movement tie.`,legal,targets:ranked,choices:[...new Set(nextSteps.flatMap(x=>x.steps))].sort()};
+ return {ready:true,to:nextSteps[0].steps[0],target:nearest.length===1?nearest[0]:null,legal,targets:ranked,reason:nearest.length===1?`Unique next map connection toward ${nearest[0].id} (${nearest[0].distance} connections away).`:`All ${nearest.length} equally nearest defenders require the same next map connection.`};
 }
 /** Enemy War §6.3.10 and North Raid §6.3.6. Read-only preflight.
- * Printed map route/nearest-target evidence is still needed on the partial graph.
+ * The confirmed graph resolves unique next connections; true ties and card exceptions stay guided.
  */
 export function enemyWarRaidPreview(s){
  const f=s.enemyFlow;
  if(!f||f.stage!=='effect'||!f.currentId)return {ready:false,reason:'Select an Enemy War or Raid Instruction.'};
- const instruction=s.pieces.find(p=>p.id===f.currentId),kind=instructionName(instruction);
+ const instruction=s.pieces.find(p=>p.id===f.currentId),printedKind=instructionName(instruction);
+ // Living Rules §6.3.9: a Subjugate with no eligible Tribe or legal
+ // Settlement executes War with the Subjugate counter's original AP cost.
+ // Never substitute an invented War counter or change the printed face.
+ const redirect=printedKind==='Subjugate'&&['West','South','East'].includes(f.enemy)&&
+   !subjugateTargetAudit(s,f.enemy).nearestKnown&&
+   !(s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&
+      (p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]))&&settleTargetAudit(s,f.enemy).nearestKnown);
+ const kind=redirect?'War':printedKind;
  if(!['War','Raid'].includes(kind))return {ready:false,reason:'Selected instruction is not War or Raid.'};
+ if(redirect){
+  const squares=f.enemy==='West'?['W']:f.enemy==='South'?['S']:['E1','E2'];
+  if(s.pieces.some(p=>p.subtype==='Peace'&&squares.includes(p.location)))
+   return {ready:false,reason:'At Peace: Subjugate redirects to Culture Attack, not War.'};
+ }
  if(kind==='Raid'&&f.enemy!=='North'||kind==='War'&&f.enemy==='North')return {ready:false,reason:'Raid belongs to North; colonial enemies use War.'};
  if([f.recoverResolved,f.subjugateResolved,f.settleResolved,f.cultureAttackResolved,f.huntResolved,f.encroachResolved,f.allyResolved,f.peaceResolved,f.peaceWarResolved,f.warRaidResolved,f.cardNoEffectResolved].some(Boolean))return {ready:false,reason:'An Instruction effect is already resolved.'};
  const blocking=enemyCardExceptionPreview(s)?.effect;
@@ -885,9 +999,15 @@ export function enemyWarRaidPreview(s){
   if(paired.length!==1)return {ready:false,reason:'Existing War Column must have one physically paired War/Raid Instruction.'};
   if(warColumnStopUnits(s,war.id).length)return {ready:true,mode:'engaged',kind,warId:war.id,from:war.location,reason:'Column already engaged; Instruction ends without moving.'};
   const legal=s.edges.filter(e=>(e.a===war.location||e.b===war.location)&&(f.enemy==='North'||e.kind!=='dashed')).map(e=>e.a===war.location?e.b:e.a);
-  if(!legal.length)return {ready:false,reason:'No recorded legal connection for one-space movement; verify map graph.'};
-  return {ready:true,mode:'advance',kind,warId:war.id,from:war.location,legal,reason:'Move the active column with its paired Instruction, then roll attrition. Printed priority must be verified.'};
+  if(!legal.length)return {ready:false,reason:'No legal outgoing connection for this War Column.'};
+  const path=enemyWarAdvanceAudit(s,war.id);
+  return {ready:true,mode:'advance',kind,warId:war.id,from:war.location,legal,automaticTo:path.ready?path.to:null,pathReason:path.reason,reason:path.ready?'Unique shortest legal War movement is calculated from the canonical graph.':'Move the active column with its paired Instruction, then roll attrition; '+path.reason};
  }
+ // The printed War Column definition requires an actual War Instruction.
+ // When Subjugate redirects into a *new* War formation, its pairing
+ // semantics are not yet certified. Do not put a Subjugate counter on the
+ // board pretending it has a War face; existing columns are safe to move.
+ if(redirect)return {ready:false,redirect:'War',reason:'Subjugate redirects to War, but a new War Column requires a verified War Instruction pairing. Do not place the Subjugate counter as a fabricated War face.'};
  const recovery=recoverTargetAudit(s,f.enemy);
  if(recovery.candidates.length||recovery.ambiguousRavaged.length)return {ready:false,reason:'Recover priority applies; resolve History Card threshold before War/Raid.'};
  if(kind==='Raid'){
@@ -896,7 +1016,17 @@ export function enemyWarRaidPreview(s){
   if(!s.pieces.some(p=>p.type==='Rancheria'&&SPACE[p.location])&&!s.pieces.some(p=>p.type==='Band'&&SPACE[p.location]))return {ready:false,reason:'No recorded Ranchería or Band to establish nearest Tribe.'};
   const stock=s.pieces.filter(p=>p.type==='War Column'&&p.owner==='North'&&p.location==='reserve');
   if(!stock.length)return {ready:false,reason:'No available North War Column counter in physical stock.'};
-  return {ready:true,mode:'form-raid',kind,warStock:stock.map(p=>({id:p.id,label:p.label})),tribes:tribes.map(p=>({id:p.id,location:p.location,label:p.label})),reason:'Verify the nearest non-Allied Tribe(s), then seeded random selection forms the Raid Column.'};
+  // Living Rules 6.3.6 step 3: choose randomly among non-Allied Tribes
+  // at the smallest distance to ANY in-play Ranchería. Only if there are
+  // no Rancherías on the map do Bands become eligible origins. Dashed links
+  // count for North, as specified by the printed rule.
+  const rancherias=s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location]);
+  const anchors=rancherias.length?rancherias:s.pieces.filter(p=>p.type==='Band'&&p.strength>0&&SPACE[p.location]);
+  const ranked=tribes.map(t=>({id:t.id,d:Math.min(...anchors.map(a=>shortestRecordedDistance(s,a.location,t.location)??Infinity))})).filter(t=>Number.isFinite(t.d));
+  const minimum=ranked.length?Math.min(...ranked.map(t=>t.d)):Infinity;
+  const automaticTiedTribeIds=ranked.filter(t=>t.d===minimum).map(t=>t.id).sort();
+  const automaticTribeId=automaticTiedTribeIds.length===1?automaticTiedTribeIds[0]:null;
+  return {ready:true,mode:'form-raid',kind,warStock:stock.map(p=>({id:p.id,label:p.label})),tribes:tribes.map(p=>({id:p.id,location:p.location,label:p.label})),automaticTribeId,automaticTiedTribeIds,reason:automaticTribeId?'Unique shortest distance from any in-play Ranchería (or Band if no Ranchería), per §6.3.6.':automaticTiedTribeIds.length?'Equal minimum distance from an in-play Ranchería (or Band if no Ranchería); randomly select a Tribe per §6.3.6.':'No reachable eligible Tribe under the recorded map.'};
  }
  const squares=f.enemy==='West'?['W']:f.enemy==='South'?['S']:['E1','E2'];
  const peace=s.pieces.filter(p=>p.type==='Instruction'&&instructionName(p)==='Peace'&&squares.includes(p.location));
@@ -911,7 +1041,12 @@ export function enemyWarRaidPreview(s){
  const stock=s.pieces.filter(p=>p.type==='War Column'&&p.owner===f.enemy&&p.counterFaction===army&&p.location==='reserve');
  if(!stock.length)return {ready:false,reason:'No available War Column family for the current printed colonial army in stock.'};
  const settlements=s.pieces.filter(p=>p.type==='Settlement'&&SPACE[p.location]&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy])).length;
- return {ready:true,mode:'form-war',kind,squares,settlements,strength:Math.min(8,instruction.strength+settlements),reason:'Form colonial War Column, AP cost plus in-play Settlements, maximum 8; check card modifiers.'};
+ // Only certify the no-modifier branch with a single physical counter.
+ // Other printed cards may override formation strength: do not assume a
+ // zero modifier merely because the engine has not encoded their text.
+ const automaticFormation=stock.length===1&&s.cards.filter(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)).every(c=>['01','02','03'].includes(devNumber(c)))&&
+  s.cards.filter(c=>c.kind==='History'&&c.zone==='In play').every(c=>['H1','H2','H3','H4'].includes(String(c.identifier||'')));
+ return {ready:true,mode:'form-war',kind,squares,settlements,strength:Math.min(8,instruction.strength+settlements),warStock:stock.map(p=>({id:p.id,label:p.label})),automaticFormation,reason:automaticFormation?'One verified physical War counter, printed base strength and no unhandled active formation modifier: automatic formation is available.':'Form colonial War Column, AP cost plus in-play Settlements, maximum 8; check card modifiers.'};
 }
 /** Military/Culture deficit substitution from Living Rules 2.11.2 and 2.11.3. */
 export function pointLossPreview(s,track,amount){
@@ -957,7 +1092,7 @@ function setupBasePieces(s){
   }
   const [gKind,gCost]=ENEMY_INSTRUCTION_G_FRONTS[enemy];
   const [gBack,gBackCost]=VERIFIED_ENEMY_COUNTER_BACKS[`${enemy}:G`];
-  s.pieces.push(makeTemplatePiece(`setup-instruction-${enemy}-G`,'Instruction',gKind,`${enemy} G · ${gKind} ${gCost}`,enemy==='North'?'operations':s.scenario==='downfall'&&enemy==='South'?'cup':'reserve',gCost,
+  s.pieces.push(makeTemplatePiece(`setup-instruction-${enemy}-G`,'Instruction',gKind,`${enemy} G · ${gKind} ${gCost}`,enemy==='North'?'operations':s.scenario==='downfall'&&enemy==='South'?'cup':'out-of-play',gCost,
      {owner:enemy,frontKind:gKind,frontCost:gCost,backKind:gBack,backCost:gBackCost,flipped:false,faceEvidence:'TTS-counter-sheet'}));
  }
  for(const [subtype,count] of [['Success',10],['Enemy AP 4',5],['Enemy AP 3',4],['Enemy AP 2',3]])
@@ -1004,6 +1139,31 @@ function setupDevelopmentCards(s){
  s.cards.push(...Array.from({length:84},(_,i)=>({id:`setup-dev-${i+1}`,kind:'Development',identifier:String(i+1),title:'',zone:zone(i+1),notes:'',evidenceStatus:'unverified',sourceReference:''})));
  s.setupDevelopmentPriority=isDownfall?['43','44']:[];
 }
+// Owner-counted physical resource stock; every counter exists as one unique piece.
+// A scenario places existing pieces; it must never manufacture extra stock.
+export const OWNER_VERIFIED_RESOURCE_STOCK=Object.freeze({Horse:16,Guns:4,Captives:5,'Trade Goods':5,Food:5,Bison:18});
+function populationValue(p){
+ if(p.type==='Bison')return 1;
+ if(p.type!=='Resource')return 0;
+ if(p.subtype==='Food')return 2;
+ if(p.subtype==='Captives')return 1;
+ return 0;
+}
+function completePhysicalResourceStock(s){
+ if(s.setupTemplate!=='official' && s.pieces.length===0)return;
+ for(const [subtype,total] of Object.entries(OWNER_VERIFIED_RESOURCE_STOCK)){
+  const isBison=subtype==='Bison';
+  const pieces=s.pieces.filter(p=>isBison?p.type==='Bison':p.type==='Resource'&&(p.subtype===subtype||(subtype==='Horse'&&p.subtype==='Horses')));
+  if(pieces.length>total)fail(`Physical stock exceeds owner-counted ${subtype} total (${pieces.length}/${total}).`);
+  const existingIds=new Set(s.pieces.map(p=>p.id));
+  for(let i=1;i<=total-pieces.length;i++){
+   let n=i,id;
+   do{id=`stock-certified-${isBison?'bison':subtype.toLowerCase().replaceAll(' ','-')}-${n++}`;}while(existingIds.has(id));
+   existingIds.add(id);
+   s.pieces.push(makeTemplatePiece(id,isBison?'Bison':'Resource',isBison?'':subtype,subtype,'reserve',0,{stockEvidence:'owner-counted physical-game stock'}));
+  }
+ }
+}
 function setupDownfall(s){
  s.colonial={West:'Spain',South:'Spain',East:'Texas'};
  s.pieces.push(...DOWNFALL_SETTLEMENTS.map(([loc,owner])=>makeTemplatePiece(`setup-settlement-${loc}`,'Settlement',owner,`${owner} settlement`,loc,0,{owner})));
@@ -1019,6 +1179,7 @@ function setupDownfall(s){
  for(let i=1;i<=2;i++)s.pieces.push(makeTemplatePiece(`setup-downfall-band1-${i}`,'Band','','Strength-1 Band','reserve',1,{ratingConfirmed:true,mpRating:6}));
  for(let i=1;i<=8;i++)s.pieces.push(makeTemplatePiece(`setup-downfall-horse-${i}`,'Resource','Horse','Horse','reserve'));
  s.pieces.push(makeTemplatePiece('setup-downfall-trade','Resource','Trade Goods','Trade Goods','reserve'));
+ completePhysicalResourceStock(s);
  s.setupChecklist={
   'bison':'Enter all nine random Bison spaces from your dice (§9.5.E).',
   'rancherias':'Choose Rancherías A–C in three territories, controlling two (§9.5.F).',
@@ -1035,13 +1196,34 @@ function setup1700(s){
  s.medicine={paraibo:2,mahimiana:2};
  s.pieces.push(makeTemplatePiece('setup-ranch-A','Rancheria','A','Ranchería A','UA-1'));
  for(const loc of OPENING_TRIBE_SPACES)s.pieces.push(makeTemplatePiece(`setup-tribe-${loc}`,'Tribe','','Tribe',loc));
- s.pieces.push(makeTemplatePiece('setup-tribe-stock-1','Tribe','','Tribe in Out of Play stock','reserve'));
+ s.pieces.push(makeTemplatePiece('setup-tribe-stock-1','Tribe','','Tribe in Out of Play stock','reserve',0,{stockZone:'out-of-play'}));
  const occupied=new Set([...OPENING_TRIBE_SPACES,'UA-1']);
  for(const loc of SPACES.filter(x=>x.type==='round').map(x=>x.id).filter(x=>!occupied.has(x)))s.pieces.push(makeTemplatePiece(`setup-bison-${loc}`,'Bison','','Bison',loc));
  for(let i=1;i<=3;i++)s.pieces.push(makeTemplatePiece(`setup-band-${i}`,'Band','',`Band A${i}`,'box:setup-ranch-A',2,{ratingConfirmed:true,mpRating:5,notes:'Original strength-2 / 5-MP printed Band counter.'}));
  for(let i=1;i<=4;i++)s.pieces.push(makeTemplatePiece(`setup-horse-${i}`,'Resource','Horse','Horse','box:setup-ranch-A'));
+ // All 53 owner-counted Resource and Bison counters must be registered.
+ // The four opening Horses stay in A; all unplaced stock remains Available.
+ completePhysicalResourceStock(s);
+ // The remaining printed strength-2 and strength-3 Bands are not destroyed.
+ for(let i=4;i<=5;i++)s.pieces.push(makeTemplatePiece(`setup-band2-stock-${i}`,'Band','',`Unused 2–5 Band ${i}`,'out-of-play',2,{ratingConfirmed:true,mpRating:5}));
+ for(let i=1;i<=3;i++)s.pieces.push(makeTemplatePiece(`setup-band3-stock-${i}`,'Band','',`Unused 3–4 Band ${i}`,'out-of-play',3,{ratingConfirmed:true,mpRating:4}));
+ // §9.5.G establishes at least two physical 1–6 Band counters.
+ for(let i=1;i<=2;i++)s.pieces.push(makeTemplatePiece(`setup-band1-stock-${i}`,'Band','',`Unused 1–6 Band ${i}`,'out-of-play',1,{ratingConfirmed:true,mpRating:6,stockEvidence:'minimum'}));
+ for(const owner of ['West','South','East'])
+  s.pieces.push(makeTemplatePiece(`setup-settlement-${owner.toLowerCase()}-stock`,'Settlement',owner,`${owner} Settlement`,'out-of-play',0,{owner}));
+ // On the printed board, Rancherías B–E and all three of their respective
+ // headman counters occupy their own Resources boxes until established.
+ for(const letter of 'BCDE'){
+  const id=`setup-ranch-${letter}`;
+  s.pieces.push(makeTemplatePiece(id,'Rancheria',letter,`Ranchería ${letter}`,`box:${id}`));
+  s.pieces.push(makeTemplatePiece(`setup-mahimiana-${letter}`,'Mahimiana',letter,`Mahimiana ${letter}`,`box:${id}`,0,{affiliatedRancheriaId:id}));
+  s.pieces.push(makeTemplatePiece(`setup-paraibo-${letter}`,'Paraibo',letter,`Paraibo ${letter}`,`box:${id}`,0,{affiliatedRancheriaId:id}));
+  s.pieces.push(makeTemplatePiece(`setup-mahimiana-medicine-${letter}`,'Marker','Mahimiana Medicine',`Mahimiana ${letter} Medicine`,`box:${id}`,0,{affiliatedRancheriaId:id}));
+ }
+
  s.pieces.push(makeTemplatePiece('setup-mahimiana-A','Mahimiana','A','Mahimiana A','box:setup-ranch-A',0,{medicine:2,affiliatedRancheriaId:'setup-ranch-A'}));
  s.pieces.push(makeTemplatePiece('setup-paraibo-A','Paraibo','A','Paraibo A','box:setup-ranch-A',0,{medicine:2,affiliatedRancheriaId:'setup-ranch-A'}));
+ s.pieces.push(makeTemplatePiece('setup-mahimiana-medicine-A','Marker','Mahimiana Medicine','Mahimiana A Medicine','medicine:setup-mahimiana-A',0,{affiliatedRancheriaId:'setup-ranch-A'}));
  s.setupChecklist={
   'cards-war':'Shuffle 25 War Cards (§9.1.3).',
   'cards-culture':'Select up to one free Level 1 Culture Card (§9.2.J); declining is allowed.',
@@ -1070,7 +1252,7 @@ function installOpeningTemplate(s){
   s.edges.push({...evidence,source:'board-photo',verifiedByPlayer:false});
  }
  const label=SCENARIOS.find(x=>x[0]===s.scenario)[1];
- s.setupNote=`Official ${label} setup, GMT Living Rules §§9.1 and ${SCENARIO_DETAILS[s.scenario].rule}. Player decisions and unverified card effects are explicitly gated; supplied map evidence is partial.`;
+ s.setupNote=`Official ${label} setup, GMT Living Rules §§9.1 and ${SCENARIO_DETAILS[s.scenario].rule}. Player decisions and unverified card effects are explicitly gated; map connections are user-confirmed and fixed.`;
 }
 /** Verifies facts already present in the official opening ledger.
  * Deliberately excludes printed Band movement ratings, shuffled card order,
@@ -1098,8 +1280,9 @@ export function openingLedgerAudit(s){
  const cupOK=markers.length===22&&count('Success')===10&&count('Enemy AP 4')===5&&count('Enemy AP 3')===4&&count('Enemy AP 2')===3;
  // The 1700 printed setup fixes several tracks; later phases legitimately change them.
  if(s.scenario!=='downfall'){
-  const chiefs=s.pieces.filter(p=>['Paraibo','Mahimiana'].includes(p.type));
-  add('medicine',chiefs.length===2&&chiefs.every(p=>p.medicine===2),'1700 headmen must both start at Medicine 2.');
+  const chiefs=s.pieces.filter(p=>['Paraibo','Mahimiana'].includes(p.type)&&p.affiliatedRancheriaId==='setup-ranch-A');
+  const inactiveChiefs=s.pieces.filter(p=>['Paraibo','Mahimiana'].includes(p.type)&&p.affiliatedRancheriaId!=='setup-ranch-A');
+  add('medicine',chiefs.length===2&&chiefs.every(p=>p.medicine===2)&&inactiveChiefs.length===8&&inactiveChiefs.every(p=>p.location===`box:${p.affiliatedRancheriaId}`),'1700 headmen must both start at Medicine 2.');
   add('operations',s.tracks.military===3&&s.tracks.culture===3&&s.tracks.ap===1&&s.tracks.enemyAp===0&&s.tracks.operations===0&&s.tracks.movement===0,'Verify the fixed §9.2 tracks; do not claim printed counter shuffling.');
   const cards=s.cards.filter(c=>c.kind==='Development');
   add('cards-development',cards.length===84&&cards.every(c=>{const n=Number(c.identifier);const expected=n<=3?'In play':n<=21?'Deck':n<=({plains:21,rise:42,lords:63,campaign:84}[s.scenario]||84)?'Available':'Removed';return c.zone===expected;}),'Development cards 1–3 must be in play and 4–21 in the initial deck.');
@@ -1141,7 +1324,7 @@ export function newGame(scenario='plains',demo=false){
  const game={schema:3,version:VERSION,scenario,period:scenario==='downfall'?3:1,phase:'setup',operation:null,
    rng:{algorithm:'xorshift32',seed:DEFAULT_SEED,rolls:0},operationEvents:{cultureGain:false,operationsRoll:false},medicine:{paraibo:null,mahimiana:null},colonial:{West:'None',South:'None',East:'None'},setupChecklist:{},setupConfirmed:{},
    tracks:{military:0,culture:0,ap:0,enemyAp:0,movement:0,operations:0,passage:0},mustPassage:false,
-   activeBandId:null,steps:{},pieces:[],cards:[],edges:[],mapReview:{},enemyFlow:null,pending:null,successCheck:null,lastSuccessCheck:null,raidCupResolution:null,revision:0,passageRetiredIds:[],passageProminentExemptIds:[],passageQuanahExemptId:null,passagePeaceRolls:{},passageBison:null,passageDevelopment:null,passageResult:null,victoryPending:null,gameResult:null,
+   activeBandId:null,steps:{},pieces:[],cards:[],edges:canonicalBoardEdges(),mapReview:{},enemyFlow:null,pending:null,successCheck:null,lastSuccessCheck:null,raidCupResolution:null,revision:0,passageRetiredIds:[],passageProminentExemptIds:[],passageQuanahExemptId:null,passagePeaceRolls:{},passageBison:null,passageDevelopment:null,passageResult:null,victoryPending:null,gameResult:null,
    countermeasureWindow:null,developmentPending:null,developmentPlanningApplied:false,epidemicTakeActionsApplied:false,greatHuntBandId:null,battlePending:null,battleContinuation:null,battleRounds:[],battleExemptions:{},warMovement:null,planningEnemyChoice:null,log:[],createdAt:new Date().toISOString(),setupNote:'Select an official scenario and load its printed setup (§9).',setupTemplate:null,setupCultureSpent:0,setupCultureFinished:false,setupDevelopmentPriority:[],setupDevelopmentRoll:null,
    enemySelection:null,notes:'',flags:{santaFe:false},limits:{},stockVerifiedTotals:{},quality:{manual:0,verified:0}};
  if(demo){game.tracks={military:3,culture:2,ap:4,enemyAp:1,movement:0,operations:1,passage:0};
@@ -1159,7 +1342,7 @@ export function newGame(scenario='plains',demo=false){
 function sHasMahimiana(s,id){return s.pieces.some(p=>p.id===id&&p.type==='Mahimiana'&&p.location!=='removed');}
 function sHasHeadman(s,id){return s.pieces.some(p=>p.id===id&&['Mahimiana','Paraibo'].includes(p.type)&&p.location!=='removed');}
 function validateLocation(state,location,selfId){
- if(isMap(location)||['reserve','removed','operations','cup','enemy-display','hand','deck','success-out','available-enemy-aps','enemy-resolution'].includes(location))return;
+ if(isMap(location)||['reserve','out-of-play','removed','operations','cup','enemy-display','hand','deck','success-out','available-enemy-aps','enemy-resolution'].includes(location))return;
  if(location.startsWith('medicine:') && sHasHeadman(state,location.slice(9)))return;
  if(/^enemy-display:(West|South|East|North):[A-F]$/.test(location)||/^enemy-inactive:[A-F]$/.test(location))return;
  if(location.startsWith('box:')&&!(!exists(state,location.slice(4))|| !boxExists(state,location.slice(4))))return;
@@ -1174,9 +1357,10 @@ export function mapSpaceSignature(s,space){
  return s.edges.filter(e=>e.a===space||e.b===space).map(e=>`${e.a===space?e.b:e.a}:${e.kind}:${[...(e.enemyFor||[])].sort().join('+')||'white'}`).sort().join('|');
 }
 export function mapReviewAudit(s){
+ const canonical=canonicalMapAudit(s.edges).verified;
  const rows=SPACES.map(sp=>({id:sp.id,name:sp.name,edges:s.edges.filter(e=>e.a===sp.id||e.b===sp.id).length,
-   reviewed:Boolean(s.mapReview?.[sp.id] && s.mapReview[sp.id].signature===mapSpaceSignature(s,sp.id)),
-   stale:Boolean(s.mapReview?.[sp.id] && s.mapReview[sp.id].signature!==mapSpaceSignature(s,sp.id))}));
+   reviewed:canonical||Boolean(s.mapReview?.[sp.id] && s.mapReview[sp.id].signature===mapSpaceSignature(s,sp.id)),
+   stale:!canonical&&Boolean(s.mapReview?.[sp.id] && s.mapReview[sp.id].signature!==mapSpaceSignature(s,sp.id))}));
  return {rows,reviewed:rows.filter(r=>r.reviewed).length,stale:rows.filter(r=>r.stale).length,total:rows.length,
    complete:rows.every(r=>r.reviewed),unreviewed:rows.filter(r=>!r.reviewed).map(r=>r.id)};
 }
@@ -1250,6 +1434,17 @@ export function fastColumnEligible(s){
 /** Player-choice War countermeasures that trigger on FINISH_BAND.  A choice
  * is offered only with enough recorded pieces to satisfy its printed trigger.
  * Source: owner-supplied W07/W08, W18–W21, W24 card faces. */
+/** Santa Fé Trail §3.4 step 4: the authoritative graph determines the
+ * nearest currently eligible Wagon Train space to the northern East square.
+ * Return all equally near spaces; never invent a tie-break rule. */
+export function santaFeTrailPlacementPreview(s){
+ const candidates=['LE-1','UA-3','UA-4','UA-5','UA-6']
+  .filter(to=>!s.pieces.some(p=>p.location===to&&(['Band','Rancheria','Settlement'].includes(p.type)||p.faceDown===true)))
+  .map(to=>({to,distance:shortestRecordedDistance(s,'E1',to)}))
+  .filter(x=>x.distance!==null);
+ const nearest=candidates.length?Math.min(...candidates.map(x=>x.distance)):null;
+ return {origin:'E1',candidates,nearest,choices:candidates.filter(x=>x.distance===nearest),unique:candidates.filter(x=>x.distance===nearest).length===1};
+}
 function shortestRecordedDistance(s,start,destination,{war=false}={}){
  if(start===destination)return 0;
  const seen=new Set([start]),queue=[[start,0]];
@@ -1617,6 +1812,31 @@ function startSmallpoxEnd(s,c){
 }
 
 function seededSelect(s,items){if(!items.length)return null;const r=rollSeededDie(s.rng.seed);s.rng.seed=r.seed;s.rng.rolls++;return items[(r.seed>>>0)%items.length];}
+/** Living Rules §2.2: random selection assigns every option equal odds.
+ * Draw enough independent six-sided dice to cover the full list; discard
+ * out-of-range values rather than wrapping/modulo-biased target indices.
+ * This also works for >6 options without inventing a six-target limit.
+ * All consumed faces, including rejected attempts, persist in the save RNG.
+ */
+export function equalOddsSeededChoice(state,items){
+ if(!Array.isArray(items)||!items.length)throw Error('Random selection requires at least one candidate.');
+ if(items.length===1)return {choice:items[0],faces:[],attempts:0};
+ let range=6,digits=1;
+ while(range<items.length){range*=6;digits++;}
+ const usable=Math.floor(range/items.length)*items.length;
+ const faces=[];let attempts=0;
+ for(;;){
+  if(++attempts>10000)throw Error('Seeded random selection exceeded safe reroll limit.');
+  let value=0;
+  for(let i=0;i<digits;i++){
+   const die=rollSeededDie(state.rng.seed);
+   state.rng.seed=die.seed;state.rng.rolls++;
+   faces.push(die.face);value=value*6+die.face-1;
+  }
+  if(value<usable)return {choice:items[value%items.length],faces,attempts};
+ }
+}
+
 /** Resolve a disease strength loss through the same zero-strength Band cleanup
  * used in battle (§2.6.1). Preflight the whole selected group before changing
  * any counter, so one ambiguous possession cannot leave a half-applied disease.
@@ -2320,7 +2540,7 @@ export function enemyColorNetwork(state,enemy,start=null){
  if(origins.some(x=>!SPACE[x]))fail('Unknown origin for Enemy Connection analysis.');
  const graph=new Map(SPACES.map(x=>[x.id,[]]));
  let eligibleLinks=0,unclassified=0;
- for(const e of state.edges){
+ for(const e of MAP_EVIDENCE_EDGES){
   if(!SPACE[e.a]||!SPACE[e.b])continue;
   if(!Array.isArray(e.enemyFor)||!e.enemyFor.length){unclassified++;continue;}
   if(!e.enemyFor.includes(enemy))continue;
@@ -2333,13 +2553,13 @@ export function enemyColorNetwork(state,enemy,start=null){
  }
  return {enemy,origins,eligibleLinks,unclassified,reachable:queue.filter(x=>!origins.includes(x)),
   distances:Object.fromEntries([...distances.entries()].sort(([a],[b])=>a.localeCompare(b))),
-  coverageIncomplete:true};
+  coverageIncomplete:false};
 }
 
 /**
  * Conservative Settle adviser (Living Rules §6.3.8).
- * Only known COLORED connections are traversed. Absence of a shorter path on
- * the partial graph is NOT proof of the nearest legal physical-board space.
+ * Complete user-confirmed COLORED connections are traversed. Distance and
+ * area rankings are authoritative, subject to active card exceptions.
  * Reports blocked stacking, area-value tie-break, and unresolved East origin.
  * Never mutates game state or permits a placement by itself.
  */
@@ -2365,14 +2585,14 @@ export function settleTargetAudit(state,enemy,{eastOrigin=null}={}){
    knownLinks:network.eligibleLinks,unclassifiedLinks:network.unclassified,
    candidates,blocked,nearestKnown:nearest,tiedKnown:tied,
    settlementsAvailable,needsStockConfirmation:settlementsAvailable===0,
-   verifiedLegalTarget:false,coverageIncomplete:true,
-   warning:'Provisional ordering only: unrecorded colored links, card effects, supply and printed-board rules may change the legal destination.'};
+   verifiedLegalTarget:true,coverageIncomplete:false,
+   warning:'Map routes and distance order are verified. Card effects, supply, and printed-rule exceptions still apply.'};
 }
 
 /**
  * Non-mutating Subjugate preview (§6.3.9, Spring 2024 rules).
- * A *known nearest* Tribe is not proof of legal target while the color graph
- * is incomplete. NEVER automatically remove Tribes or Allies from this audit.
+ * Nearest Tribe is determined by the complete map; card effects still gate
+ * legal resolution. NEVER remove Tribes or Allies from this audit.
  * Defers physical History-card checks and East origin selection.
  */
 export function subjugateTargetAudit(state,enemy,{eastOrigin=null}={}){
@@ -2401,8 +2621,8 @@ export function subjugateTargetAudit(state,enemy,{eastOrigin=null}={}){
   knownLinks:network.eligibleLinks,unclassifiedLinks:network.unclassified,
   recordedTribes:targetList.length,unreachableTribes:targetList.filter(p=>!Number.isInteger(network.distances[p.location])).map(p=>p.id),
   reachable,nearestKnown:closest,tiedKnown,enemyPeace,fallbackKnown:fallback,next,
-  verifiedLegalTarget:false,coverageIncomplete:true,
-  warning:'Provisional only: incomplete colored map or History-card effects may change the closest Tribe; any Ally removal requires returning its Ally Instruction to the display.'};
+  verifiedLegalTarget:true,coverageIncomplete:false,
+  warning:'Board routes are verified. History-card effects still apply; any Ally removal returns its Instruction to the display.'};
 }
 
 /** The Subjugate no-target redirect is ordered: Settle, War, Culture Attack.
@@ -2734,7 +2954,7 @@ function drawWarWithReshuffle(s,destination){
  fail('Unable to draw a non-reshuffle War Card.');
 }
 /** Verifiable next step in §6.2.2. Stops rather than guessing dice,
- * printed territory symbol mapping, incomplete map routes or player choices.
+ * printed territory symbol mapping, card exceptions or player choices.
  * Every proposed command is sent back through the real reducer. */
 export function enemyAutomationPreview(s){
  const f=s.enemyFlow;
@@ -2785,15 +3005,53 @@ export function enemyAutomationPreview(s){
   if(exceptions?.effect)return {ready:true,command:{type:'ENEMY_CARD_NO_EFFECT',ack:true},reason:'Apply the active Development Card no-effect exception.'};
   const unknown=s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required')));
   if(unknown)return {ready:false,reason:'An in-play Development Card may override '+name+'; its effect is not certified.'};
-  if(name==='Subjugate'){
+  // The canonical colored network is verified. A genuine unknown card effect,
+  // missing counter, or contested tie still blocks; map transcription does not.
+  if(name==='Subjugate'||name==='Settle'){
+   if(!['West','South','East'].includes(f.enemy))return {ready:false,reason:'This Enemy cannot execute a Colonial Settle/Subjugate target.'};
+   const isSubjugate=name==='Subjugate';
    const tribes=s.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round');
-   if(!tribes.length){
-    const stock=s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]));
+   if(isSubjugate&&tribes.length){
+    if(f.enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46'))
+     return {ready:false,reason:'Lone Star Republic changes East Subjugate origin; its exception still needs guided resolution.'};
+    const target=subjugateTargetAudit(s,f.enemy);
+    if(!target.nearestKnown)return {ready:false,reason:'No reachable Tribe under the verified colored network; resolve the printed fallback.'};
+    return {ready:true,command:{type:'ENEMY_AUTO_NEAREST_TARGET'},reason:'Subjugate the nearest eligible Tribe using verified distance/area ranking and a seeded die for ties.'};
+   }
+   const stock=s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]));
+   const canSettle=stock&&Boolean(settleTargetAudit(s,f.enemy).nearestKnown);
+   // §6.3.8: unplaceable Settle executes Subjugate instead. An existing
+   // legal Settlement position always takes precedence over this redirect.
+   if(name==='Settle'&&!canSettle){
+    const sub=subjugateTargetAudit(s,f.enemy);
+    if(sub.nearestKnown){
+     if(f.enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46'))
+      return {ready:false,reason:'Lone Star Republic changes East Subjugate origin; check the printed exception.'};
+     return {ready:true,command:{type:'ENEMY_AUTO_NEAREST_TARGET'},reason:'§6.3.8 Settle cannot place a Settlement; execute canonical nearest Subjugate target instead.'};
+    }
+    return {ready:false,reason:'Settle cannot place a Settlement; Subjugate has no eligible Tribe. Follow §6.3.9 War/Culture fallback; original Instruction cost and physical War pairing require verification.'};
+   }
+   const eastSpecial=f.enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46');
+   if(canSettle){
+    if(eastSpecial)return {ready:false,reason:'Lone Star Republic alters East Settle origin; resolve its printed exception.'};
+    if(f.enemy==='East'&&!isSubjugate&&!f.settleOrigin)
+     return {ready:true,command:{type:'ENEMY_SETTLE_ROLL_ORIGIN'},reason:'Roll the required East Settle origin with the seeded die.'};
+    const target=settleTargetAudit(s,f.enemy,{eastOrigin:f.enemy==='East'&&!isSubjugate?f.settleOrigin:null});
+    if(target.nearestKnown){
+     return {ready:true,command:{type:'ENEMY_AUTO_NEAREST_TARGET'},reason:isSubjugate?'No Tribe remains: redirect Subjugate to verified Settle placement.':'Settle at the closest legal colored-route destination, with seeded tie selection.'};
+    }
+   }
+   if(isSubjugate){
     const squares=f.enemy==='West'?['W']:f.enemy==='South'?['S']:['E1','E2'];
     const peace=s.pieces.some(p=>p.subtype==='Peace'&&squares.includes(p.location));
-    if(!stock&&peace)return {ready:true,command:{type:'ENEMY_SUBJUGATE_FALLBACK_CULTURE'},reason:'No Tribe, no physical Settlement stock, and Peace: Subjugate redirects to Culture Attack.'};
-    return {ready:false,reason:stock?'No Tribe: resolve Settle using verified colored connections.':peace?'No Tribe or Settlement stock; verify Peace ownership.':'No Tribe or Settlement stock: War fallback requires verified strength, stock and modifiers.'};
+    if(peace)return {ready:true,command:{type:'ENEMY_SUBJUGATE_FALLBACK_CULTURE'},reason:'No eligible Tribe or legal Settlement destination; Peace redirects Subjugate to Culture Attack.'};
+    const war=enemyWarRaidPreview(s);
+    if(war.ready&&['engaged','peace-ends-war'].includes(war.mode))return {ready:true,command:{type:'ENEMY_WAR_RAID'},reason:'§6.3.9 Subjugate → War: '+war.reason};
+    if(war.ready&&war.mode==='advance'&&war.automaticTo)return {ready:true,command:{type:'ENEMY_WAR_RAID',to:war.automaticTo},reason:'§6.3.9 Subjugate → War: '+war.reason};
+    if(war.ready&&war.mode==='form-war'&&war.automaticFormation)return {ready:true,command:{type:'ENEMY_WAR_RAID',automaticWarFormation:true},reason:'§6.3.9 Subjugate → War: '+war.reason};
+    return {ready:false,reason:'Subjugate redirects to War (§6.3.9), but resolution needs a printed counter/card decision: '+war.reason};
    }
+   return {ready:false,reason:'No legal Settle destination or physical Settlement counter; resolve the printed Subjugate/War fallback.'};
   }
   if(name==='Culture Attack'){
    const preview=enemyCulturePreview(s,f.enemy);
@@ -2807,10 +3065,21 @@ export function enemyAutomationPreview(s){
   const hasEncroachSpace=SPACES.some(space=>space.type==='round'&&
    !s.pieces.some(piece=>piece.location===space.id&&['Rancheria','Settlement','Tribe','Band'].includes(piece.type)));
   const canEncroach=hasStockTribe&&hasEncroachSpace;
+  // A uniquely forced Encroach is not a strategic choice. It uses the same
+  // physical-counter/space constraint as the existing drawn-cup resolver.
+  // The actual territory die remains mandatory and is consumed by the reducer.
+  const forcedEncroach=()=>{
+   const available=s.pieces.filter(p=>p.type==='Tribe'&&p.location==='reserve');
+   const spaces=SPACES.filter(space=>space.type==='round'&&
+    !s.pieces.some(piece=>piece.location===space.id&&['Rancheria','Settlement','Tribe','Band'].includes(piece.type)));
+   return available.length===1&&spaces.length===1;
+  };
   const noHuntTarget=bison.length===0;
   // §6.3.3 explicitly redirects a non-placeable Encroach to Hunt.
   // §6.3.1 redirects Ally to Encroach when there is no eligible Tribe.
   // With no stock Tribe and no Bison, neither redirect can change the board.
+  if(name==='Encroach'&&forcedEncroach())
+   return {ready:true,command:{type:'ENEMY_AUTO_FORCED_ENCROACH'},reason:'Only one physical Tribe and one legal space remain; roll the required territory die and place the forced counter.'};
   if(name==='Encroach'&&!canEncroach&&noHuntTarget)
    return {ready:true,command:{type:'ENEMY_AUTO_EMPTY_HUNT'},reason:'Encroach redirects to Hunt: no legal Tribe placement and no Bison in play.'};
   if(name==='Encroach'&&!canEncroach&&bison.length===1)
@@ -2827,27 +3096,37 @@ export function enemyAutomationPreview(s){
    const candidates=allyTargetPreview(s,f.enemy);
    if(candidates.unknownRavaged||candidates.recoverFirst)return {ready:false,reason:'Recover must resolve before Ally.'};
    if(candidates.candidates.length===1)return {ready:true,command:{type:'ENEMY_ALLY',tribeId:candidates.candidates[0].id,ack:true},reason:'Only one eligible Tribe for Ally.'};
+   if(!candidates.candidates.length&&forcedEncroach())
+    return {ready:true,command:{type:'ENEMY_AUTO_FORCED_ENCROACH'},reason:'Ally redirects to Encroach with exactly one legal Tribe placement.'};
    if(!candidates.candidates.length&&!canEncroach&&noHuntTarget)
     return {ready:true,command:{type:'ENEMY_AUTO_EMPTY_HUNT'},reason:'Ally redirects to Encroach and Hunt: no eligible Tribe, no legal Encroach space, no Bison.'};
    if(!candidates.candidates.length&&!canEncroach&&bison.length===1)
     return {ready:true,command:{type:'ENEMY_AUTO_SINGLE_BISON_HUNT'},reason:'Ally redirects through Encroach to Hunt: only one possible Bison target.'};
+   if(!candidates.candidates.length&&!canEncroach&&bison.length>1)
+    return {ready:true,command:{type:'ENEMY_AUTO_HUNT'},reason:'Ally redirects through unplaceable Encroach to seeded Hunt: no eligible Tribe and no legal placement.'};
    return {ready:false,reason:candidates.candidates.length?'Choose among '+candidates.candidates.length+' eligible Tribes; Ally target belongs to the player.':'Ally redirects to Encroach; a verified territory die and placement are required.'};
   }
   if(name==='Raid'){
    const wr=enemyWarRaidPreview(s);
    if(wr.redirect==='Encroach'){
+    if(forcedEncroach())return {ready:true,command:{type:'ENEMY_AUTO_FORCED_ENCROACH'},reason:'Raid redirects to Encroach with exactly one legal Tribe placement.'};
     if(!canEncroach&&noHuntTarget)return {ready:true,command:{type:'ENEMY_AUTO_EMPTY_HUNT'},reason:'Raid redirects to Encroach then Hunt: no legal placement or Bison.'};
     if(!canEncroach&&bison.length===1)return {ready:true,command:{type:'ENEMY_AUTO_SINGLE_BISON_HUNT'},reason:'Raid redirects through Encroach to Hunt: single Bison target.'};
+    if(!canEncroach&&bison.length>1)return {ready:true,command:{type:'ENEMY_AUTO_HUNT'},reason:'Raid has no non-Allied Tribe; unplaceable Encroach redirects to seeded Hunt.'};
    }
   }
   if(name==='War'||name==='Raid'){
    const wr=enemyWarRaidPreview(s);
    if(wr.ready&&['engaged','peace-ends-war'].includes(wr.mode))return {ready:true,command:{type:'ENEMY_WAR_RAID'},reason:wr.reason};
+   if(wr.ready&&wr.mode==='advance'&&wr.automaticTo)return {ready:true,command:{type:'ENEMY_WAR_RAID',to:wr.automaticTo},reason:wr.reason};
+   if(wr.ready&&wr.mode==='form-war'&&wr.automaticFormation)return {ready:true,command:{type:'ENEMY_WAR_RAID',automaticWarFormation:true},reason:wr.reason};
+   if(wr.ready&&wr.mode==='form-raid'&&wr.automaticTiedTribeIds?.length&&wr.warStock.length===1&&!s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required'))))return {ready:true,command:{type:'ENEMY_WAR_RAID',automaticRaidTargets:wr.automaticTiedTribeIds},reason:wr.reason};
    return {ready:false,reason:wr.reason};
   }
   if(name==='Peace'){
    const special=peaceWarColumnPreview(s);
    if(special.ready && ['engaged','war-ends'].includes(special.mode))return {ready:true,command:{type:'ENEMY_PEACE_WAR'},reason:special.reason};
+   if(special.ready&&special.mode==='advance'&&special.automaticTo)return {ready:true,command:{type:'ENEMY_PEACE_WAR',to:special.automaticTo},reason:special.reason};
    const target=peaceTargetPreview(s,f.enemy);
    if(target.recoverFirst||target.unknownRavaged)return {ready:false,reason:'Resolve Recover or unknown Ravaged status before Peace.'};
    if(target.requiresWarProcedure)return {ready:false,reason:special.ready?special.reason:special.reason||'Resolve active War Column before placing Peace.'};
@@ -2882,7 +3161,119 @@ function placeCultureRavaged(s,space){
   }
  }
 }
+/** Shared, conservative map-target preview for a directly drawn Colonial
+ * Instruction. It never certifies an unidentified card, Recover priority,
+ * unavailable stock or a printed-rule fallback with no legal map target. */
+export function cupColonialTargetPreview(s,raid=false){
+ const cup=raid?s.raidCupResolution:s.cleanupCupResult;
+ const piece=cup&&s.pieces.find(p=>p.id===cup.counterId);
+ if(!cup||cup.stage!=='effect'||piece?.location!=='enemy-resolution'||
+    !['Settle','Subjugate'].includes(instructionName(piece))||
+    !['West','South','East'].includes(piece.owner))return {ready:false,reason:'No active drawn Colonial target Instruction.'};
+ const enemy=piece.owner,kind=instructionName(piece),recover=recoverTargetAudit(s,enemy);
+ if(recover.candidates.length||recover.ambiguousRavaged.length)return {ready:false,reason:'Recover priority or unidentified Ravaged owner.'};
+ if(activeCardEffects(s).some(e=>e.blockedInstructions?.includes(kind)&&(!e.enemies||e.enemies.includes(enemy))))return {ready:false,reason:'Active card prevents this Instruction.'};
+ if(s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&
+   (!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required'))))return {ready:false,reason:'Unverified active Development Card.'};
+ if(kind==='Subjugate'){
+  if(enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46'))return {ready:false,reason:'East origin card override.'};
+  if(!s.pieces.some(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round'))return {ready:false,reason:'No Tribe: resolve printed Subjugate fallback.'};
+  const target=subjugateTargetAudit(s,enemy);
+  return {ready:!target.originSelectionRequired&&target.tiedKnown.length>0,kind,enemy,reason:'Canonical map target, with seeded tie roll.',targets:target.tiedKnown};
+ }
+ const stock=s.pieces.filter(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===enemy||p.owner===s.colonial?.[enemy]));
+ if(!stock.length)return {ready:false,reason:'No available matching Settlement counter; resolve printed fallback.'};
+ // East Settle requires its own origin die; each outcome is validated after
+ // the roll. This preview must not choose an arbitrary East square.
+ const origins=enemy==='East'?['E1','E2']:[null];
+ const reports=origins.map(origin=>settleTargetAudit(s,enemy,{eastOrigin:origin}));
+ if(reports.some(r=>!r.tiedKnown.length))return {ready:false,reason:'At least one required origin has no certified legal Settle target.'};
+ return {ready:true,kind,enemy,reason:'Canonical map destination and physical Settlement stock; seeded origin/tie dice where applicable.',targets:reports[0].tiedKnown};
+}
+/** Only expose an automatic cup War/Raid when the same production resolver
+ * can prove its counter supply, priority, and recorded graph consequences. */
+export function cupWarRaidAutoPreview(s,raid=false){
+ const cup=raid?s.raidCupResolution:s.cleanupCupResult;
+ const instruction=cup&&s.pieces.find(p=>p.id===cup.counterId);
+ if(!cup||cup.stage!=='effect'||instruction?.location!=='enemy-resolution'||
+    !['War','Raid'].includes(instructionName(instruction)))return {ready:false,reason:'No active cup War/Raid effect.'};
+ const recover=recoverTargetAudit(s,instruction.owner);
+ if(recover.candidates.length||recover.ambiguousRavaged.length)return {ready:false,reason:'Recover priority must be resolved first.'};
+ const kind=instructionName(instruction);
+ if(activeCardEffects(s).some(e=>e.blockedInstructions?.includes(kind)&&(!e.enemies||e.enemies.includes(instruction.owner)))||
+    s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&
+     (!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required'))))
+  return {ready:false,reason:'Uncertified card may modify the War/Raid effect.'};
+ const flow={stage:'effect',currentId:instruction.id,enemy:instruction.owner,currentRow:'A',fromCup:true};
+ const view=enemyWarRaidPreview({...s,enemyFlow:flow});
+ if(!view.ready)return {ready:false,reason:view.reason};
+ let automatic=false,command={type:raid?'RAID_CUP_WAR_RAID':'CLEANUP_CUP_WAR_RAID'};
+ if(['engaged','peace-ends-war'].includes(view.mode))automatic=true;
+ if(view.mode==='advance'&&view.automaticTo){automatic=true;command.to=view.automaticTo;}
+ if(view.mode==='form-war'&&view.automaticFormation){automatic=true;command.automaticWarFormation=true;}
+ if(view.mode==='form-raid'&&view.warStock?.length===1&&view.automaticTiedTribeIds?.length){automatic=true;command.automaticRaidTargets=[...view.automaticTiedTribeIds];}
+ return {ready:automatic,mode:view.mode,reason:automatic?'Verified counter and map priorities determine the effect.':view.reason,command:automatic?command:null};
+}
 export function perform(original,command){
+ if(command.type==='ENEMY_AUTO_NEAREST_TARGET'){
+  const auto=enemyAutomationPreview(original);
+  if(!auto.ready||auto.command?.type!=='ENEMY_AUTO_NEAREST_TARGET')fail(auto.reason||'Automated target selection is not legal now.');
+  const flow=original.enemyFlow;
+  if(!flow||flow.stage!=='effect'||!['West','South','East'].includes(flow.enemy))fail('No active Colonial Enemy target selection.');
+  const printed=instructionName(item(original,flow.currentId));
+  const tribes=original.pieces.some(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round');
+  if(!['Subjugate','Settle'].includes(printed))fail('The active Instruction has no map target selection.');
+  const legalSettle=original.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===flow.enemy||p.owner===original.colonial?.[flow.enemy]))&&
+    Boolean(settleTargetAudit(original,flow.enemy,{eastOrigin:flow.settleOrigin||null}).nearestKnown);
+  const subjugate=(printed==='Subjugate'&&tribes)||(printed==='Settle'&&!legalSettle&&tribes);
+  const report=subjugate?subjugateTargetAudit(original,flow.enemy):settleTargetAudit(original,flow.enemy,{eastOrigin:printed==='Settle'?flow.settleOrigin||null:null});
+  const tied=report.tiedKnown;
+  if(!tied.length||!report.nearestKnown)fail('No reachable eligible target for this Instruction.');
+  const staged=structuredClone(original);
+  const tie=tied.length>1?equalOddsSeededChoice(staged,tied):null;
+  const selected=tie?tie.choice:tied[0];
+  const verification='Canonical user-confirmed map graph; shortest colored route and area precedence computed by engine.';
+  const targetCommand=subjugate?
+   {type:'ENEMY_SUBJUGATE',tribeId:selected.tribeId,ack:true,randomConfirmed:true,unmappedRouteConfirmed:false,mapVerification:verification,verifiedMapAutomatic:true}:
+   {type:'ENEMY_SETTLE',settlementId:staged.pieces.find(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===flow.enemy||p.owner===staged.colonial?.[flow.enemy]))?.id,space:selected.space,ack:true,randomConfirmed:true,unmappedRouteConfirmed:false,mapVerification:verification,bisonConfirmed:true,verifiedMapAutomatic:true};
+  const resolved=perform(staged,targetCommand);
+  if(tie&&resolved.log?.length)resolved.log[resolved.log.length-1].message+=' Equal-odds seeded tie dice '+tie.faces.join(', ')+' ('+tie.attempts+' draw(s)) chose '+(subjugate?selected.tribeId:selected.space)+'.';
+  return resolved;
+ }
+ if(['CLEANUP_CUP_AUTO_COLONIAL','RAID_CUP_AUTO_COLONIAL'].includes(command.type)){
+  const raid=command.type.startsWith('RAID_');
+  const preview=cupColonialTargetPreview(original,raid);
+  if(!preview.ready)fail(preview.reason||'No certified drawn Colonial target.');
+  if(raid?original.pending?.type!=='raid'||!original.raidCupResolution:original.phase!=='cleanup'||original.cleanupCupResult?.kind!=='instruction')fail('Drawn cup Instruction is not active.');
+  const staged=structuredClone(original),kind=preview.kind,enemy=preview.enemy;
+  let origin=null,originRoll=null;
+  if(kind==='Settle'&&enemy==='East'){
+   originRoll=rollSeededDie(staged.rng.seed);staged.rng.seed=originRoll.seed;staged.rng.rolls++;
+   origin=originRoll.face<=3?'E1':'E2';
+  }
+  const report=kind==='Subjugate'?subjugateTargetAudit(staged,enemy):settleTargetAudit(staged,enemy,{eastOrigin:origin});
+  const candidates=report.tiedKnown;
+  if(!candidates.length||!report.nearestKnown)fail('No legal certified map target after origin selection.');
+  const tie=candidates.length>1?equalOddsSeededChoice(staged,candidates):null;
+  const chosen=tie?tie.choice:candidates[0];
+  const verification='Canonical user-confirmed map; shortest coloured route and area priority validated by the engine.';
+  const target=kind==='Subjugate'?{
+   type:raid?'RAID_CUP_SUBJUGATE':'CLEANUP_CUP_SUBJUGATE',tribeId:chosen.tribeId,ack:true,randomConfirmed:true,
+   mapVerification:verification,verifiedMapAutomatic:true,cupCanonicalAuto:true
+  }:{
+   type:raid?'RAID_CUP_SETTLE':'CLEANUP_CUP_SETTLE',settlementId:staged.pieces.find(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===enemy||p.owner===staged.colonial?.[enemy]))?.id,
+   space:chosen.space,eastOrigin:origin,ack:true,randomConfirmed:true,bisonConfirmed:true,
+   mapVerification:verification,verifiedMapAutomatic:true,cupCanonicalAuto:true
+  };
+  const result=perform(staged,target);
+  result.log[0].description+=' Automatic cup resolution'+(originRoll?`; East origin die ${originRoll.face} (${origin})`:'')+(tie?`; equal-odds target tie dice ${tie.faces.join(', ')} (${tie.attempts} draw(s))`:'')+'.';
+  return result;
+ }
+ if(['CLEANUP_CUP_AUTO_WAR_RAID','RAID_CUP_AUTO_WAR_RAID'].includes(command.type)){
+  const preview=cupWarRaidAutoPreview(original,command.type.startsWith('RAID_'));
+  if(!preview.ready)fail(preview.reason||'No verified automatic War/Raid resolution.');
+  return perform(original,preview.command);
+ }
  if(command.type==='ENEMY_AUTO_RECOVER'){
   const preview=enemyAutomationPreview(original),flow=original.enemyFlow;
   if(!flow||!preview.ready||preview.command?.type!=='ENEMY_AUTO_RECOVER')fail(preview.reason||'Recover is not ready to execute.');
@@ -2906,6 +3297,17 @@ export function perform(original,command){
   staged.log.unshift({command:'ENEMY_AUTO_RECOVER',description:`${flow.enemy} Recover: randomly selected ${space} (${target.id}); ${rule.requiresDie?'die '+die:'no roll required'}; ${success?'returned Ravaged to stock':'failed, Ravaged retained'}.`,quality:'verified'});
   if(!basicIntegrity(staged))fail('Recover produced an inconsistent game state.');
   return staged;
+ }
+ if(command.type==='ENEMY_AUTO_FORCED_ENCROACH'){
+  const preview=enemyAutomationPreview(original);
+  if(!preview.ready||preview.command?.type!=='ENEMY_AUTO_FORCED_ENCROACH')fail(preview.reason||'A forced Encroach is not legal in this state.');
+  const tribe=original.pieces.filter(p=>p.type==='Tribe'&&p.location==='reserve');
+  const spaces=SPACES.filter(space=>space.type==='round'&&
+   !original.pieces.some(piece=>piece.location===space.id&&['Rancheria','Settlement','Tribe','Band'].includes(piece.type)));
+  if(tribe.length!==1||spaces.length!==1)fail('Encroach has an unresolved player choice.');
+  const roll=rollSeededDie(original.rng.seed),staged=structuredClone(original);
+  staged.rng.seed=roll.seed;staged.rng.rolls++;
+  return perform(staged,{type:'ENEMY_ENCROACH',die:roll.face,tribeId:tribe[0].id,space:spaces[0].id});
  }
  if(command.type==='ENEMY_AUTO_HUNT'){
   // One atomic, seeded transaction: territory die first, then the existing
@@ -2966,6 +3368,25 @@ export function perform(original,command){
   result.log[0].description=`Seeded digital Operations die ${roll.face}: `+result.log[0].description;
   return result;
  }
+ if(command.type==='BATTLE_SAFE_START'){
+  const option=battleSafeStartPreview(original,command.unitId||null);
+  if(!option.ready)fail(option.reason);
+  const staged=clone(original);
+  staged.battleContinuation={warId:option.warId,warLocation:option.location};
+  const resolved=perform(staged,{type:'BATTLE_SAFE_ROUND',unitId:option.unitId});
+  resolved.log[0].description+=' Mandatory War step-4 Battle initiated from verified map/counters, no Ranchería defence bypassed.';
+  return resolved;
+ }
+ if(command.type==='BATTLE_SAFE_ROUND'){
+  const option=battleSafeRoundPreview(original,command.unitId||null);
+  if(!option.ready)fail(option.reason);
+  const rolled=perform(original,{type:'BATTLE_DIGITAL_ROLL',warId:option.warId,unitId:option.unitId,cardDrm:0,ack:true});
+  const audited=battleAutoResolutionPreview(rolled);
+  if(!audited.ready)fail(audited.reason);
+  const resolved=perform(rolled,{type:'BATTLE_AUTO_RECONCILE'});
+  resolved.log[0].description+=' Verified digital Battle round committed as one action.';
+  return resolved;
+ }
  if(command.type==='BATTLE_DIGITAL_ROLL'){
   // Separate audited command for digital dice; never trust client-supplied faces.
   // Printed DRM and active card modifiers remain explicit player confirmations.
@@ -2995,7 +3416,7 @@ export function perform(original,command){
   return current;
  }
 
- const s=clone(original);const {type}=command;let message='';let quality='verified';
+ const s=clone(original);s.edges=canonicalBoardEdges();const {type}=command;let message='';let quality='verified';
  if(s.enemySelection&&!['ENEMY_BEGIN','NOTE'].includes(type))fail('The active Enemy has already been rolled. Resolve the separate Instruction-display die before other actions.');
  if(s.setupDevelopmentPendingDie&&!['SETUP_DOWNFALL_DEVELOPMENT_REROLL','SETUP_DOWNFALL_DEVELOPMENT_COMMIT','NOTE'].includes(type))fail('Resolve the already rolled Downfall Development die or use a Trade Goods reroll before other actions.');
  if(s.developmentUte&&!['DEVELOPMENT_UTE_RESOLVE','DEVELOPMENT_COUNTING_COUP_UTE_REROLL','NOTE'].includes(type))fail('Resolve the Ute Alliance die or use held Counting Coup before another action.');
@@ -3010,7 +3431,7 @@ export function perform(original,command){
  if(s.warMovement && !['WAR_MOVE_STEP','WAR_MOVE_FINISH','WAR_MOVE_CANCEL','NOTE'].includes(type))fail('Complete the registered War Card movement or Undo before other actions.');
  if(s.enemyFlow && !['ENEMY_SELECT','ENEMY_VERIFY_FACE','ENEMY_PAY','ENEMY_CONFIRM','ENEMY_FINISH','ENEMY_AUTO_COMPLETE','ENEMY_AUTO_FINISH','ENEMY_AUTO_EMPTY_HUNT','ENEMY_AUTO_SINGLE_BISON_HUNT','NOTE',...(s.enemyFlow.stage==='effect'?['EDIT_PIECE','MOVE_PIECE','ADD_PIECE','DELETE_PIECE','LOSE_POINTS','ENEMY_RECOVER','ENEMY_SUBJUGATE','ENEMY_SETTLE_ROLL_ORIGIN','ENEMY_SETTLE','ENEMY_CULTURE_ATTACK','ENEMY_AUTO_CULTURE_ATTACK','ENEMY_SUBJUGATE_FALLBACK_CULTURE','ENEMY_PEACE_WAR','ENEMY_WAR_RAID','ENEMY_HUNT','ENEMY_ENCROACH','ENEMY_ALLY','ENEMY_PEACE','ENEMY_CARD_NO_EFFECT','DEVELOPMENT_PLAY_NO_RELIEF']:[])].includes(type))fail('Finish this Enemy Instruction procedure before other actions.');
  // A pending Victory Check blocks everything except the final decision and notes.
- if(s.victoryPending&&!['RESOLVE_VICTORY','RESOLVE_VICTORY_FROM_LEDGER','PASSAGE_DIGITAL_H1_RESOLVE','NOTE'].includes(type))fail('Resolve the required History Card Victory Check before other actions.');
+ if(s.victoryPending&&!['RESOLVE_VICTORY','RESOLVE_VICTORY_FROM_LEDGER','PASSAGE_DIGITAL_H1_RESOLVE','PASSAGE_DIGITAL_OBJECTIVE_RESOLVE','NOTE'].includes(type))fail('Resolve the required History Card Victory Check before other actions.');
  // A Development-card Headman Action consumes an actual Paraibo action,
  // in addition to any printed AP cost. Legacy in-flight saves without the
  // step director keep their prior manual workflow rather than being rewritten.
@@ -3506,7 +3927,7 @@ export function perform(original,command){
    const moves=preview.outcomes.filter(x=>eligible.includes(x.warId));
    for(const outcome of moves)if(outcome.strengthLoss&&item(s,outcome.warId).strength===1)warEndsPreview(s,outcome.warId);
    for(const outcome of moves){
-     const w=item(s,outcome.warId);w.location=outcome.route.at(-1);
+     const w=item(s,outcome.warId);relocateWarWithPairedInstruction(s,w,outcome.route.at(-1));
      if(outcome.strengthLoss){if(w.strength===1)resolveWarEnds(s,w.id);else w.strength-=outcome.strengthLoss;}
    }
    s.warEventResolved=id;
@@ -3520,15 +3941,10 @@ export function perform(original,command){
    if(s.warEventResolved===id)fail('Surprise Attack already resolved.');
    const preview=surpriseAttackPreview(s),eligible=preview.candidates;
    if(!eligible.length){s.warEventResolved=id;message=`${id} Surprise Attack: no qualifying War Column within two non-dashed connections; no effect.`;break;}
-   // One die gives an equal chance to 2, 3, 4, 5, or 6 eligible counters,
-   // rerolling faces outside the allocated range as required by §2.2.
-   if(eligible.length>6)fail('More than six equally eligible War Columns; random selection needs a documented multi-die procedure.');
-   let index=0;
-   if(eligible.length>1){let face,roll;
-    do{roll=rollSeededDie(s.rng.seed);s.rng.seed=roll.seed;s.rng.rolls++;face=roll.face;}while(face>Math.floor(6/eligible.length)*eligible.length);
-    index=(face-1)%eligible.length;
-   }
-   const picked=eligible[index];
+   // Living Rules §2.2: select each eligible column with equal odds,
+   // including pools larger than a single d6 can represent.
+   const selected=equalOddsSeededChoice(s,eligible);
+   const picked=selected.choice;
    const ranked=[...picked.destinations].sort((a,b)=>a.priority-b.priority||a.route.length-b.route.length||a.location.localeCompare(b.location));
    const best=ranked[0],tied=ranked.filter(d=>d.priority===best.priority&&d.route.length===best.route.length);
    if(new Set(tied.map(d=>d.location)).size>1)fail('Two equally prioritized nearest defender spaces: resolve printed target tie before moving. No game state changed.');
@@ -3686,15 +4102,9 @@ export function perform(original,command){
    const audit=rancheriaFightPreview(s,rancheriaId);
    if(!audit.ready)fail(audit.reason);
    if(!command.ack)fail('Confirm the recorded defenders, attacking War Columns, printed Battle exceptions and point tracks.');
-   let choice=1,selectionRolls=[];
-   if(audit.randomWarSelection){
-     for(let i=0;i<40;i++){
-       const roll=rollSeededDie(s.rng.seed);s.rng.seed=roll.seed;s.rng.rolls++;selectionRolls.push(roll.face);
-       if(roll.face<=audit.warIds.length){choice=roll.face;break;}
-     }
-     if(!selectionRolls.length||selectionRolls.at(-1)>audit.warIds.length)fail('Random War Column selection did not resolve.');
-   }
-   const war=item(s,audit.warIds[choice-1]);
+   const selected=equalOddsSeededChoice(s,audit.warIds);
+   const selectionRolls=selected.faces;
+   const war=item(s,selected.choice);
    const loss=pointLossPreview(s,'military',1);
    s.tracks=loss.tracks;
    // A single continuation stores that the step-5 fee was already applied.
@@ -3709,13 +4119,9 @@ export function perform(original,command){
    if(!audit.ready)fail(audit.reason);
    if(!command.ack)fail('Confirm the counter ledger, all Captives, and applicable printed card exceptions.');
    // §2.2: equal die odds for each War Column; reroll outside range.
-   let selectionDie=null,selectionRolls=[];
-   if(audit.warIds.length>1){
-     for(let i=0;i<40;i++){const roll=rollSeededDie(s.rng.seed);s.rng.seed=roll.seed;s.rng.rolls++;selectionRolls.push(roll.face);
-       if(roll.face<=audit.warIds.length){selectionDie=roll.face;break;}}
-     if(!selectionDie)fail('Random War Column selection did not finish. No counters were changed.');
-   }
-   const war=item(s,audit.warIds[(selectionDie||1)-1]);
+   const selected=equalOddsSeededChoice(s,audit.warIds);
+   const selectionRolls=selected.faces;
+   const war=item(s,selected.choice);
    const partner=s.pieces.find(p=>p.type==='Instruction'&&p.owner===war.owner&&p.location===war.location&&['War','Raid'].includes(p.subtype));
    let destination=null,returnDie=null;
    if(war.strength>1){
@@ -3785,7 +4191,7 @@ export function perform(original,command){
    const preview=autoWarMovementPreview(s,drawn.id);
    for(const outcome of preview.outcomes)if(outcome.strengthLoss&&item(s,outcome.warId).strength===1)warEndsPreview(s,outcome.warId);
    for(const outcome of preview.outcomes){
-     const w=item(s,outcome.warId);w.location=outcome.route.at(-1);
+     const w=item(s,outcome.warId);relocateWarWithPairedInstruction(s,w,outcome.route.at(-1));
      if(outcome.strengthLoss){if(w.strength===1)resolveWarEnds(s,w.id);else w.strength-=outcome.strengthLoss;}
    }
    s.warMovementDrawn=drawn.id;s.steps.w1='done';
@@ -3811,7 +4217,7 @@ export function perform(original,command){
      if(outcome.strengthLoss && w.strength===1)warEndsPreview(s,w.id);
    }
    for(const outcome of result.outcomes){
-     const w=item(s,outcome.warId);w.location=outcome.route.at(-1);
+     const w=item(s,outcome.warId);relocateWarWithPairedInstruction(s,w,outcome.route.at(-1));
      if(outcome.strengthLoss){if(w.strength===1)resolveWarEnds(s,w.id);else w.strength-=outcome.strengthLoss;}
    }
    s.steps.w1='done';
@@ -3860,7 +4266,7 @@ export function perform(original,command){
      if(!command.cardOverride||String(command.overrideReason||'').trim().length<12)fail('Colonial War Columns cannot cross dashed lines unless a printed card explicitly permits it. Document that exception.');
    }
    if(!command.ack)fail('Confirm this step moves nearer to the correct printed-card target and does not skip a mandatory stop.');
-   const from=w.location;w.location=to;m.remaining--;m.route.push(to);
+   const from=w.location;relocateWarWithPairedInstruction(s,w,to);m.remaining--;m.route.push(to);
    if(edge.kind==='dashed'&&m.enemy!=='North')m.exceptions.push({from,to,reason:String(command.overrideReason).trim().slice(0,200)});
    message=`War Card ${m.card}: ${named(w)} ${from} → ${to} (${edge.kind}); ${m.remaining} step(s) remain. Target choice confirmed on printed board.${edge.kind==='dashed'&&m.enemy!=='North'?' Exception: '+String(command.overrideReason).slice(0,160):''}`;
    quality='manual';break;}
@@ -4089,7 +4495,7 @@ export function perform(original,command){
    if(!view.ready)fail(view.reason);
    const current=item(s,f.currentId);
    const originRow=f.currentRow;
-   let result='',formedWarId=view.warId||null,postAdvanceRecover=null;
+   let result='',formedWarId=view.warId||null,postAdvanceRecover=null,automaticallyResolvedRaid=false;
    if(view.mode==='engaged'){
      result=`Existing ${f.enemy} column ${view.warId} engaged: it stays in place`;
    }else if(view.mode==='peace-ends-war'){
@@ -4097,10 +4503,12 @@ export function perform(original,command){
      peace.location=`enemy-display:${f.enemy}:${view.returnRow}`;
      result=`Returned Peace ${peace.id} to bottommost empty display row ${view.returnRow}; no new War Column`;
    }else if(view.mode==='advance'){
-     if(!command.ack)fail('Verify printed §3.1 one-space target priority and active card effects.');
-     const note=String(command.routeNote||'').trim();
-     if(note.length<25||note.length>400)fail('Provide printed movement priority evidence (25–400 characters).');
-     const to=String(command.to||'');
+     const automatic=view.automaticTo&&String(command.to||view.automaticTo)===view.automaticTo;
+     if(automatic&&s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required'))))fail('Uncertified Development effect may modify War movement.');
+     if(!automatic&&!command.ack)fail('A non-automatic War move requires board/rules confirmation.');
+     const note=automatic?'Canonical verified map: unique shortest next step.':String(command.routeNote||'').trim();
+     if(!automatic&&(note.length<25||note.length>400))fail('Document movement priority evidence (25–400 characters).');
+     const to=String(command.to||view.automaticTo||'');
      if(!view.legal.includes(to))fail('War/Raid movement must use a legal recorded map connection.');
      const w=item(s,view.warId),from=w.location;
      const partner=s.pieces.find(p=>p.type==='Instruction'&&p.owner===w.owner&&p.location===from&&['War','Raid'].includes(instructionName(p)));
@@ -4130,15 +4538,17 @@ export function perform(original,command){
      }
 
    }else if(view.mode==='form-war'){
-     if(!command.ack)fail('Confirm no printed Development/History modifier changes War strength or formation.');
-     const note=String(command.cardNote||'').trim();
-     if(note.length<20||note.length>400)fail('Document verified card modifiers and board supply (20–400 characters).');
+     const automatic=command.automaticWarFormation===true&&view.automaticFormation===true;
+     if(!automatic&&!command.ack)fail('Confirm no printed Development/History modifier changes War strength or formation.');
+     const note=automatic?'Canonical printed War strength; unique matching physical counter; no active unhandled formation modifier.':String(command.cardNote||'').trim();
+     if(!automatic&&(note.length<20||note.length>400))fail('Document verified card modifiers and board supply (20–400 characters).');
+     if(automatic&&(command.cardModifier!=null&&Number(command.cardModifier)!==0||command.warCounterId&&command.warCounterId!==view.warStock[0].id))fail('Automatic War formation cannot override the printed strength or chosen physical counter.');
      const stock=s.pieces.filter(p=>p.type==='War Column'&&p.owner===f.enemy&&p.counterFaction===s.colonial?.[f.enemy]&&p.location==='reserve').sort((a,b)=>a.id.localeCompare(b.id));
      const chosenId=String(command.warCounterId||'');
      const w=stock.length===1&&!chosenId?stock[0]:stock.find(p=>p.id===chosenId);
      if(!w)fail('Choose an available physical War Column strength counter from stock; never invent one.');
      formedWarId=w.id;
-     const modifier=bounded(command.cardModifier??0,-8,8,'Printed card strength modifier');
+     const modifier=automatic?0:bounded(command.cardModifier??0,-8,8,'Printed card strength modifier');
      const strength=Math.min(8,current.strength+view.settlements+modifier);
      if(strength<1)fail('Printed modifiers leave zero War strength; this card-specific result is not yet verified.');
      const square=view.squares.length===1?view.squares[0]:seededSelect(s,view.squares);
@@ -4147,24 +4557,28 @@ export function perform(original,command){
      current.location=square;w.location=square;w.strength=strength;w.counterFaction=faction;
      result=`Formed ${f.enemy} War Column ${w.id} with ${current.id} at ${square} (strength ${strength}: cost ${current.strength} + ${view.settlements} Settlements ${modifier>=0?'+':''}${modifier} printed modifiers, capped 8). ${note}`;
    }else if(view.mode==='form-raid'){
-     if(!command.ack)fail('Verify printed nearest-Tribe ranking, dashed routes, and card exceptions.');
-     const note=String(command.routeNote||'').trim();
-     if(note.length<25||note.length>400)fail('Provide printed nearest-Tribe evidence (25–400 characters).');
-     const ids=Array.isArray(command.tiedTribeIds)?command.tiedTribeIds.map(String):[];
+     const automatic=Boolean(view.automaticTiedTribeIds?.length&&view.warStock.length===1&&Array.isArray(command.automaticRaidTargets)&&command.automaticRaidTargets.join('|')===view.automaticTiedTribeIds.join('|'));
+     if(automatic&&s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[devNumber(c)]||DEVELOPMENT_EFFECT_CATALOG[devNumber(c)].mode.startsWith('manual-required'))))fail('Uncertified Development effect may modify Raid formation.');
+     automaticallyResolvedRaid=automatic;
+     if(!automatic&&!command.ack)fail('Verify printed nearest-Tribe ranking, dashed routes, and card exceptions.');
+     const note=automatic?'Verified map: minimum distance from Rancherías, or Bands if no Rancherías, per §6.3.6.':String(command.routeNote||'').trim();
+     if(!automatic&&(note.length<25||note.length>400))fail('Provide printed nearest-Tribe evidence (25–400 characters).');
+     const ids=automatic?view.automaticTiedTribeIds:Array.isArray(command.tiedTribeIds)?command.tiedTribeIds.map(String):[];
      if(!ids.length||ids.length>view.tribes.length||new Set(ids).size!==ids.length||ids.some(id=>!view.tribes.some(p=>p.id===id)))fail('Select all and only the printed equal-nearest non-Allied Tribe counters.');
-     const chosen=seededSelect(s,ids),tribe=item(s,chosen);
+     const raidTie=ids.length>1?equalOddsSeededChoice(s,ids):null;
+     const chosen=raidTie?raidTie.choice:ids[0],tribe=item(s,chosen);
      const stock=s.pieces.filter(p=>p.type==='War Column'&&p.owner==='North'&&p.location==='reserve').sort((a,b)=>a.id.localeCompare(b.id));
      const chosenId=String(command.warCounterId||'');
      const w=stock.length===1&&!chosenId?stock[0]:stock.find(p=>p.id===chosenId);
      if(!w)fail('Choose a recorded North War Column counter from physical stock.');
      formedWarId=w.id;w.location=tribe.location;w.strength=Math.min(8,current.strength);w.counterFaction='North';current.location=tribe.location;
-     result=`Formed North Raid ${w.id} with ${current.id} on non-Allied Tribe ${tribe.id} at ${tribe.location}, strength ${w.strength}; randomized among ${ids.join(', ')}. ${note}`;
+     result=`Formed North Raid ${w.id} with ${current.id} on non-Allied Tribe ${tribe.id} at ${tribe.location}, strength ${w.strength}; ${automatic?(ids.length===1?'unique map-selected target':'canonical equal-nearest seeded tie among '+ids.join(', ')+' (dice '+raidTie.faces.join(', ')+')'):'guided selection among '+ids.join(', ')}. ${note}`;
    }else fail('Unsupported War/Raid effect mode.');
    if(!['form-war','form-raid'].includes(view.mode)&&!cupMode)current.location=`enemy-inactive:${originRow}`;
    f.warRaidResolved={instructionId:current.id,originalRow:cupMode?null:originRow,enemy:f.enemy,mode:view.mode,warId:formedWarId,postAdvanceRecover,result};
    if(cupMode){drawnCup.stage='swap';drawnCup.effectDone=true;drawnCup.warRaidResolved=f.warRaidResolved;}
    message=`Enemy ${view.kind} §6.3.${view.kind==='Raid'?'6':'10'}: ${result}.`;
-   quality=['form-war','form-raid','advance'].includes(view.mode)?'manual':'verified';break;
+   quality=(view.mode==='form-war'&&command.automaticWarFormation&&view.automaticFormation||view.mode==='form-raid'&&automaticallyResolvedRaid||view.mode==='advance'&&view.automaticTo)?'verified':['form-war','form-raid','advance'].includes(view.mode)?'manual':'verified';break;
  }
  case 'ENEMY_PEACE_WAR':{
    const f=s.enemyFlow;
@@ -4179,14 +4593,15 @@ export function perform(original,command){
    }else if(special.mode==='engaged'){
      movement='Already stacked with a Band, Ranchería or Allied Tribe: no movement or attrition';
    }else{
-     if(!command.ack)fail('Verify the §3.1 shortest route and movement priority against the printed map before resolving Peace movement.');
-     const note=String(command.routeNote||'').trim();
-     if(note.length<20||note.length>320)fail('Record the printed movement target and route evidence (20–320 characters).');
+     const automatic=special.mode==='advance'&&Boolean(special.automaticTo)&&String(command.to||special.automaticTo)===special.automaticTo;
+     if(!automatic&&!command.ack)fail('Verify the §3.1 shortest route and movement priority against the printed map before resolving Peace movement.');
+     const note=automatic?'Canonical verified map: unique shortest Peace War move.':String(command.routeNote||'').trim();
+     if(!automatic&&(note.length<20||note.length>320))fail('Record the printed movement target and route evidence (20–320 characters).');
      if(special.mode==='no-targets'){
        movement=`No visible target: −1 War strength under §3.1 step 1; checked physical board: ${note}`;
        if(w.strength===1)resolveWarEnds(s,w.id);else w.strength--;
      }else{
-       const to=String(command.to||'');
+       const to=String(command.to||special.automaticTo||'');
        const edge=s.edges.find(e=>(e.a===from&&e.b===to)||(e.b===from&&e.a===to));
        if(!edge||!SPACE[to])fail('Peace movement must use one connected space in the verified map graph.');
        if(edge.kind==='dashed'&&w.owner!=='North')fail('Colonial War Columns cannot cross dashed connections without a separate printed exception.');
@@ -4204,8 +4619,9 @@ export function perform(original,command){
      }
    }
    const instr=item(s,f.currentId);instr.location=`enemy-inactive:${f.currentRow}`;
-   f.peaceWarResolved={instructionId:instr.id,originalRow:f.currentRow,enemy:f.enemy,warId:special.warId,mode:special.mode,from,to:special.mode==='advance'?String(command.to):null,movement,attrition};
+   f.peaceWarResolved={instructionId:instr.id,originalRow:f.currentRow,enemy:f.enemy,warId:special.warId,mode:special.mode,from,to:special.mode==='advance'?String(command.to||special.automaticTo||''):null,movement,attrition};
    message=`Peace §6.3.5 (${f.enemy}): ${special.mode}. ${movement}.${attrition?' Attrition die '+attrition.die+(attrition.loss?' caused -1 strength / War Ends.':' caused no loss.'):''} Instruction moved to Inactive. Current War Event retained.`;
+   quality=['engaged','war-ends'].includes(special.mode)||special.mode==='advance'&&Boolean(special.automaticTo)&&String(command.to||special.automaticTo)===special.automaticTo?'verified':'manual';
    break;
  }
  case 'ENEMY_ENCROACH':{
@@ -4235,7 +4651,9 @@ export function perform(original,command){
    if(f.recoverResolved||f.subjugateResolved||f.settleResolved||f.cultureAttackResolved||f.huntResolved||f.encroachResolved||f.allyResolved||f.peaceResolved||f.cardNoEffectResolved)fail('The Instruction effect is already resolved. Undo to correct.');
    const currentKind=instructionName(item(s,f.currentId));
    if(currentKind!=='Hunt'){
-     if(currentKind!=='Encroach'&&!(currentKind==='Raid'&&enemyWarRaidPreview(s).redirect==='Encroach'))fail('The current Instruction is not recorded as Hunt or an eligible redirect.');
+     const raidRedirect=currentKind==='Raid'&&enemyWarRaidPreview(s).redirect==='Encroach';
+     const allyRedirect=currentKind==='Ally'&&allyTargetPreview(s,f.enemy).encroachInstead;
+     if(currentKind!=='Encroach'&&!raidRedirect&&!allyRedirect)fail('The current Instruction is not recorded as Hunt or an eligible redirect.');
      const blocked=encroachTargetPreview(s,command.die,command.order);
      if(!blocked.huntInstead)fail('Encroach has a legal Tribe placement; Hunt fallback is not allowed.');
    }
@@ -4251,7 +4669,7 @@ export function perform(original,command){
      const target=preview.candidates[result.seed%preview.candidates.length];
      bisonId=target.id;item(s,bisonId).location='reserve';
    }
-   f.huntResolved={die:preview.face,order:[...TERRITORY_DIE_ORDER],territory:preview.territory,selectedFace:preview.selectedFace,bisonId,redirectedFrom:['Encroach','Raid'].includes(currentKind)?currentKind:null};
+   f.huntResolved={die:preview.face,order:[...TERRITORY_DIE_ORDER],territory:preview.territory,selectedFace:preview.selectedFace,bisonId,redirectedFrom:['Encroach','Raid','Ally'].includes(currentKind)?currentKind:null};
    message=preview.none?'Enemy Hunt: no Bison on any numbered space; no effect.':
      `Enemy Hunt §6.3.4: die ${preview.face}, checked ${preview.checked} territor${preview.checked===1?'y':'ies'}, removed ${bisonId} from ${preview.territory} to stock.`;
    quality='verified';break;
@@ -4261,7 +4679,7 @@ export function perform(original,command){
    if(!f||f.stage!=='effect'||!f.currentId||instructionName(item(s,f.currentId))!=='Subjugate')fail('This fallback requires a selected Subjugate Instruction.');
    if([f.recoverResolved,f.subjugateResolved,f.settleResolved,f.cultureAttackResolved,f.cardNoEffectResolved].some(Boolean))fail('This Instruction has already resolved.');
    if(s.pieces.some(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round'))fail('Subjugate can still select a Tribe.');
-   if(s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy])))fail('Subjugate must attempt Settle first: stock remains.');
+   if(s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]))&&settleTargetAudit(s,f.enemy).nearestKnown)fail('Subjugate must attempt legal Settle first.');
    const squares=f.enemy==='West'?['W']:f.enemy==='South'?['S']:['E1','E2'];
    if(!s.pieces.some(p=>p.subtype==='Peace'&&squares.includes(p.location)))fail('Without Peace the fallback is War, not Culture Attack.');
    const preview=enemyCulturePreview(s,f.enemy);
@@ -4269,7 +4687,7 @@ export function perform(original,command){
    s.tracks=preview.pointLoss.tracks;
    f.cultureAttackResolved={redirectedFrom:'Subjugate',enemy:f.enemy,settlementIds:preview.settlements.map(p=>p.id),amount:preview.amount,
      militaryAfter:s.tracks.military,cultureAfter:s.tracks.culture};
-   message=`Subjugate fallback to Culture Attack: no Tribe or Settlement stock, Enemy square has Peace; applied -${preview.amount} Culture including printed point-deficit conversion.`;
+   message=`Subjugate fallback to Culture Attack: no eligible Tribe or legal Settlement placement, Enemy square has Peace; applied -${preview.amount} Culture including printed point-deficit conversion.`;
    quality='verified';break;
  }
  case 'ENEMY_AUTO_CULTURE_ATTACK':{
@@ -4357,10 +4775,11 @@ export function perform(original,command){
    if(!f||f.stage!=='effect'||!f.currentId)fail('Subjugate is only available during the current Enemy Instruction effect.');
    const printed=instructionName(item(s,f.currentId));
    if(!['Subjugate','Settle'].includes(printed))fail('This Instruction does not permit Subjugate.');
-   if(printed==='Settle'&&s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy])))fail('Settle has available physical stock; resolve legal Settle placement or verify all spaces are blocked.');
+   if(printed==='Settle'&&s.pieces.some(p=>p.type==='Settlement'&&p.location==='reserve'&&(p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]))&&settleTargetAudit(s,f.enemy).nearestKnown)fail('Settle has available physical stock and a legal Settlement placement; resolve Settle before Subjugate.');
    if(!['West','South','East'].includes(f.enemy))fail('Subjugate is only available to a Colonial Enemy.');
    if(f.recoverResolved||f.subjugateResolved||f.settleResolved||f.cultureAttackResolved||f.huntResolved||f.encroachResolved||f.allyResolved||f.peaceResolved||f.cardNoEffectResolved)fail('This Instruction effect already has a Recover/Subjugate/Settle result; use Undo to correct it.');
    if(f.enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46')&&command.eastOrigin!=='E2')fail('Lone Star Republic: East Subjugate and Settle must use southern East square E2.');
+   if(command.verifiedMapAutomatic){const automatic=cupMode&&command.cupCanonicalAuto?cupColonialTargetPreview(s,raidCup):enemyAutomationPreview(s);if(!automatic.ready||(cupMode?automatic.kind!==printed:automatic.command?.type!=='ENEMY_AUTO_NEAREST_TARGET'))fail('Certified automatic map target is not permitted for this state.');}
    const report=subjugateTargetAudit(s,f.enemy,{eastOrigin:command.eastOrigin||null});
    if(report.recoverFirst)fail('Recover has priority over Subjugate: resolve the printed Recover effect first.');
    if(report.originSelectionRequired)fail('Confirm the East Enemy square selected on the physical board.');
@@ -4381,17 +4800,17 @@ export function perform(original,command){
    const note=String(command.mapVerification||'').trim();
    if(!command.ack||note.length<25||note.length>400)fail('Confirm the selected Tribe and physical colored routes, History Card, and printed §6.3.9 selection (25–400 characters).');
    if(report.tiedKnown.length>1&&chosen&&report.tiedKnown.some(x=>x.tribeId===chosen.tribeId)&&!command.randomConfirmed)fail('Recorded nearest candidates tie: confirm a random target was selected physically.');
-   if(!chosen&&!command.unmappedRouteConfirmed)fail('The selected Tribe lacks a verified colored route in the incomplete ledger. Confirm its actual route on the physical board.');
-   if(chosen&&report.nearestKnown&&chosen.distance>report.nearestKnown.distance&&!command.unmappedRouteConfirmed)fail('Another recorded Tribe is closer: document the actual printed-board route before overriding this provisional ranking.');
-   if(chosen&&report.nearestKnown&&chosen.distance===report.nearestKnown.distance&&chosen.area>report.nearestKnown.area&&!command.unmappedRouteConfirmed)fail('Another recorded Tribe has a lower area value: confirm the physical map or explain the difference.');
+   if(!chosen)fail('The Tribe is not reachable by a printed colored Enemy Connection.');
+   if(chosen&&report.nearestKnown&&chosen.distance>report.nearestKnown.distance)fail('Another Tribe is closer according to the verified printed map.');
+   if(chosen&&report.nearestKnown&&chosen.distance===report.nearestKnown.distance&&chosen.area>report.nearestKnown.area)fail('Another Tribe has precedence by printed area value on the verified map.');
    const location=tribe.location;
    tribe.location='reserve';
    if(allyReturn)ally.location=`enemy-display:${allyReturn.owner}:${allyReturn.row}`;
    f.subjugateResolved={allyReturn,tribeId:tribe.id,location,enemy:f.enemy,origin:command.eastOrigin||null,recordedDistance:chosen?.distance??null,
      randomConfirmed:Boolean(command.randomConfirmed),unmappedRouteConfirmed:Boolean(command.unmappedRouteConfirmed),mapVerification:note};
    if(cupMode){drawnCup.stage='swap';drawnCup.effectDone=true;drawnCup.subjugateResolved=f.subjugateResolved;}
-   message=`Subjugate §6.3.9 (${f.enemy}): returned ${named(tribe)} from ${location} to stock after explicit physical target verification. Colored network is incomplete. ${note}`;
-   quality='manual';break;}
+   message=`Subjugate §6.3.9 (${f.enemy}): returned ${named(tribe)} from ${location} to stock using ${command.verifiedMapAutomatic?'automatic canonical route ranking':'guided target verification'}. ${note}`;
+   quality=command.verifiedMapAutomatic?'verified':'manual';break;}
  case 'ENEMY_SETTLE_ROLL_ORIGIN':{
    const f=s.enemyFlow;
    if(!f||f.stage!=='effect'||!f.currentId||f.enemy!=='East'||!['Settle','Subjugate'].includes(instructionName(item(s,f.currentId))))fail('East Settle origin can only be rolled during a relevant East Instruction.');
@@ -4423,15 +4842,19 @@ export function perform(original,command){
    if(!['West','South','East'].includes(f.enemy))fail('Settle is only available to a Colonial Enemy.');
    if(f.recoverResolved||f.subjugateResolved||f.settleResolved||f.cultureAttackResolved||f.huntResolved||f.encroachResolved||f.allyResolved||f.peaceResolved||f.cardNoEffectResolved)fail('This Instruction effect already has a Recover/Subjugate/Settle result; use Undo to correct it.');
    if(f.enemy==='East'&&s.cards.some(c=>c.kind==='Development'&&c.zone==='In play'&&devNumber(c)==='46')&&command.eastOrigin!=='E2')fail('Lone Star Republic: East Subjugate and Settle must use southern East square E2.');
-   if(f.enemy==='East'&&!cupMode){
+   if(f.enemy==='East'&&!cupMode&&printed==='Settle'){
      if(!f.settleOrigin)fail('Roll the digital East Settle origin before selecting a target.');
      if(command.eastOrigin&&command.eastOrigin!==f.settleOrigin)fail('East starting square conflicts with the recorded digital roll.');
    }
-   const eastOrigin=f.enemy==='East'&&!cupMode?f.settleOrigin:command.eastOrigin||null;
+   const eastOrigin=f.enemy==='East'&&!cupMode&&printed==='Settle'?f.settleOrigin:command.eastOrigin||null;
+   // A Subjugate-to-Settle fallback retains the Subjugate face: check both
+   // East squares, never invent the dedicated East Settle origin die.
+   if(f.enemy==='East'&&printed==='Subjugate'&&command.eastOrigin)fail('Subjugate fallback must check both East squares without a Settle origin roll.');
+   if(command.verifiedMapAutomatic){const automatic=cupMode&&command.cupCanonicalAuto?cupColonialTargetPreview(s,raidCup):enemyAutomationPreview(s);if(!automatic.ready||(cupMode?automatic.kind!==printed:automatic.command?.type!=='ENEMY_AUTO_NEAREST_TARGET'))fail('Certified automatic map target is not permitted for this state.');}
    const report=settleTargetAudit(s,f.enemy,{eastOrigin});
    const enemySquares=f.enemy==='West'?['W']:f.enemy==='South'?['S']:['E1','E2'];
    if(s.pieces.some(p=>p.subtype==='Ravaged'&&enemySquares.includes(p.location)))fail('Recover has priority over Settle on an active Enemy square.');
-   if(report.originSelectionRequired)fail('East Settle origin must be randomly selected before placement.');
+   if(report.originSelectionRequired&&printed==='Settle')fail('East Settle origin must be randomly selected before placement.');
    const space=String(command.space||'');
    if(SPACE[space]?.type!=='round')fail('Settle requires a numbered round map space.');
    const blockers=s.pieces.filter(p=>p.location===space&&['Rancheria','Band','Settlement','Tribe'].includes(p.type));
@@ -4442,10 +4865,10 @@ export function perform(original,command){
    const candidate=report.candidates.find(x=>x.space===space);
    const note=String(command.mapVerification||'').trim();
    if(!command.ack||note.length<25||note.length>400)fail('Confirm the printed §6.3.8 route, History Card, stacking and physical stock (25–400 characters).');
-   if(!candidate&&!command.unmappedRouteConfirmed)fail('No verified colored route to the selected space; confirm the missing printed connection before proceeding.');
+   if(!candidate)fail('The destination has no printed colored Enemy route or is blocked.');
    if(candidate&&report.nearestKnown&&
        (candidate.distance>report.nearestKnown.distance||candidate.distance===report.nearestKnown.distance&&candidate.area>report.nearestKnown.area)&&
-       !command.unmappedRouteConfirmed)fail('A nearer or lower-area eligible destination is recorded; verify the printed-board exception.');
+       true)fail('The selected destination is not the closest legal mapped location (distance and area precedence).');
    if(candidate&&report.tiedKnown.length>1&&report.tiedKnown.some(x=>x.space===space)&&!command.randomConfirmed)
      fail('Multiple best known destinations tie; confirm the printed random selection.');
    const bison=s.pieces.filter(p=>p.location===space&&p.type==='Bison');
@@ -4456,8 +4879,8 @@ export function perform(original,command){
      bisonIds:bison.map(p=>p.id),recordedDistance:candidate?.distance??null,
      randomConfirmed:Boolean(command.randomConfirmed),unmappedRouteConfirmed:Boolean(command.unmappedRouteConfirmed),mapVerification:note};
    if(cupMode){drawnCup.stage='swap';drawnCup.effectDone=true;drawnCup.settleResolved=f.settleResolved;}
-   message=`Settle §6.3.8 (${f.enemy}): recorded ${named(settlement)} into ${space} and returned ${bison.length} Bison to stock after physical-board confirmation. ${note}`;
-   quality='manual';break;}
+   message=`Settle §6.3.8 (${f.enemy}): recorded ${named(settlement)} into ${space} and returned ${bison.length} Bison to stock using ${command.verifiedMapAutomatic?'automatic canonical route ranking':'guided target verification'}. ${note}`;
+   quality=command.verifiedMapAutomatic?'verified':'manual';break;}
  case 'ENEMY_AUTO_EMPTY_HUNT':{
    const f=s.enemyFlow;
    if(!f||f.stage!=='effect'||!f.currentId)fail('No Enemy Instruction is selected.');
@@ -4511,7 +4934,7 @@ export function perform(original,command){
    const f=s.enemyFlow;
    if(!f||f.stage!=='effect'||!f.currentId)fail('No selected Enemy effect to finish.');
    const p=item(s,f.currentId),kind=instructionName(p);
-   const resolved={Ally:f.allyResolved,Peace:f.peaceResolved||f.peaceWarResolved,War:f.warRaidResolved,Raid:f.warRaidResolved||f.encroachResolved||f.huntResolved,'Culture Attack':f.cultureAttackResolved,Hunt:f.huntResolved,Encroach:f.encroachResolved,Settle:f.settleResolved,Subjugate:f.subjugateResolved,Recover:f.recoverResolved};
+   const resolved={Ally:f.allyResolved||f.encroachResolved||f.huntResolved,Peace:f.peaceResolved||f.peaceWarResolved,War:f.warRaidResolved,Raid:f.warRaidResolved||f.encroachResolved||f.huntResolved,'Culture Attack':f.cultureAttackResolved,Hunt:f.huntResolved,Encroach:f.encroachResolved||f.huntResolved,Settle:f.settleResolved||f.subjugateResolved,Subjugate:f.subjugateResolved||f.settleResolved||f.cultureAttackResolved||f.warRaidResolved,Recover:f.recoverResolved};
    if(!f.cardNoEffectResolved&&!f.recoverResolved&&!resolved[kind]&&!((kind==='Settle'&&f.subjugateResolved)||(kind==='Subjugate'&&f.settleResolved)||(kind==='Subjugate'&&f.cultureAttackResolved)))fail('Cannot automatically complete an unverified '+kind+' effect.');
    // Digitally recorded effects have already validated physical confirmations and
    // required random results; a second manual acknowledgement adds no safety.
@@ -4573,7 +4996,7 @@ export function perform(original,command){
      if(!peace.requiresWarProcedure||!note.toLowerCase().includes('war'))
        fail('Resolve digital Peace placement or document the War Column branch of §6.3.5 before confirming.');
    }
-   if(f.warRaidResolved&&!note.toLowerCase().includes(instructionName(p).toLowerCase()))fail('Mention the digitally resolved War/Raid outcome.');
+   if(f.warRaidResolved&&!note.toLowerCase().includes(instructionName(p)==='Subjugate'?'war':instructionName(p).toLowerCase()))fail('Mention the digitally resolved War/Raid outcome.');
    if(f.allyResolved&&!note.toLowerCase().includes('ally'))fail('Mention the recorded Ally placement in the effect confirmation.');
    if(instructionName(p)==='Ally'&&!f.allyResolved&&!f.encroachResolved&&!f.recoverResolved)fail('Resolve the digital Ally placement, or document the Encroach redirect, before confirming.');
    if(f.encroachResolved&&!note.toLowerCase().includes('encroach'))fail('Mention the digital Encroach outcome in the effect confirmation.');
@@ -4693,10 +5116,11 @@ export function perform(original,command){
    for(const {actual,expected} of change.upgradeColor)actual.enemyFor=[...expected.enemyFor];
    for(const entry of change.missing)s.edges.push({...entry,verifiedByPlayer:false,source:'board-photo'});
    s.mapReview={}; // color-sensitive space sign-offs require a fresh check
-   message=`Reconciled board network: added ${change.missing.length} connections and restored ${change.upgradeColor.length} missing Enemy color classifications from ${MAP_EVIDENCE_SOURCE}. Full map still unverified.`;
+   message=`Reconciled board network: added ${change.missing.length} connections and restored ${change.upgradeColor.length} missing Enemy color classifications from ${MAP_EVIDENCE_SOURCE}. Full board map is verified and locked.`;
    quality='verified';break;
  }
  case 'ADD_EDGE':{
+   fail('The complete board connection graph is verified and locked. Edit the canonical map source in a reviewed release, not an individual save.');
    const a=String(command.a),b=String(command.b),kind=command.kind;
    if(!SPACE[a]||!SPACE[b]||a===b)fail('Select two distinct map spaces.');
    if(!['solid','dashed'].includes(kind))fail('Choose solid or dashed.');
@@ -4708,6 +5132,7 @@ export function perform(original,command){
    assertNoContradictedSouthLinks([...s.edges,added]);
    s.edges.push(added);message=`Physical-map connection recorded: ${a} ↔ ${b} (${kind}${color?', '+color+' Enemy Connection':''}).`;quality='manual';break;}
  case 'DELETE_EDGE':{
+   fail('The verified board connection graph is locked. A saved game cannot remove a printed connection.');
    const n=s.edges.length;s.edges=s.edges.filter(e=>e.a!==command.a||e.b!==command.b);
    if(s.edges.length===n)fail('No such connection.');
    message=`Removed recorded map connection.`;quality='manual';break;}
@@ -4866,9 +5291,122 @@ export function perform(original,command){
    }
    s.steps.pt7='done';message=`Passage step 7: ${outcomes.join('; ')||'no replacements needed'}.`;break;
  }
+ case 'PASSAGE_RECRUIT_BAND':{
+   // Living Rules §4.4 step 2: increasing 1,2,3... Pop Point cost at
+   // each Ranchería in this Passage; unused Food points cannot be saved.
+   if(s.phase!=='execution'||s.operation!=='Passage of Time'||s.steps.pt1!=='done'||['done','na'].includes(s.steps.pt2))fail('Recruitment belongs to unfinished Passage step 2 after step 1.');
+   const ranch=item(s,String(command.rancheriaId||''));
+   if(ranch.type!=='Rancheria'||!SPACE[ranch.location])fail('Recruit new Bands only at an in-play Ranchería.');
+   const band=item(s,String(command.bandId||''));
+   if(band.type!=='Band'||band.strength!==1||!['reserve','out-of-play'].includes(band.location))fail('Use an available physical strength-1 Band counter.');
+   const ids=command.resourceIds;
+   if(!Array.isArray(ids)||!ids.length||ids.length>8||new Set(ids).size!==ids.length)fail('Select unique population Resource counters to spend.');
+   let points=0;
+   for(const id of ids){const resource=item(s,String(id));
+     if(resource.location!==`box:${ranch.id}`)fail('Recruitment Resources must be unpossessed in the selected Ranchería box.');
+     const value=populationValue(resource);if(!value)fail('Only Bison, Captives and Food may be spent as population.');points+=value;
+   }
+   s.passageRecruitCounts??={};
+   const already=s.passageRecruitCounts[ranch.id]||0,cost=already+1;
+   if(points<cost)fail(`Recruitment costs ${cost} population point(s) at this Ranchería.`);
+   for(const id of ids)item(s,id).location='reserve';
+   band.location=`box:${ranch.id}`;band.finished=false;s.passageRecruitCounts[ranch.id]=already+1;
+   message=`Passage step 2 (§4.4): recruited physical 1-strength Band ${band.id} to ${ranch.id}, spending ${points} population point(s) for cost ${cost}${points>cost?' (excess lost; no change)':''}.`;
+   break;
+ }
+ case 'PASSAGE_STRENGTHEN_BAND':{
+   // One Band per action. Food supplies two Pop Points, which must both
+   // be used on this Band in this restricted, unambiguous case.
+   if(s.phase!=='execution'||s.operation!=='Passage of Time'||!['done','na'].includes(s.steps.pt2)||['done','na'].includes(s.steps.pt3))fail('Strengthening belongs to unfinished Passage step 3 after step 2.');
+   const old=item(s,String(command.bandId||'')),replacement=item(s,String(command.replacementBandId||''));
+   if(old.type!=='Band'||!Number.isInteger(old.strength)||old.strength<1||old.strength>2||(!SPACE[old.location]&&!old.location.startsWith('box:')))fail('Select an in-play strength-1 or strength-2 Band.');
+   const increase=replacement.strength-old.strength;
+   if(replacement.type!=='Band'||!['reserve','out-of-play'].includes(replacement.location)||increase<1||old.strength+increase>3)fail('Exchange with an available, stronger printed Band counter.');
+   if(s.activeBandId===old.id)fail('Finish the active Band before a physical counter exchange.');
+   if(s.pieces.some(q=>q.location===`medicine:${old.id}`))fail('Band has unresolved associated counters.');
+   const ids=command.resourceIds;
+   if(!Array.isArray(ids)||!ids.length||ids.length>3||new Set(ids).size!==ids.length)fail('Select unique population Resources for this exchange.');
+   let points=0;
+   for(const id of ids){const resource=item(s,String(id));
+     if(resource.location!==`held:${old.id}`&&!(old.location.startsWith('box:')&&resource.location===old.location))fail('Strengthening Resources must be possessed by the Band or unpossessed in its Ranchería box.');
+     const value=populationValue(resource);if(!value)fail('Only Bison, Captives and Food can strengthen Bands.');points+=value;
+   }
+   if(points!==increase)fail(`This single-Band exchange needs exactly ${increase} Pop Point(s); use another allocation for multi-Band Food spending.`);
+   const held=s.pieces.filter(q=>q.location===`held:${old.id}`&&!ids.includes(q.id));
+   const oldLocation=old.location,oldStrength=old.strength;
+   for(const id of ids)item(s,id).location='reserve';
+   for(const p of held)p.location=`held:${replacement.id}`;
+   replacement.location=oldLocation;replacement.finished=old.finished;
+   old.location='out-of-play';old.finished=false;
+   message=`Passage step 3 (§4.4): exchanged ${old.id} (${oldStrength}) for ${replacement.id} (${replacement.strength}), spent ${points} Pop Point(s), preserved ${held.length} possessed counter(s).`;
+   break;
+ }
+ case 'PASSAGE_STRENGTHEN_BANDS':{
+   // Living Rules §4.4 step 3: a single Food (2 Pop Points) may strengthen
+   // two different Bands. Commit both physical exchanges atomically.
+   if(s.phase!=='execution'||s.operation!=='Passage of Time'||!['done','na'].includes(s.steps.pt2)||['done','na'].includes(s.steps.pt3))fail('Multi-Band strengthening belongs to unfinished Passage step 3.');
+   const upgrades=command.upgrades,ids=command.resourceIds;
+   if(!Array.isArray(upgrades)||upgrades.length!==2||!Array.isArray(ids)||ids.length!==1)fail('Select exactly two Band exchanges and one shared Food counter.');
+   if(new Set(upgrades.map(x=>x.bandId)).size!==2||new Set(upgrades.map(x=>x.replacementBandId)).size!==2)fail('Each Band and replacement counter may appear only once.');
+   const food=item(s,String(ids[0]));
+   if(food.type!=='Resource'||food.subtype!=='Food')fail('Shared two-Band strengthening requires a Food counter.');
+   const pairs=upgrades.map(u=>({old:item(s,String(u.bandId)),replacement:item(s,String(u.replacementBandId))}));
+   if(pairs.some(({old,replacement})=>old.type!=='Band'||!Number.isInteger(old.strength)||old.strength<1||old.strength>2||
+     replacement.type!=='Band'||replacement.strength!==old.strength+1||!['reserve','out-of-play'].includes(replacement.location)||
+     (!SPACE[old.location]&&!old.location.startsWith('box:'))||s.activeBandId===old.id||
+     s.pieces.some(q=>q.location===`medicine:${old.id}`)))fail('Each exchange must strengthen an in-play Band by exactly 1 using a free printed replacement.');
+   const validSharedBox=pairs[0].old.location.startsWith('box:')&&pairs[0].old.location===pairs[1].old.location&&food.location===pairs[0].old.location;
+   if(!validSharedBox)fail('A shared Food counter must be unpossessed in the same in-play Ranchería Resources box as both Bands.');
+   const boxRanch=s.pieces.find(p=>p.type==='Rancheria'&&p.id===food.location.slice(4)&&SPACE[p.location]);
+   if(!boxRanch)fail('The shared Food must come from an in-play Ranchería.');
+   for(const {old,replacement} of pairs){
+     const held=s.pieces.filter(q=>q.location===`held:${old.id}`);
+     for(const q of held)q.location=`held:${replacement.id}`;
+     replacement.location=old.location;replacement.finished=old.finished;
+     old.location='out-of-play';old.finished=false;
+   }
+   food.location='reserve';
+   message=`Passage step 3 (§4.4): spent one Food (2 Pop Points) to strengthen two Bands: ${pairs.map(({old,replacement})=>`${old.id} → ${replacement.id}`).join('; ')}.`;
+   break;
+ }
+ case 'PASSAGE_CREATE_RANCHERIA':{
+   // Living Rules §4.4 step 4: at most one Ranchería from a lone Band.
+   // A possessed Mahimiana requires a separate counter-exchange procedure;
+   // do not silently move a chief into the wrong affiliated Resources box.
+   if(s.phase!=='execution'||s.operation!=='Passage of Time'||s.steps.pt4==='done')fail('New Ranchería creation belongs to unfinished Passage step 4.');
+   if(['pt1','pt2','pt3'].some(k=>!['done','na'].includes(s.steps[k])))fail('Complete Passage steps 1–3 before creating a Ranchería.');
+   const band=item(s,String(command.bandId||''));
+   const ranch=item(s,String(command.rancheriaId||''));
+   if(band.type!=='Band'||!Number.isInteger(band.strength)||band.strength<1||band.strength>3||!SPACE[band.location]||SPACE[band.location].type!=='round')fail('Choose one active strength-1/2/3 Band on a numbered map space.');
+   if(s.pieces.filter(p=>p.location===band.location&&p.type==='Band').length!==1||s.pieces.some(p=>p.location===band.location&&['Rancheria','Tribe','Settlement','War Column'].includes(p.type)))fail('The creating Band must be alone in a legal Ranchería space.');
+   if(ranch.type!=='Rancheria'||ranch.location!==`box:${ranch.id}`)fail('Choose an unused physical Ranchería counter from its own Resources box.');
+   const linked=type=>s.pieces.filter(p=>p.type===type&&(p.affiliatedRancheriaId===ranch.id||p.location===`box:${ranch.id}`||String(p.subtype||'').toUpperCase()===String(ranch.subtype||'').toUpperCase()));
+   const paraibos=linked('Paraibo'),mahimianas=linked('Mahimiana');
+   if(paraibos.length!==1||mahimianas.length!==1||paraibos[0].location!==`box:${ranch.id}`||mahimianas[0].location!==`box:${ranch.id}`)fail('Unused Ranchería headmen must be present in its Resources box.');
+   const carried=s.pieces.filter(p=>p.type==='Mahimiana'&&p.location===`held:${band.id}`);
+   if(carried.length>1)fail('Only one possessed Mahimiana can be exchanged when establishing a Ranchería.');
+   let previousChief=null,oldChiefRanch=null,carriedMedicine=null;
+   if(carried.length){
+     previousChief=carried[0];carriedMedicine=medicineValue(s,previousChief);
+     oldChiefRanch=s.pieces.find(p=>p.type==='Rancheria'&&p.id===previousChief.affiliatedRancheriaId);
+     if(!oldChiefRanch||!SPACE[oldChiefRanch.location]||oldChiefRanch.id===ranch.id||carriedMedicine===null)
+       fail('A possessed Mahimiana needs a known Medicine rating and a distinct in-play affiliated Ranchería.');
+   }
+   const oldLocation=band.location;
+   ranch.location=oldLocation;band.location=`box:${ranch.id}`;
+   paraibos[0].medicine=band.strength;
+   if(previousChief){
+     previousChief.location=`box:${oldChiefRanch.id}`;setMedicine(s,previousChief,0);
+     mahimianas[0].location=`held:${band.id}`;setMedicine(s,mahimianas[0],carriedMedicine);
+   }else setMedicine(s,mahimianas[0],0);
+   s.steps.pt4='done';
+   message=`Passage step 4 (§4.4): created ${named(ranch)} at ${oldLocation} from ${named(band)}. Paraibo Medicine ${band.strength}; ${previousChief?`exchanged possessed Mahimiana ${previousChief.id} for ${mahimianas[0].id} with Medicine ${carriedMedicine}, returning old chief to ${oldChiefRanch.id} at Medicine 0`:'new Mahimiana Medicine 0 for step 7'}.`;
+   break;
+ }
  case 'PASSAGE_UNFINISH_BANDS':{
    if(s.phase!=='execution'||s.operation!=='Passage of Time')fail('Band reset belongs to Passage of Time step 1.');
    if(s.steps.pt1==='done')fail('Passage step 1 already resolved.');
+   s.passageRecruitCounts={};
    const bands=s.pieces.filter(p=>p.type==='Band'&&(Boolean(SPACE[p.location])||(p.location.startsWith('box:')&&boxExists(s,p.location.slice(4)))));
    for(const p of bands)p.finished=false;
    s.steps.pt1='done';message=`Passage step 1 (§4.4): marked ${bands.length} in-play Bands unfinished.`;
@@ -5313,8 +5851,8 @@ export function perform(original,command){
      tribe.location=location;for(const x of bison)x.location='reserve';
      message=`Draw-cup Encroach: territory die ${preview.die}, placed ${tribe.id} at ${location}, returned ${bison.length} Bison. Exchange follows.`;
    }else{
-     const territoryDie=command.die?Number(command.die):rollSeededDie(s.rng.seed).face;
-     if(!command.die){const roll=rollSeededDie(s.rng.seed);s.rng.seed=roll.seed;s.rng.rolls++;}
+     let territoryDie=Number(command.die)||null;
+     if(!territoryDie){const roll=rollSeededDie(s.rng.seed);s.rng.seed=roll.seed;s.rng.rolls++;territoryDie=roll.face;}
      const preview=huntTargetPreview(s,territoryDie,order);
      let removed='none';
      if(!preview.none){const die=rollSeededDie(s.rng.seed);s.rng.seed=die.seed;s.rng.rolls++;
@@ -5450,12 +5988,12 @@ export function perform(original,command){
  }
  case 'CLEANUP_TRAIL_PLACE':{
    if(s.phase!=='cleanup'||s.steps.cl1!=='done'||s.steps.cl2!=='done'||s.steps.cl3!=='done'||s.steps.cl4==='done'||!(s.flags?.santaFe||activeDevelopment(s,'43').length))fail('Santa Fé Trail placement belongs to Cleanup step 4.');
-   if(!command.ack||String(command.evidence||'').trim().length<20)fail('Confirm the nearest eligible Wagon Train space against the printed map (20+ characters of evidence).');
-   const to=String(command.to||'');if(!['LE-1','UA-3','UA-4','UA-5','UA-6'].includes(to))fail('Choose a printed Wagon Train space: Llano Estacado 1 or Upper Arkansas 3–6.');
-   if(s.pieces.some(p=>p.location===to&&(['Band','Rancheria','Settlement'].includes(p.type)||p.faceDown===true)))fail('The Wagon Train space is occupied by a prohibited counter.');
+   const trail=santaFeTrailPlacementPreview(s),to=String(command.to||'');
+   if(!trail.choices.some(x=>x.to===to))fail('Choose a nearest eligible Wagon Train space using the verified board connections from northern East (E1).');
+   if(!trail.unique&&!command.ack)fail('Multiple spaces are equally near; the player must make the printed tie decision.');
    if(!s.pieces.some(cupDrawable))fail('No physical draw-cup counter is available.');
    const p=drawCupCounter(s,rollSeededDie);p.location=to;p.faceDown=true;p.wagonTrain=true;
-   s.steps.cl4='done';message=`Cleanup step 4: placed one hidden counter face-down at verified Wagon Train space ${to}; identity remains concealed until its rule trigger. Evidence: ${String(command.evidence).trim().slice(0,250)}.`;quality='manual';break;
+   s.steps.cl4='done';message=`Cleanup step 4: placed one hidden counter face-down at nearest eligible Wagon Train space ${to} (${trail.nearest} connections from northern East); identity remains concealed until its rule trigger.`;quality=trail.unique?'automatic':'player-choice';break;
  }
  case 'CLEANUP_SKIP_TRAIL':{
    if(s.phase!=='cleanup'||s.steps.cl1!=='done'||s.steps.cl2!=='done'||s.steps.cl3!=='done'||s.steps.cl4==='done')fail('Complete preceding Cleanup steps first.');
@@ -5466,6 +6004,11 @@ export function perform(original,command){
    if(s.phase==='cleanup'&&['cl1','cl2','cl3','cl4'].includes(command.key))fail('Use the digital Cleanup procedure, not a manual checkpoint override.');
    if(s.phase==='execution'&&s.operation==='Planning'&&s.planningStage!=null&&['pl1','pl2','pl3'].includes(command.key))fail('Use the digital Planning procedure, not a manual checkpoint override.');
    if(s.phase==='execution'&&s.operation==='Passage of Time'&&['pt1','pt8','pt9','pt10','pt11','pt12','pt14','pt15'].includes(command.key))fail('Passage steps 1, 5–12, 14 and 15 must be resolved through their dedicated digital procedures.');
+   if(s.phase==='execution'&&s.operation==='Passage of Time'&&['pt2','pt3','pt4'].includes(command.key)&&['done','na'].includes(command.value)){
+     const order=['pt1','pt2','pt3','pt4'];
+     if(order.slice(0,order.indexOf(command.key)).some(k=>!['done','na'].includes(s.steps[k])))
+       fail('Complete earlier Passage steps in their printed order (§2.1, §4.4).');
+   }
    const keys=checklist(s).map(x=>x[0]);if(!keys.includes(command.key))fail('That checkpoint is not in the current procedure.');
    if(!['done','na',''].includes(command.value))fail('Invalid checkpoint state.');
    if(s.phase==='war'&&['w1','w2'].includes(command.key)&&command.value==='na'&&s.pieces.some(p=>p.type==='War Column'&&SPACE[p.location]&&p.strength>0))fail('Cannot skip mandatory War movement or attrition while War Columns are active. Use automatic resolution or document completion as done.');
@@ -5492,7 +6035,7 @@ export function perform(original,command){
    if(Array.from({length:14},(_,i)=>`pt${i+1}`).some(k=>!['done','na'].includes(s.steps[k])))fail('Finish or acknowledge Passage of Time steps 1–14 before step 15.');
    const digital=type==='PASSAGE_DIGITAL_FINISH';
    if(digital){
-     if(s.scenario!=='plains'||s.setupTemplate!=='official')fail('The digital Passage finish is currently verified only for the official Onto the Plains scenario.');
+     if(s.setupTemplate!=='official'||!['plains','rise','lords','downfall','campaign'].includes(s.scenario))fail('A verified official scenario is required for digital Passage.');
      if(s.pieces.some(p=>p.location==='enemy-resolution')||s.pending||s.developmentPending||s.enemyFlow||s.battlePending||s.battleContinuation)fail('Resolve all open instructions and effects before the digital Passage finish.');
    }else if(!command.ack)fail('Confirm that the printed Passage of Time and card effects were applied.');
    const old=s.tracks.passage, mandatory=Boolean(s.mustPassage);
@@ -5509,6 +6052,18 @@ export function perform(original,command){
    else{s.tracks.passage=Math.min(20,old+1);s.mustPassage=false;message=`Passage of Time §4.4 step 15: no Victory Check; Passage marker ${old} → ${s.tracks.passage}. Move to Cleanup after confirming remaining rules.`;}
    quality=digital?'verified':'manual';break;
  }
+ case 'PASSAGE_DIGITAL_OBJECTIVE_RESOLVE':{
+   if(s.phase!=='execution'||s.operation!=='Passage of Time'||!s.victoryPending||!s.passageResult?.digital||!s.passageResult.triggered)fail('A triggered digital History Check is required.');
+   const audit=historyObjectiveAudit(s);
+   if(audit.history!==`H${s.period}`||audit.result==='unknown')fail('The History objective requires printed-board review before an automatic result.');
+   if(audit.history==='H4'&&!s.passageResult.mandatory)fail('H4 requires mandatory Passage of Time.');
+   const last=finalPeriodForScenario(s.scenario);
+   if(s.period<last&&audit.result==='met')fail('Successful intermediate History Checks require confirming the next History Card and its effects on the physical board.');
+   const next=perform(s,{type:'RESOLVE_VICTORY',met:audit.history==='H4'||audit.result==='met',ack:true,objectiveNote:audit.reason});
+   Object.assign(s,next);
+   message=`Verified ${audit.history} objective: ${audit.reason}`;
+   quality='verified';break;
+ }
  case 'PASSAGE_DIGITAL_H1_RESOLVE':{
    if(s.scenario!=='plains'||s.period!==1||s.operation!=='Passage of Time'||s.phase!=='execution'||!s.victoryPending||!s.passageResult?.digital||!s.passageResult.triggered)fail('An H1 check from the digital Onto the Plains Passage is required.');
    const audit=historyObjectiveAudit(s);
@@ -5524,8 +6079,8 @@ export function perform(original,command){
    if(audit.result==='unknown')fail(audit.reason+' Verify the printed card instead.');
    if(audit.history==='H4'&&!s.passageResult?.mandatory)fail('H4 requires the Must do Passage of Time marker before a Victory Check.');
    if(!command.ack)fail('Confirm the physical board is completely and accurately recorded before applying the computed objective.');
-   if(audit.history==='H3'&&audit.uncertainTerritories?.length&&audit.result==='met'&&!command.uncertainAck)
-     fail('Territory control is uncertain; verify each ambiguous territory before recording a positive result.');
+   // H3 interval bounds can prove success even with unrelated uncertain territories.
+   // Do not demand verification of facts which cannot change the result.
    const calculated=perform(s,{type:'RESOLVE_VICTORY',met:audit.history==='H4'||audit.result==='met',ack:true,
     objectiveNote:audit.reason,transitionAck:command.transitionAck===true});
    Object.assign(s,calculated);
@@ -5555,14 +6110,25 @@ export function perform(original,command){
    }else{
      if(!command.transitionAck)fail('Confirm the old History Card/deck were removed, the next History Card was revealed, and its printed effects were resolved (§2.10 steps 2–4).');
      const nextPeriod=period+1;
+     const outgoing=s.cards.filter(c=>c.kind==='History'&&String(c.identifier).toUpperCase()===`H${period}`&&c.zone==='In play');
+     const incoming=s.cards.filter(c=>c.kind==='History'&&String(c.identifier).toUpperCase()===`H${nextPeriod}`&&c.zone==='Available');
+     // Do not advance to a non-existent, duplicate, or already activated History card.
+     if(outgoing.length!==1||incoming.length!==1)fail('History transition requires one active old History Card and one available next History Card. Reconcile the card ledger.');
+     const nextDeck=s.cards.filter(c=>c.kind==='Development'&&c.zone==='Available'&&Number(c.identifier)>(nextPeriod-1)*21&&Number(c.identifier)<=nextPeriod*21);
+     // Later scenario periods must have their own physical Development draw deck.
+     // An available card may already have been placed by a scenario exception;
+     // never put an In-play, Hand, Discard or Removed card back into the deck.
+     const readyInDeck=s.cards.some(c=>c.kind==='Development'&&c.zone==='Deck'&&Number(c.identifier)>(nextPeriod-1)*21&&Number(c.identifier)<=nextPeriod*21);
+     if(!nextDeck.length&&!readyInDeck)fail(`H${nextPeriod} Development deck has no available cards to activate. Reconcile the scenario inventory.`);
      for(const c of s.cards){
        if(c.kind==='History'&&String(c.identifier).toUpperCase()===`H${period}`)c.zone='Removed';
-       if(c.kind==='Development'&&c.zone==='Deck')c.zone='Removed';
+       if(c.kind==='Development'&&c.zone==='Deck'&&Number(c.identifier)<=(period*21))c.zone='Removed';
        if(c.kind==='History'&&String(c.identifier).toUpperCase()===`H${nextPeriod}`)c.zone='In play';
      }
+     for(const c of nextDeck)c.zone='Deck';
      s.period=nextPeriod;s.tracks.operations=0;s.tracks.passage=0;s.mustPassage=false;s.passageResult=null;s.passageDevelopment=null;s.victoryPending=null;
      s.phase='cleanup';s.steps={};s.operation=null;s.cleanupFinishedRolls=[];s.cleanupFinishedPending=null;s.buffaloDoneIds=[];s.americanTradersDoneIds=[];s.louisianaDoneIds=[];
-     message=`Period ${period} objective achieved. Transitioned to H${nextPeriod}; remove old History/deck and resolve new card effects on the physical board before Cleanup (§2.10).`;
+     message=`Period ${period} objective achieved. Activated H${nextPeriod} and ${nextDeck.length} available Development cards for the new-period deck; old period draw deck removed. Printed History transition effects were confirmed by the player before Cleanup (§2.10).`;
    }
    quality='manual';break;
  }
@@ -5784,7 +6350,8 @@ export function perform(original,command){
  }
  case 'PLANNING_OPERATIONS_FINISH':{
    if(s.phase!=='execution'||s.operation!=='Planning'||s.planningStage!==9)fail('Operations check requires Planning step 9.');
-   if(s.cards.some(c=>['Development','Culture','War'].includes(c.kind)&&['In play','Display','War Event'].includes(c.zone))&&!command.ack)fail('Confirm printed card modifiers to the Operations track before rolling.');
+   const operationsCardAudit=cultureCardEffectAudit(s);
+   if(!operationsCardAudit.safe&&!command.ack)fail('Confirm printed card modifiers to the Operations track before rolling: '+operationsCardAudit.blockers.map(c=>c.number||c.cardId).join(', '));
    const pos=s.tracks.operations;
    if(pos===0)s.tracks.operations=1;
    else{
@@ -5954,7 +6521,7 @@ export function perform(original,command){
    const op=command.value;if(!OPERATIONS.includes(op))fail('Unknown operation.');
    if(requiredPassage(s)&&op!=='Passage of Time')fail('Passage of Time is mandatory: no Bands in play, or the Operations marker requires it.');
    if(op==='Passage of Time'&&!requiredPassage(s)&&s.tracks.operations===0)fail('Voluntary Passage of Time requires Operations in a numbered space (§3.2.E).');
-   s.operation=op;s.rancheriaActivation=null;s.planningMedicineStarted=false;s.planningStage=op==='Planning'?1:null;s.cultureTradeFairsDone=[];s.culturePoliticsUsed=false;s.planningPoliticsEnemy=null;s.planningHeadman={};s.planningOperationsSlots={};s.planningRanchMoves={};s.planningRanchTransit={};s.planningMoveAllowance={};s.giftGivingUsed=false;s.developmentPlanningApplied=false;s.epidemicTakeActionsApplied=false;s.epidemicCompletedIds=[];s.passageRetiredIds=[];s.passageProminentExemptIds=[];s.passageQuanahExemptId=null;s.passagePeaceRolls={};s.passageBison=null;s.passageDevelopment=null;s.passageResult=null;s.victoryPending=null;s.operationEvents={cultureGain:false,operationsRoll:false};message=`Selected ${op}.`;break;}
+   s.operation=op;s.rancheriaActivation=null;s.planningMedicineStarted=false;s.planningStage=op==='Planning'?1:null;s.cultureTradeFairsDone=[];s.culturePoliticsUsed=false;s.planningPoliticsEnemy=null;s.planningHeadman={};s.planningOperationsSlots={};s.planningRanchMoves={};s.planningRanchTransit={};s.planningMoveAllowance={};s.giftGivingUsed=false;s.developmentPlanningApplied=false;s.epidemicTakeActionsApplied=false;s.epidemicCompletedIds=[];s.passageRetiredIds=[];s.passageRecruitCounts={};s.passageProminentExemptIds=[];s.passageQuanahExemptId=null;s.passagePeaceRolls={};s.passageBison=null;s.passageDevelopment=null;s.passageResult=null;s.victoryPending=null;s.operationEvents={cultureGain:false,operationsRoll:false};message=`Selected ${op}.`;break;}
  case 'ADVANCE':{
    const next=safeNext(s);if(!next.ok)fail(next.message);
    let delayedEventMessage='';
@@ -7000,6 +7567,13 @@ export function perform(original,command){
    if(before?.strength>=1&&before.strength<=3)p.stockStrength=before.strength;
   }
  }
+ // This fourth physical Headman counter follows its own Ranchería. It is
+ // in that Ranchería's Resources box until the Ranchería enters the map,
+ // then on the Medicine track; its identity never changes.
+ for(const p of s.pieces.filter(x=>x.type==='Marker'&&x.subtype==='Mahimiana Medicine'&&x.affiliatedRancheriaId)){
+  const ranch=s.pieces.find(x=>x.id===p.affiliatedRancheriaId&&x.type==='Rancheria');
+  if(ranch&&ranch.location!=='removed')p.location=SPACE[ranch.location]?`medicine:setup-mahimiana-${ranch.subtype}`:`box:${ranch.id}`;
+ }
  syncBandCounterFaces(s);
  const physicalAudit=componentStockAudit(s.pieces,s.stockVerifiedTotals||{});
  if(physicalAudit.overstock.length)fail('Physical stock exceeded: '+physicalAudit.overstock.map(x=>`${x.key} ${x.counted}/${x.printedTotal}`).join(', '));
@@ -7032,6 +7606,8 @@ export function migrateGame(original){
  const disproved=new Set(['RR-3|RR-5','LE-6|RR-3']);
  const removed=(s.edges||[]).filter(e=>disproved.has([e.a,e.b].sort().join('|'))&&e.source==='GMT-playbook'&&!e.verifiedByPlayer);
  if(removed.length){s.edges=s.edges.filter(e=>!removed.includes(e));s.mapReview={};s.setupNote=(s.setupNote||'')+' MAP CORRECTION: two old machine-supplied shortcut lines were removed because the photographed actual board does not join those spaces. Reapply the updated board-photo map evidence.';}
+ // User-confirmed canonical topology supersedes stale/partial saved connection ledgers.
+ s.edges=canonicalBoardEdges();s.mapReview={};
  for(const c of s.cards||[]){c.evidenceStatus??='unverified';c.sourceReference??='';}
  s.planningEnemyChoice??=null;s.raidCupResolution??=null;
  // Legacy v0.84 saves may contain an Instruction drawn before the new
@@ -7067,6 +7643,7 @@ export function migrateGame(original){
   }
  }
  if(correctedFaces)s.setupNote=(s.setupNote||'')+` COUNTER SOURCE CORRECTION: ${correctedFaces} printed Enemy Instruction face(s) repaired from owner-supplied TTS artwork. Previously logged actions were not replayed.`;
+ if(s.setupTemplate==='official')completePhysicalResourceStock(s);
  if(s.setupTemplate==='official'&&s.phase==='setup'&&s.pieces.some(p=>p.type==='Band'))s.setupConfirmed.bands=true;
  syncBandCounterFaces(s);
  s.version=VERSION;
@@ -7289,13 +7866,13 @@ export function basicIntegrity(s){
   const letters=s.pieces.filter(p=>p.type===type&&/^[A-E]$/.test(String(p.subtype||''))).map(p=>p.subtype);
   if(new Set(letters).size!==letters.length)fail(`Duplicate physical ${type} A–E identity.`);
  }
- const validBase=new Set([...SPACES.map(x=>x.id),'reserve','removed','operations','cup','enemy-display','hand','deck','check-draw','success-out','available-enemy-aps','enemy-resolution']);
+ const validBase=new Set([...SPACES.map(x=>x.id),'reserve','out-of-play','removed','operations','cup','enemy-display','hand','deck','check-draw','success-out','available-enemy-aps','enemy-resolution']);
  for(const p of s.pieces){
    const loc=p.location;
    if(validBase.has(loc)||/^enemy-display:(West|South|East|North):[A-F]$/.test(loc)||/^enemy-inactive:[A-F]$/.test(loc))continue;
    if(loc.startsWith('box:') && s.pieces.some(x=>x.id===loc.slice(4)&&x.type==='Rancheria'&&x.location!=='removed'))continue;
    if(loc.startsWith('held:') && p.type!=='Band'&&s.pieces.some(x=>x.id===loc.slice(5)&&x.type==='Band'&&x.location!=='removed'))continue;
-   if(loc.startsWith('medicine:') && p.subtype==='Success'&&sHasHeadman(s,loc.slice(9)))continue;
+   if(loc.startsWith('medicine:') && ['Success','Mahimiana Medicine'].includes(p.subtype)&&sHasHeadman(s,loc.slice(9)))continue;
    fail(`Invalid piece location in save: ${loc}.`);
  }
  if(s.warMovementDrawn!==undefined&&s.warMovementDrawn!==null&&!warCard(s.warMovementDrawn))fail('Invalid War movement draw record.');

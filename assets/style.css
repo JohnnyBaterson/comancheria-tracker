@@ -67,8 +67,6 @@
 .map-node-number{font-family:Georgia,serif;font-weight:800;fill:#18251e;pointer-events:none}
 .map-node-id{font:700 12px/1 sans-serif;letter-spacing:.4px;fill:#d9e4d0;pointer-events:none}
 .map-node .map-focus-ring{fill:none;stroke:#f5d5a0;stroke-width:2.5;stroke-dasharray:5 5;pointer-events:none}
-.map-piece-badge circle{fill:#f7d89f;stroke:#17221c;stroke-width:2.5}
-.map-piece-badge text{fill:#17221c;font:800 12px sans-serif;pointer-events:none}
 .map-piece-icon{fill:#f5d1a0;stroke:#1b2821;stroke-width:.5;paint-order:stroke;stroke-linejoin:round;font:18px sans-serif;pointer-events:none}
 .world-board.linking .map-node-core{stroke-dasharray:5 4}
 .world-board.linking .map-node:hover .map-node-core{stroke:#f9c77c;stroke-width:5}
@@ -164,8 +162,6 @@ body{background:radial-gradient(ellipse at 70% 0%,#25362c 0,#0d1715 48%)}
 .world-board.authentic-board .map-node-number,.world-board.authentic-board .map-node-id{display:none}
 .world-board.authentic-board .map-verified-link{stroke:#f4e7bb;stroke-width:4;opacity:.85}
 .world-board.authentic-board .map-piece-icon{filter:drop-shadow(0 2px 2px #000)}
-.world-board.authentic-board .map-piece-badge circle{fill:#211e15;stroke:#f9d58e}
-.world-board.authentic-board .map-piece-badge text{fill:#ffdfaa}
 .asset-onboarding{display:grid;grid-template-columns:68px minmax(0,1fr);gap:22px;padding:12px}
 .asset-onboarding-icon{border:1px solid #7e7856;background:#27352c;border-radius:18px;color:#edc28a;display:grid;place-items:center;font:45px Georgia,serif;height:65px}
 .asset-onboarding h3{margin:0 0 6px;font:24px Georgia,serif}
@@ -424,3 +420,4 @@ body{background:radial-gradient(ellipse at 70% 0%,#25362c 0,#0d1715 48%)}
 .enemy-reset-preview{margin:12px 0;border:1px solid #485c4f;border-radius:10px;padding:10px}
 .enemy-reset-preview summary{cursor:pointer;color:#ecd49d;font-weight:700}
 .enemy-reset-preview .rowline{overflow-wrap:anywhere;align-items:flex-start}
+

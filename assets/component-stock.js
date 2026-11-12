@@ -5,6 +5,12 @@ export const VERIFIED_STOCK=Object.freeze([
  {key:'Band:3',label:'3–4 Band counters',total:3,source:'Countersheet 1, front: three 3–4 counter faces'},
  {key:'Band:2',label:'2–5 Band counters',total:5,source:'Countersheet 1, front: five 2–5 counter faces'},
  {key:'Tribe',label:'Tribe hex counters',total:18,source:'Living Playbook opening: 17 Tribes on map, one remaining in Out of Play'},
+ {key:'Bison',label:'Bison counters',total:18,source:'Owner-counted physical game inventory'},
+ {key:'Resource:Horse',label:'Horse counters',total:16,source:'Owner-counted physical game inventory'},
+ {key:'Resource:Guns',label:'Guns counters',total:4,source:'Owner-counted physical game inventory'},
+ {key:'Resource:Captives',label:'Captives counters',total:5,source:'Owner-counted physical game inventory'},
+ {key:'Resource:Trade Goods',label:'Trade Goods counters',total:5,source:'Owner-counted physical game inventory'},
+ {key:'Resource:Food',label:'Food counters',total:5,source:'Owner-counted physical game inventory'},
  {key:'Instruction',label:'Enemy Instruction A–G',total:28,source:'Living Playbook: 24 A–F, four G counters'},
  {key:'Marker:Success',label:'Success Check counters',total:20,playableTotal:10,source:'Living Rules §9.1.1: two identical sets; only one 10-Success set in play'},
  {key:'Marker:Enemy AP 4',label:'Enemy AP 4 counters',total:10,playableTotal:5,source:'Living Rules §9.1.1: two identical sets; only one 5-AP4 set in play'},
@@ -13,12 +19,13 @@ export const VERIFIED_STOCK=Object.freeze([
  {key:'Rancheria',label:'Rancherías A–E',total:5,source:'Countersheet A–E identities (one of each)'},
  {key:'Paraibo',label:'Paraibos A–E',total:5,source:'Countersheet A–E identities (one of each)'},
  {key:'Mahimiana',label:'Mahimianas A–E',total:5,source:'Countersheet A–E identities (one of each)'},
+ {key:'Marker:Mahimiana Medicine',label:'Mahimiana Medicine A–E',total:5,source:'Play Book p.3 and Living Rules §2.6: distinct Mahimiana Medicine counters'},
 ]);
 const TOTALS=new Map(VERIFIED_STOCK.map(x=>[x.key,x]));
-export const UNKNOWN_STOCK_FAMILIES=Object.freeze(['Band:1','Band:unidentified','Bison','Settlement:East','Settlement:South','Settlement:West','Resource:Horse','Resource:Food','Resource:Captives','Resource:Trade Goods','Resource:Guns','Marker:Ravaged','War Column']);
+export const UNKNOWN_STOCK_FAMILIES=Object.freeze(['Band:1','Band:unidentified','Settlement:East','Settlement:South','Settlement:West','Marker:Ravaged','War Column']);
 export function componentStockKey(p){
  if(p.type==='Band')return `Band:${p.strength>0?p.strength:(Number.isInteger(p.stockStrength)&&p.stockStrength>=1&&p.stockStrength<=3?p.stockStrength:'unidentified')}`;
- if(p.type==='Marker'&&['Success','Enemy AP 4','Enemy AP 3','Enemy AP 2','Ravaged'].includes(p.hiddenSubtype||p.subtype))return `Marker:${p.hiddenSubtype||p.subtype}`;
+ if(p.type==='Marker'&&['Success','Enemy AP 4','Enemy AP 3','Enemy AP 2','Ravaged','Mahimiana Medicine'].includes(p.hiddenSubtype||p.subtype))return `Marker:${p.hiddenSubtype||p.subtype}`;
  if(p.type==='Resource')return `Resource:${p.subtype==='Horses'?'Horse':p.subtype}`;
  if(p.type==='Settlement')return `Settlement:${p.owner}`;
  if(p.type==='War Column')return `War Column:${p.owner}:${p.counterFaction||'unknown'}`;
@@ -28,6 +35,7 @@ export function componentStockLocation(p){
  const loc=p.location||'';
  if(loc==='reserve')return 'reserve';
  if(loc==='removed')return 'removed';
+ if(loc==='out-of-play')return 'out-of-play';
  if(loc==='cup'||loc==='check-draw'||loc==='success-out'||loc==='available-enemy-aps')return loc;
  if(loc.startsWith('box:'))return 'rancheria-box';
  if(loc.startsWith('held:'))return 'possessed';

@@ -73,7 +73,7 @@ export function physicalCounterFaceIndex(p){
   case 'Mahimiana':{const letter=letterOf(p);return letter?148+'ABCDE'.indexOf(letter):null;}
   case 'Paraibo':{const letter=letterOf(p);return letter?154+2*'ABCDE'.indexOf(letter):null;}
   case 'Resource':return ({Horse:168,Horses:168,Food:135,'Trade Goods':137,Captives:133,Guns:139,Bison:169})[p.subtype]||null;
-  case 'Marker':return ({Ravaged:1,APs:15,'Culture Points':16,'Military Points':17,MPs:18,Operations:19,'Passage of Time':20,'Available Enemy APs':131})[p.subtype]||null;
+  case 'Marker':{if(p.subtype==='Mahimiana Medicine'){const m=String(p.affiliatedRancheriaId||'').match(/setup-ranch-([A-E])$/);return m?163+'ABCDE'.indexOf(m[1]):null;}return ({Ravaged:1,APs:15,'Culture Points':16,'Military Points':17,MPs:18,Operations:19,'Passage of Time':20,'Available Enemy APs':131})[p.subtype]||null;}
   default:return null;
  }
 }

@@ -4,10 +4,13 @@
  * not bundled or redistributed. Source categories: white continuous, white
  * interrupted, yellow West, green South, blue East and shared blue/green.
  *
- * This is not an assurance of complete official movement-line coverage:
- * ambiguous obscured routes remain separate candidates until checked.
+ * User-confirmed complete map graph: all printed links and classifications are
+ * treated as the authoritative digital board topology (11 Nov 2026).
+ * Card exceptions and physical counter information are separate rule concerns.
  */
-export const MAP_EVIDENCE_VERSION=6;
+export const MAP_EVIDENCE_VERSION=7;
+export const MAP_TOPOLOGY_VERIFIED=true;
+export const MAP_TOPOLOGY_STATUS='User-confirmed complete board connection graph, 2026-11-11';
 export const MAP_EVIDENCE_SOURCE='User-provided photograph of the authentic Comanchería game board (9 Nov 2026); cross-checked with GMT Living Playbook';
 export const MAP_EVIDENCE_URL='https://gmtwebsiteassets.s3.us-west-2.amazonaws.com/comancheria/Comancheria_LivingPlaybook_Low-Res.pdf';
 export const FINAL_MAP_URL='https://www.gmtgames.com/p-789-comanchera-mounted-map.aspx';
@@ -102,4 +105,16 @@ export function mapConnectionReconciliation(current,source=MAP_EVIDENCE_EDGES){
   conflicts.push({actual,expected});
  }
  return {missing,upgradeColor,conflicts,matching};
+}
+
+/** The printed topology is shared across every game, not editable save data.
+ * Normalize legacy ledgers without trusting obsolete custom/partial links. */
+export function canonicalBoardEdges(){
+ return MAP_EVIDENCE_EDGES.map(edge=>({...edge,enemyFor:edge.enemyFor?[...edge.enemyFor]:undefined,source:'confirmed-board'}));
+}
+export function canonicalMapAudit(edges){
+ const comparison=mapConnectionReconciliation(edges);
+ const key=e=>[e.a,e.b].sort().join('|');
+ const accepted=new Set(MAP_EVIDENCE_EDGES.map(key));
+ return {...comparison,extra:(edges||[]).filter(e=>!accepted.has(key(e))),verified:!comparison.missing.length&&!comparison.conflicts.length&&!comparison.upgradeColor.length&&(edges||[]).length===MAP_EVIDENCE_EDGES.length};
 }

@@ -3,8 +3,9 @@
  * Stand-in simulations use the same proposals; no physical-board attestations.
  */
 import {activeBandChoices} from './band-action-menu.js';
+import {cupDrawable} from './cup-system.js';
 import {planningActionChoices} from './planning-action-menu.js';
-import { OPERATIONS, requiredPassage, warAutomationStatus, passageAutomationStatus, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, SPACES, getStackingProblems, allyTargetPreview, recoverTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, cultureActive, perform, cultureWarEvasionOptions, historyObjectiveAudit, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, safeNext as setupSafeNext } from './engine.js';
+import { OPERATIONS, requiredPassage, warAutomationStatus, passageAutomationStatus, battleSafeRoundPreview, battleSafeStartPreview, eligibleBattleUnits, battleAutoResolutionPreview, rancheriaFightPreview, rancheriaSacrificePreview, warRancheriaObligations, warBattleObligations, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, culturePurchaseOptions, santaFeTrailPlacementPreview, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, SPACES, getStackingProblems, allyTargetPreview, recoverTargetAudit, settleTargetAudit, subjugateTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, cultureActive, perform, cultureWarEvasionOptions, historyObjectiveAudit, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, cupColonialTargetPreview, cupWarRaidAutoPreview, safeNext as setupSafeNext } from './engine.js';
 
 const stepLabels = {
   WAR_AUTO_UNTIL_CHOICE: 'Resolve the War phase',
@@ -128,7 +129,21 @@ export function nextPlayerPrompt(s) {
       try{perform(s,proposal);return auto('Audit the Downfall digital stock','Validate recorded cards, counters and player-selected setup. This does not certify actual physical components or unverified card effects.',proposal);}catch{}
     }
     const unchecked=Object.keys(s.setupChecklist||{}).filter(key=>!s.setupConfirmed?.[key]);
-    if(unchecked.length)return blocked('Confirm physical setup',`Still requiring player verification: ${unchecked.join(', ')}. Check these against your printed game using the on-board checklist; the engine cannot attest to a shuffle or physical counter stock.`);
+    if(unchecked.length){
+      // Do not strand the player at the removed setup form. Only expose manual
+      // acknowledgements for keys that the authoritative reducer permits.
+      // All generated/digital checks remain on their dedicated validated paths.
+      const key=unchecked[0];
+      const command={type:'CONFIRM_SETUP',key,value:true};
+      try{
+        perform(s,command);
+        return decision(`Check starting board: ${key}`,s.setupChecklist[key]+' Inspect the printed board/counters, then confirm this ONE item. No printed shuffle or artwork check is claimed automatically.',[
+          {label:`Verified ${key} on my board`,command}
+        ]);
+      }catch(error){
+        return blocked(`Starting setup: ${key}`,`This step needs a specific in-game action before continuing: ${s.setupChecklist[key]}. ${error.message}`);
+      }
+    }
     const ready=setupSafeNext(s);
     return ready.ok?auto('Begin the official scenario','Opening ledger and all player-supplied setup decisions have been completed.',{type:'START'}):blocked('Resolve remaining setup issue',ready.message);
   }
@@ -147,7 +162,9 @@ export function nextPlayerPrompt(s) {
       if(/^peace(?:\s|$)/i.test(name)&&cupSafeSimplePeace(s,drawn))return auto('Raid cup: place Peace','No War Column, old Peace or Recover target; place the Peace counter in its Enemy square and proceed to exchange.',{type:'RAID_CUP_PEACE'});
       if(cupForcedEncroach(s,drawn))return auto('Raid cup: forced Encroach','Exactly one stock Tribe and one legal round space. Resolve the territory roll, placement, and Bison removal automatically.',{type:'RAID_CUP_FORCED_ENCROACH'});
       if(cupEmptyRedirect(s,drawn))return auto('Raid cup: no-target Enemy redirect','No legal Tribe placement or Bison target exists, so finish the printed redirect and exchange the Instruction.',{type:'RAID_CUP_EMPTY_REDIRECT'});
+      if(['War','Raid'].includes(name)&&cupWarRaidAutoPreview(s,true).ready)return auto('Raid cup: verified '+name,'The existing War/Raid resolver has one certified automatic outcome; exchange follows the effect.',{type:'RAID_CUP_AUTO_WAR_RAID'});
       if(['War','Raid'].includes(name))return blocked('Raid cup: resolve War/Raid', 'Choose a War Column, physical target and card modifiers where required; the engine will apply formation, movement and attrition, then exchange the Instruction.');
+      if(['Settle','Subjugate'].includes(name)&&cupColonialTargetPreview(s,true).ready)return auto('Raid cup: automatic '+name,'The canonical map and physical stock determine the target; exchange follows the effect.',{type:'RAID_CUP_AUTO_COLONIAL'});
       if(['Settle','Subjugate'].includes(name))return blocked('Raid cup: resolve '+name+' on the board', 'Choose the real '+name+' target in the guided form. The engine validates the recorded colored route, pieces and Recovery priority and then advances to the mandatory exchange.');
       return decision('Resolve the drawn Enemy Instruction',`The ${drawn.owner} ${name} effect must be applied before exchanging Instructions. Use the guided Enemy controls to reconcile this printed rule.`,[]);
     }
@@ -167,7 +184,23 @@ export function nextPlayerPrompt(s) {
       const guns=s.pieces.some(p=>p.type==='Resource'&&p.subtype==='Guns'&&p.location===`held:${check.bandId}`);
       const enemyAp=check.drawIds.some(id=>s.pieces.some(p=>p.id===id&&p.location==='check-draw'&&/^Enemy AP [234]$/.test(p.subtype)));
       const tradeGoods=s.pieces.some(p=>p.type==='Resource'&&p.subtype==='Trade Goods'&&p.location===`held:${check.bandId}`);
-      if(tradeGoods||guns&&enemyAp)return decision('Use Raid resources?', 'You may spend Trade Goods to redraw or use Guns to cancel drawn Enemy AP. Open Turn controls for those choices, or keep the draw.',[{label:'Keep this draw and finish',command:{type:'FINISH_SUCCESS_CHECK'}}]);
+      if(tradeGoods||guns&&enemyAp){
+        // These are real, reducer-validated on-board decisions. Never send
+        // the player to the deprecated forms for Raid cup resources.
+        const choices=[];
+        const apCounters=check.drawIds.map(id=>s.pieces.find(p=>p.id===id)).filter(p=>p&&p.location==='check-draw'&&/^Enemy AP [234]$/.test(p.subtype)&&!check.gunAttempts.some(a=>a.counterId===p.id));
+        const carried=s.pieces.filter(p=>p.type==='Resource'&&p.location===`held:${check.bandId}`);
+        for(const gun of carried.filter(p=>p.subtype==='Guns'))for(const ap of apCounters){
+          const command={type:'GUNS_CANCEL_AP',gunId:gun.id,counterId:ap.id,digitalDie:true};
+          try{perform(s,command);choices.push({label:`Use ${gun.label||'Guns'} against ${ap.subtype}`,command});}catch{}
+        }
+        for(const good of carried.filter(p=>p.subtype==='Trade Goods')){
+          const command={type:'TRADE_GOODS_REDRAW',resourceId:good.id,digital:true};
+          try{perform(s,command);choices.push({label:`Spend ${good.label||'Trade Goods'} to redraw all`,command});}catch{}
+        }
+        choices.push({label:'Keep the draw and count results',command:{type:'FINISH_SUCCESS_CHECK'}});
+        return decision('Raid: spend carried resources?',`Choose directly on the board. Guns can cancel one drawn Enemy AP with a seeded die; Trade Goods return all draws to the cup for a full redraw.`,choices);
+      }
       if(check.drawIds.some(id=>s.pieces.some(p=>p.id===id&&p.type==='Instruction')))return auto('Enemy Instruction drawn in Raid','Count and stage the draw. The Enemy effects and display exchanges must resolve before Raid rewards.',{type:'FINISH_SUCCESS_CHECK'});
       return auto('Raid: count the results',`All ${check.expected} counters are drawn. Resolve Success, Enemy AP and Medicine.`,{type:'FINISH_SUCCESS_CHECK'});
     }
@@ -194,7 +227,23 @@ export function nextPlayerPrompt(s) {
     const offer=(label,command)=>{
       try{perform(s,command);proposals.push({label,command});}catch{}
     };
-    if(pending.kind==='ute-displacement'){
+    if(pending.kind==='epidemic'){
+      // The seeded card target spaces are already fixed in the ledger. Where
+      // several Bands occupy one space, selecting which Band is affected is
+      // a genuine player choice. Never reroll the card or silently choose.
+      const contested=(pending.spaces||[]).filter(space=>
+        !(pending.phase==='reveal'&&s.pieces.some(p=>p.type==='Rancheria'&&p.location===space))&&
+        !(pending.phase==='end-take-actions'&&s.pieces.some(p=>p.type==='Tribe'&&p.location===space))
+      ).map(space=>({space,bands:s.pieces.filter(p=>p.type==='Band'&&p.location===space)})).filter(x=>x.bands.length>1);
+      let allocations=[{}];
+      for(const {space,bands} of contested){
+        allocations=allocations.flatMap(map=>bands.map(b=>({...map,[space]:b.id})));
+        if(allocations.length>32)break;
+      }
+      if(allocations.length<=32)for(const bandChoices of allocations)
+        offer(contested.length?`Apply Epidemic: ${Object.entries(bandChoices).map(([space,id])=>`${space} → ${id}`).join('; ')}`:'Apply the recorded Epidemic effects',
+          {type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices});
+    }else if(pending.kind==='ute-displacement'){
       for(const space of pending.destinations||[])offer(`Move Ranchería to ${SPACE[space]?.name||space}`,{type:'DEVELOPMENT_RESOLVE_UTE_DISPLACEMENT',space});
     }else if(pending.kind==='buffalo-hunters'){
       for(const bisonId of pending.bisonIds||[])offer(`Remove Bison ${bisonId}`,{type:'DEVELOPMENT_BUFFALO_RESOLVE',bisonId});
@@ -214,19 +263,67 @@ export function nextPlayerPrompt(s) {
         if(count===0||count===ids.length)offer(`Return ${count} Horse counters`,{type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:count?ids:[]});
       }
     }
+    // Mandatory, uniquely determined printed effects do not require an extra click.
+    // Multi-option effects remain genuine player decisions.
+    if(proposals.length===1&&['epidemic','ute-displacement','buffalo-hunters','smallpox-end','horse-discard'].includes(pending.kind))
+      return auto(`Resolve Development #${pending.number}`,pending.reason||'Apply the uniquely determined mandatory card effect.',proposals[0].command);
     if(proposals.length)return decision(`Development #${pending.number}: ${pending.kind}`,pending.reason||'Choose a legal printed card effect.',proposals);
-    return blocked(`Development #${pending.number}: card choice needs review`,pending.reason||'Use the card controls to resolve the printed effect; no verified automatic choice is available.');
-  }
-  if(s.victoryPending&&s.scenario==='plains'&&s.passageResult?.digital){
-    const audit=historyObjectiveAudit(s);
-    if(audit.result!=='unknown'&&!audit.uncertainTerritories?.length){
-      const command={type:'PASSAGE_DIGITAL_H1_RESOLVE'};
-      try{perform(s,command);return decision(`H1 objective: ${audit.result==='met'?'achieved':'not achieved'}`,audit.reason,[{label:'Apply verified digital H1 result',command}]);}catch{}
+    if(pending.kind==='horse-discard'&&Number.isInteger(pending.required)&&Array.isArray(pending.horseIds)){
+      return decision(`Development #${pending.number}: return Horses`,
+        `Choose ${pending.required} of the ${pending.horseIds.length} actual Horse counters on the board, then return only those counters to stock.`,[]);
     }
-    return blocked('H1 objective needs board review',audit.reason);
+    return blocked(`Development #${pending.number}: card choice needs review`,pending.reason||'No verified physical-board action exists for this effect yet.');
   }
-  if(s.pending||s.successCheck||s.battlePending||s.battleContinuation||s.developmentPending||s.victoryPending){
-    return decision('Resolve the highlighted game decision', 'Open Turn controls for the existing battle, card or victory choice. All effects run through the game engine.',[]);
+  if(s.victoryPending&&s.passageResult?.digital){
+    const audit=historyObjectiveAudit(s);
+    const last={plains:1,rise:2,lords:3,downfall:4,campaign:4}[s.scenario];
+    // Audit results are interval-proven: unresolved territories do not
+    // invalidate a result that is already certain under either bound.
+    if(audit.result!=='unknown'&&(audit.result==='not-met'||s.period===last)){
+      const command={type:'PASSAGE_DIGITAL_OBJECTIVE_RESOLVE'};
+      try{perform(s,command);return decision(`${audit.history}: ${audit.result==='met'?'objective achieved':'objective not achieved'}`,
+        audit.reason,[{label:`Resolve ${audit.history} History Check from board`,command}]);}catch{}
+    }
+    if(audit.result==='met'&&s.period<last){
+      return decision(`${audit.history} passed — advance History`,
+        `${audit.reason} Before advancing, complete the printed History transition effects. The engine will remove the old draw deck and activate the new period's available Development cards automatically.`,
+        [{label:`Printed H${s.period+1} effects resolved; advance`,command:{type:'RESOLVE_VICTORY_FROM_LEDGER',ack:true,transitionAck:true}}]);
+    }
+    return blocked(`${audit.history} objective needs board review`,audit.reason);
+  }
+  // Manual or ambiguous History checks must not fall through to an empty
+  // legacy-form prompt. The player verifies the actual printed objective on
+  // the board; the renderer stages this acknowledgement before committing.
+  if(s.victoryPending){
+    const audit=historyObjectiveAudit(s);
+    return decision(`${audit.history}: check the printed History objective`,
+      `${audit.reason} Review the original board and current History Card. The outcome is not safe to apply automatically; explicitly verify the result below.`,
+      [{label:'Printed objective achieved',command:{type:'RESOLVE_VICTORY',met:true,ack:true,objectiveNote:`Player verified ${audit.history} printed objective against current board and card.`,transitionAck:true}},
+       {label:'Printed objective not achieved',command:{type:'RESOLVE_VICTORY',met:false,ack:true,objectiveNote:`Player verified ${audit.history} printed objective against current board and card.`}}]);
+  }
+  if(s.battlePending){
+    const audit=battleAutoResolutionPreview(s);
+    const reroll=s.cards.some(c=>c.kind==='Development'&&Number(c.identifier)===9&&c.zone==='Hand')&&!s.battlePending.countingCoupReroll;
+    if(audit.ready&&!reroll)return auto('Apply the recorded Battle result',audit.reason,{type:'BATTLE_AUTO_RECONCILE'});
+    return decision('Battle die rolled — resolve the choice',reroll?'Counting Coup may reroll one die before consequences are applied. Choose to play it or resolve normally.':audit.reason,
+      audit.ready?[{label:'Keep roll and apply consequences',command:{type:'BATTLE_AUTO_RECONCILE'}}]:[]);
+  }
+  if(s.battleContinuation){
+    const audit=battleSafeRoundPreview(s);
+    if(audit.ready)return auto('Fight the next verified Battle round',audit.reason,{type:'BATTLE_SAFE_ROUND'});
+    let choices=[];
+    try {
+      const defenders=eligibleBattleUnits(s,s.battleContinuation.warId).units;
+      choices=defenders.flatMap(unit=>{
+        const option=battleSafeRoundPreview(s,unit.id);
+        return option.ready?[{label:`Fight with ${unit.label||unit.id} (strength ${unit.strength}) · verified digital round`,command:{type:'BATTLE_SAFE_ROUND',unitId:unit.id}}]:[];
+      });
+    } catch {}
+    if(choices.length)return decision('Choose the next Battle defender','This is a strategic player choice. Select an eligible Band to fight; the engine will roll and apply one safe round. Optional equipment and uncertified card effects require the guided Battle panel.',choices);
+    return blocked('Battle needs guided resolution',audit.reason+' Open the guided Battle scorecard to select a defender, check optional equipment and any printed card effects; do not close the Battle without an applicable rule.');
+  }
+  if(s.pending||s.successCheck||s.battlePending||s.battleContinuation||s.developmentPending){
+    return decision('Resolve the highlighted game decision', 'This outstanding battle or card procedure needs the next verified on-board action.',[]);
   }
   if(s.enemySelection){
     const staged=s.enemySelection;
@@ -251,6 +348,90 @@ export function nextPlayerPrompt(s) {
     }
     const status=enemyAutomationPreview(s);
     if(status.ready)return auto('Enemy Instruction: automatic effect',status.reason,status.command);
+    if(f.stage==='effect'&&selected?.subtype==='Culture Attack'&&/unimplemented|uncertified|may override/i.test(status.reason||'')){
+      const verified={type:'ENEMY_CULTURE_ATTACK',ack:true};
+      try{perform(s,verified);return decision('Culture Attack: verify active card exceptions',
+        'An active Development Card could alter this attack. Check its actual effect before confirming. If it changes the result, resolve the exception in the on-board controls instead.',
+        [{label:'Checked cards: apply standard Culture Attack',command:verified}]);}catch{}
+    }
+    if(f.stage==='effect'&&selected?.subtype==='Ally'&&!f.allyResolved){
+      // §6.3.1 is a real PLAYER CHOICE; surface reducer-validated target
+      // options on the main board instead of a dead-end instruction prompt.
+      const targets=allyTargetPreview(s,f.enemy);
+      if(!targets.recoverFirst&&!targets.unknownRavaged&&!targets.encroachInstead){
+        const choices=targets.candidates.map(tribe=>({
+          label:`Ally with ${tribe.label||tribe.id} (${SPACE[tribe.location]?.name||tribe.location})`,
+          command:{type:'ENEMY_ALLY',tribeId:tribe.id,ack:true}
+        })).filter(c=>{try{perform(s,c.command);return true;}catch{return false;}});
+        if(choices.length)return decision('Choose an Allied Tribe',
+          'The printed Ally rule lets the player select any eligible non-Allied Tribe. This is a strategic player choice, not a random Enemy target.',choices);
+      }
+    }
+    // Complete user-confirmed printed map is authoritative for route ranking.
+    // Keep card effects, random tie selection and physical counter checks separate.
+    if(f.stage==='effect'&&selected&&['Settle','Subjugate'].includes(selected.subtype)&&
+       ['West','South','East'].includes(f.enemy)&&!f.settleResolved&&!f.subjugateResolved&&
+       (!f.recoverResolved)&&!f.cultureAttackResolved){
+      const onMapTribes=s.pieces.some(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round');
+      if(selected.subtype==='Subjugate'&&onMapTribes){
+        // Use the confirmed graph to offer legal nearest mapped targets.
+        // East Subjugate checks BOTH squares; unlike East Settle, no origin die.
+        const report=subjugateTargetAudit(s,f.enemy);
+        const verify='Player compared both applicable Enemy origins, every visible Tribe, printed colored routes, History Card exceptions, and closest eligible area on the original board.';
+        const tribes=s.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location]?.type==='round'&&report.nearestKnown&&report.reachable.some(x=>x.tribeId===p.id&&x.distance===report.nearestKnown.distance&&x.area===report.nearestKnown.area));
+        const tieIds=new Set(report.tiedKnown.map(x=>x.tribeId));
+        const choices=tribes.map(tribe=>{
+          const found=report.reachable.find(x=>x.tribeId===tribe.id);
+          // Ties require physical random selection; never falsely attest a roll.
+          if(tieIds.size>1&&tieIds.has(tribe.id))return null;
+          return {label:`Confirm printed Subjugate target: ${SPACE[tribe.location].name}`,
+            detail:found?`Verified printed route: ${found.distance} connection(s); card exceptions still apply.`:'No legal colored route.',
+            command:{type:'ENEMY_SUBJUGATE',tribeId:tribe.id,ack:true,
+              mapVerification:verify,unmappedRouteConfirmed:false,randomConfirmed:false}};
+        }).filter(Boolean).filter(choice=>{try{perform(s,choice.command);return true;}catch{return false;}});
+        if(tieIds.size>1)return decision(`${f.enemy} Subjugate: roll among tied nearest Tribes`,
+          `Verified map identifies ${tieIds.size} equally ranked nearest Tribes. Roll digitally to select one, then apply the printed action.`,
+          [{label:'Roll die and resolve nearest Tribe',command:{type:'ENEMY_AUTO_NEAREST_TARGET'}}]);
+        if(choices.length)return decision(`${f.enemy} Subjugate: confirm Tribe on the board`,
+          `Map-selected nearest Tribe; confirm relevant History and card effects. ${report.warning}`+(tieIds.size>1?' The nearest recorded targets tie: make the required physical random selection using the on-board Enemy controls.':''),choices);
+      }
+      if(selected.subtype==='Settle'||!onMapTribes){
+        // A Subjugate fallback may Settle, but cannot use the East Settle die
+        // while the face still says Subjugate; the engine rejects that roll.
+        if(f.enemy==='East'&&selected.subtype==='Settle'&&!f.settleOrigin){
+          const command={type:'ENEMY_SETTLE_ROLL_ORIGIN'};
+          try{perform(s,command);return decision('East Settle: roll origin',
+            'The printed rules require an origin die before selecting a settlement destination.',
+            [{label:'Roll East origin die',command}]);}catch{}
+        }
+        // With no Tribe, guide the printed Settle redirect whenever stock and a
+        // recorded destination exist. For East Subjugate check both origins;
+        // its face never becomes a Settle die-roll Instruction.
+        const subjugateRedirect=selected.subtype==='Subjugate';
+        const report=settleTargetAudit(s,f.enemy,{eastOrigin:subjugateRedirect?null:f.settleOrigin||null});
+        const stock=s.pieces.filter(p=>p.type==='Settlement'&&p.location==='reserve'&&
+            (p.owner===f.enemy||p.owner===s.colonial?.[f.enemy]));
+        if(stock.length&&report.candidates.length){
+          // Show reachable candidates; the user checks printed colored routes
+          // and clicks the actual destination, using the canonical mapped graph.
+          const verify='Player confirmed the printed colored Enemy route, the nearest eligible numbered space, current History Card exceptions, stacking and settlement stock by choosing this map location.';
+          const choices=report.candidates.filter(target=>report.nearestKnown&&target.distance===report.nearestKnown.distance&&target.area===report.nearestKnown.area).map(target=>({
+            label:`Confirm printed route: ${target.name}${target.distance!=null?` (${target.distance} recorded links)`:''}`,
+            detail:'Verified closest colored route; confirm current card exceptions and stock.',
+            command:{type:'ENEMY_SETTLE',settlementId:stock[0].id,space:target.space,
+              eastOrigin:subjugateRedirect?undefined:f.settleOrigin||undefined,ack:true,mapVerification:verify,
+              unmappedRouteConfirmed:false,randomConfirmed:false,bisonConfirmed:true}
+          })).filter(choice=>{try{perform(s,choice.command);return true;}catch{return false;}});
+          if(report.tiedKnown.length>1)return decision(`${f.enemy} ${subjugateRedirect?'Subjugate → Settle':'Settle'}: nearest destinations tie`,
+            `Verified board connections identify ${report.tiedKnown.length} equally ranked legal destinations; choose using a seeded die.`,
+            [{label:'Roll die and place Settlement',command:{type:'ENEMY_AUTO_NEAREST_TARGET'}}]);
+          if(choices.length)return decision(`${f.enemy} ${subjugateRedirect?'Subjugate → Settle':'Settle'}: choose printed destination`,
+            `The verified map selects the nearest eligible unoccupied location.${subjugateRedirect&&f.enemy==='East'?' Check both East squares; no origin die applies.':''} ${report.warning} Clicking a highlighted space explicitly confirms the printed check.`,choices);
+        }
+        if(subjugateRedirect)return blocked('Subjugate fallback: printed War pairing required',
+          status.reason+' The map and stock are already known. Do not invent a War Instruction counter or skip this printed procedure.');
+      }
+    }
     return decision('Enemy Instruction needs your decision',status.reason+' Open the on-board Enemy controls for printed choices.',[]);
   }
   if(s.phase==='war'){
@@ -259,7 +440,36 @@ export function nextPlayerPrompt(s) {
     const status=warAutomationStatus(s);
     if(status.ready)return auto('Enemy turn: rules resolve automatically',status.reason,{type:'WAR_AUTO_UNTIL_CHOICE'});
     if(safeNext(s).ok)return auto('War phase complete','Move to Operation Selection.',{type:'ADVANCE'});
-    return decision('Your decision: War phase',status.reason,[]);
+    if(s.steps?.w4==='done'&&s.steps?.w5!=='done'){
+      const siege=warRancheriaObligations(s).find(o=>o.bandIds.length>0);
+      if(siege){
+        const fight=rancheriaFightPreview(s,siege.rancheriaId);
+        const sacrifice=rancheriaSacrificePreview(s,siege.rancheriaId);
+        const choices=[];
+        // These are explicit *player attestations*, never automatic game facts.
+        // Any unresolved North return target is handled in the full siege panel.
+        if(fight.ready)choices.push({label:'Defend: I verified the printed Battle rules and counters · pay 1 Military',command:{type:'WAR_RANCHERIA_FIGHT',rancheriaId:siege.rancheriaId,ack:true}});
+        if(sacrifice.ready&&!sacrifice.requiresNorthTarget)choices.push({label:'Sacrifice: I verified the counter ledger and card exceptions · pay 2 Military and Captives',command:{type:'WAR_RANCHERIA_SACRIFICE',rancheriaId:siege.rancheriaId,ack:true}});
+        if(choices.length)return decision('Choose Ranchería siege response',`Ranchería ${siege.rancheriaId} in ${siege.location}: select a printed §3.1 step-5 response. The button confirms you personally checked the current physical counters and card exceptions; this is NOT an automatic decision.`,choices);
+      }
+    }
+    const battles=warBattleObligations(s).filter(o=>!o.exempt);
+    if(battles.length){
+      const first=battleSafeStartPreview(s);
+      if(first.ready)return auto('War step 4: fight verified Battle',first.reason,{type:'BATTLE_SAFE_START'});
+      if(first.warId){
+        const defenders=battles.find(b=>b.warId===first.warId)?.defenders||[];
+        const choices=defenders.flatMap(unitId=>{
+          const candidate=battleSafeStartPreview(s,unitId);
+          return candidate.ready?[{label:`Fight with ${s.pieces.find(p=>p.id===unitId)?.label||unitId} · digital Battle round`,command:{type:'BATTLE_SAFE_START',unitId}}]:[];
+        });
+        if(choices.length)return decision('War step 4: choose defender',
+          'The printed Battle is mandatory, but choosing between eligible defenders is a player decision. Optional Guns/Mahimiana and uncertified cards still require the guided Battle scorecard.',choices);
+      }
+      return blocked('War step 4: resolve a Battle',
+      `${status.reason} ${battles.map(b=>`${b.location}: War Column ${b.warId}, eligible defenders ${b.defenders.join(', ')}`).join('; ')}. ${first.reason} Use the guided Battle controls when the digital preflight is not certified.`);
+    }
+    return blocked('War phase needs a verified on-board action',status.reason+' Use the War panel to resolve the printed exception; no automatic rule is certified here.');
   }
   if(s.phase==='selection'){
     if(!s.operation){
@@ -278,18 +488,87 @@ export function nextPlayerPrompt(s) {
       if(status.ready)return auto('Passage: automatic rule',status.reason,{type:'PASSAGE_AUTO_PROGRESS'});
       if(status.complete&&safeNext(s).ok)return auto('Passage complete','Continue to Cleanup.',{type:'ADVANCE'});
       const missing=['pt2','pt3','pt4'].find(k=>!['done','na'].includes(s.steps[k]));
+      if(missing==='pt2'){
+        const choices=[];
+        for(const ranch of s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location])){
+          const nextCost=(s.passageRecruitCounts?.[ranch.id]||0)+1;
+          const stock=s.pieces.filter(p=>p.type==='Band'&&p.strength===1&&['reserve','out-of-play'].includes(p.location));
+          const resources=s.pieces.filter(p=>p.location===`box:${ranch.id}`&&(p.type==='Bison'||p.type==='Resource'&&['Food','Captives'].includes(p.subtype)));
+          // Offer a bounded set of distinct exact-or-overpaying combinations.
+          const combinations=[];
+          for(let mask=1;mask<(1<<Math.min(resources.length,8));mask++){
+            const picked=resources.slice(0,8).filter((_,i)=>mask&(1<<i));
+            const points=picked.reduce((n,p)=>n+(p.type==='Bison'||p.subtype==='Captives'?1:2),0);
+            if(points>=nextCost)combinations.push({picked,points});
+          }
+          combinations.sort((a,b)=>a.points-b.points||a.picked.length-b.picked.length);
+          for(const set of combinations.slice(0,5))if(stock.length){
+            const command={type:'PASSAGE_RECRUIT_BAND',rancheriaId:ranch.id,bandId:stock[0].id,resourceIds:set.picked.map(p=>p.id)};
+            try{perform(s,command);choices.push({label:`Recruit at ${ranch.label||ranch.id}: ${set.points} Pop Point(s), ${nextCost} required`,command});}catch{}
+          }
+        }
+        choices.push({label:'Finish recruitment without creating more Bands',command:{type:'CHECK',key:'pt2',value:'done'}});
+        return decision('Passage step 2: recruit Bands', 'Each new Band costs one more Pop Point at its Ranchería. Only available strength-1 counters and actual unpossessed Food, Bison or Captives are listed.',choices);
+      }
+      if(missing==='pt3'){
+        const choices=[];
+        for(const band of s.pieces.filter(p=>p.type==='Band'&&p.strength<3&&(SPACE[p.location]||p.location.startsWith('box:')))){
+          const replacements=s.pieces.filter(p=>p.type==='Band'&&p.strength>band.strength&&['reserve','out-of-play'].includes(p.location));
+          const resources=s.pieces.filter(p=>(p.location===`held:${band.id}`||band.location.startsWith('box:')&&p.location===band.location)&&(p.type==='Bison'||p.type==='Resource'&&['Food','Captives'].includes(p.subtype)));
+          for(const replacement of replacements.slice(0,2))for(const resource of resources.slice(0,8)){
+            const command={type:'PASSAGE_STRENGTHEN_BAND',bandId:band.id,replacementBandId:replacement.id,resourceIds:[resource.id]};
+            try{perform(s,command);choices.push({label:`Strengthen ${band.label||band.id} (${band.strength} → ${replacement.strength}) using ${resource.label||resource.id}`,command});}catch{}
+          }
+        }
+        // Rule §4.4 step 3: a Food counter in one Ranchería may supply
+        // 1 Pop Point to each of two separate Bands in its Resources box.
+        for(const ranch of s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location])){
+          const box=`box:${ranch.id}`;
+          const foods=s.pieces.filter(p=>p.location===box&&p.type==='Resource'&&p.subtype==='Food');
+          const bands=s.pieces.filter(p=>p.type==='Band'&&p.location===box&&p.strength<3);
+          const replacements=s.pieces.filter(p=>p.type==='Band'&&['reserve','out-of-play'].includes(p.location));
+          for(const food of foods.slice(0,3))for(let i=0;i<bands.length;i++)for(let j=i+1;j<bands.length;j++){
+            const a=replacements.find(p=>p.strength===bands[i].strength+1);
+            const b=replacements.find(p=>p.id!==a?.id&&p.strength===bands[j].strength+1);
+            if(!a||!b)continue;
+            const command={type:'PASSAGE_STRENGTHEN_BANDS',resourceIds:[food.id],upgrades:[{bandId:bands[i].id,replacementBandId:a.id},{bandId:bands[j].id,replacementBandId:b.id}]};
+            try{perform(s,command);choices.push({label:`Use 1 Food to strengthen ${bands[i].label||bands[i].id} and ${bands[j].label||bands[j].id}`,command});}catch{}
+            if(choices.length>=25)break;
+          }
+        }
+        choices.push({label:'Finish strengthening',command:{type:'CHECK',key:'pt3',value:'done'}});
+        return decision('Passage step 3: strengthen Bands','Validated single-Band and two-Band exchanges are offered. Shared Food must be unpossessed in the same Ranchería as both Bands.',choices);
+      }
+      if(missing==='pt4'){
+        const choices=[];
+        const bands=s.pieces.filter(p=>p.type==='Band'&&SPACE[p.location]?.type==='round'&&
+          s.pieces.filter(q=>q.type==='Band'&&q.location===p.location).length===1&&
+          !s.pieces.some(q=>q.location===p.location&&['Rancheria','Tribe','Settlement','War Column'].includes(q.type)));
+        const stock=s.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`);
+        for(const band of bands)for(const ranch of stock){
+          const command={type:'PASSAGE_CREATE_RANCHERIA',bandId:band.id,rancheriaId:ranch.id};
+          try{perform(s,command);choices.push({label:`Create ${ranch.label||ranch.id} from ${band.label||band.id} at ${SPACE[band.location]?.name||band.location}`,command});}catch{}
+        }
+        choices.push({label:'Do not establish a Ranchería this Passage',command:{type:'CHECK',key:'pt4',value:'na'}});
+        return decision('Passage step 4: establish a Ranchería?',
+          'Living Rules §4.4: you may create one new Ranchería from a lone Band. Only reducer-validated placements are listed; a carried Mahimiana is exchanged with the new Ranchería’s affiliated headman when its old affiliation and Medicine are known.',choices);
+      }
       if(missing)return decision('Passage: optional improvements',status.reason,[
         {label:'Skip this optional step',command:{type:'CHECK',key:missing,value:'na'}}
       ]);
       if(!['done','na'].includes(s.steps.pt5))return decision('Passage: retire a Mahimiana?',status.reason,[
         {label:'Do not retire anyone',command:{type:'PASSAGE_FINISH_RETIREMENT'}}
       ]);
-      if(!['done','na'].includes(s.steps.pt14)&&s.steps.pt13==='done')return decision('Buy a Culture card?',status.reason,[
-        {label:'Decline this purchase',command:{type:'PASSAGE_CULTURE_DECLINE'}}
-      ]);
-      if(s.scenario==='plains'&&!s.passageResult&&['pt1','pt2','pt3','pt4','pt5','pt6','pt7','pt8','pt9','pt10','pt11','pt12','pt13','pt14'].every(k=>['done','na'].includes(s.steps[k]))){
+      if(!['done','na'].includes(s.steps.pt14)&&s.steps.pt13==='done'){
+        const eligible=culturePurchaseOptions(s).filter(x=>x.eligible);
+        return decision('Buy a Culture card?',status.reason,[
+          ...eligible.map(x=>({label:`Purchase ${x.family} ${x.level} (${x.cost} Culture)`,command:{type:'PASSAGE_CULTURE_PURCHASE',cultureId:x.id}})),
+          {label:'Decline this purchase',command:{type:'PASSAGE_CULTURE_DECLINE'}}
+        ]);
+      }
+      if(!s.passageResult&&['pt1','pt2','pt3','pt4','pt5','pt6','pt7','pt8','pt9','pt10','pt11','pt12','pt13','pt14'].every(k=>['done','na'].includes(s.steps[k]))){
         const command={type:'PASSAGE_DIGITAL_FINISH'};
-        try{perform(s,command);return decision('Onto the Plains: final Passage roll', 'Use the tracked digital board and a seeded die for Passage step 15. Physical-board users should use the printed-roll form instead.', [{label:'Roll digital Passage die',command}]);}catch{}
+        try{perform(s,command);return decision('Passage: final History roll', 'The engine rolls the seeded Passage die, moves the marker and checks whether the History objective must be resolved.', [{label:'Roll digital Passage die',command}]);}catch{}
       }
       return decision('Your decision: Passage of Time',status.reason,[]);
     }
@@ -302,11 +581,11 @@ export function nextPlayerPrompt(s) {
         const p=cultureGainPreview(s);
         if(p.mismatches?.length)return blocked('Culture needs board evidence','Territory control is ambiguous. Review the map and enter the confirmed territories in Turn controls.');
         if(cultureCardEffectAudit(s).safe)return auto('Culture rises',`Gain +${p.gain} gross Culture from verified territory ledger (maximum 9).`,{type:'CULTURE_DIGITAL_GAIN'});
-        return decision('Gain Culture',`The ledger suggests +${p.gain} Culture, but active card effects need review.`,[]);
+        return decision('Gain Culture — review card modifiers',`The ledger suggests +${p.gain} Culture. Confirm the active card effects before applying the recorded territory gain. No card modifier is assumed absent.`,[{label:'I checked the active cards; apply the ledger gain',command:{type:'CULTURE_LEDGER_GAIN',ack:true}}]);
       }
       if(!s.operationEvents?.operationsRoll){
         if(s.tracks.operations>0&&cultureCardEffectAudit(s).safe)return auto('Operations track roll', 'The game rolls a seeded die and updates Operations or mandatory Passage.',{type:'OPERATIONS_DIGITAL_ROLL',ack:true});
-        return decision('Resolve Operations track','The game rolls a seeded die. Confirm only if a printed card modifies the normal check.',[]);
+        return decision('Resolve Operations track — review card modifiers','Check whether an active card changes this Operations check. If it does, use the on-board exception controls instead. Otherwise authorise the engine to use its seeded digital die.',[{label:'No card changes this roll; roll digitally',command:{type:'OPERATIONS_DIGITAL_ROLL',ack:true}}]);
       }
     }
     if(s.operation==='Take Actions'){
@@ -315,6 +594,31 @@ export function nextPlayerPrompt(s) {
         return decision(`Command ${band?.label||'your Band'}`,`At ${SPACE[band?.location]?.name||band?.location||'the board'} · ${s.tracks.movement} movement points. Only legal actions are shown.`,activeBandChoices(s).map(a=>({label:a.label,detail:a.detail,command:a.command,kind:a.kind,to:a.to})));
       }
       if(!s.operationEvents?.operationsRoll){
+        // §4.1 steps 1–3: free activation from one Ranchería's Medicine track
+        // must be available in the game director, not only a legacy counter menu.
+        const track=s.rancheriaActivation;
+        if(track&&track.stage!=='complete'){
+          const choices=[];
+          const next=track.slots?.[track.activated];
+          if(next){
+            const command={type:'ACTIVATE_BAND',id:next.bandId,mode:'rancheria'};
+            try{perform(s,command);choices.push({label:`Activate Medicine-track Band ${next.bandId}`,command});}catch{}
+          }
+          for(const collectAP of [false,true]){
+            const command={type:'RANCHERIA_TRACK_FINISH',collectAP};
+            try{perform(s,command);choices.push({label:collectAP?'Finish track and collect eligible AP':'Finish free Medicine-track activations',command});}catch{}
+          }
+          return decision('Ranchería Medicine-track activation',
+            'Activate the next required Band in right-to-left order, or finish the remaining eligible track slots according to §4.1.',choices);
+        }
+        const startChoices=[];
+        if(!track){
+          for(const ranch of s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location])){
+            const bandIds=s.pieces.filter(p=>p.type==='Band'&&p.location===`box:${ranch.id}`).map(p=>p.id).sort();
+            const command={type:'RANCHERIA_TRACK_START',rancheriaId:ranch.id,bandIds};
+            try{perform(s,command);startChoices.push({label:`Prepare ${ranch.label||ranch.id} Medicine track`,command});}catch{}
+          }
+        }
         const husbandry=[];
         if(cultureActive(s,'C02')){
           const bands=s.pieces.filter(p=>p.type==='Band'&&p.location!=='reserve'&&p.location!=='removed'&&!p.finished);
@@ -324,7 +628,7 @@ export function nextPlayerPrompt(s) {
           }
         }
         const candidates=s.pieces.filter(p=>p.type==='Band'&&Boolean(SPACE[p.location])&&!p.finished&&p.ratingConfirmed!==false&&s.tracks.ap>=p.strength);
-        return decision('Choose your next Band',`Activate a Band by paying its strength in AP. ${candidates.length?'Or finish taking actions when ready.':'No eligible AP activations are recorded.'}`,[...candidates.slice(0,8).map(p=>({label:`Activate ${p.label} (${p.strength} AP)`,command:{type:'ACTIVATE_BAND',id:p.id,mode:'ap'}})),...husbandry,...(s.tracks.operations===0?[{label:'Finish actions · advance Operations to 1',command:{type:'OPERATIONS_START_ADVANCE'}}]:[{label:'Finish actions · roll Operations die',command:{type:'OPERATIONS_DIGITAL_ROLL'}}])]);
+        return decision('Choose your next Band',`Activate a Band by paying its strength in AP. ${candidates.length?'Or finish taking actions when ready.':'No eligible AP activations are recorded.'}`,[...startChoices,...candidates.slice(0,8).map(p=>({label:`Activate ${p.label} (${p.strength} AP)`,command:{type:'ACTIVATE_BAND',id:p.id,mode:'ap'}})),...husbandry,...(s.tracks.operations===0?[{label:'Finish actions · advance Operations to 1',command:{type:'OPERATIONS_START_ADVANCE'}}]:[{label:'I checked printed card modifiers · roll Operations die',command:{type:'OPERATIONS_DIGITAL_ROLL',ack:true}}])]);
       }
     }
     if(s.operation==='Planning'){
@@ -397,7 +701,9 @@ export function nextPlayerPrompt(s) {
       }
       if(s.planningStage===9){
         const active=s.cards.some(c=>['Development','Culture','War'].includes(c.kind)&&['In play','Display','War Event'].includes(c.zone));
-        if(active)return decision('Confirm Operations card modifiers','Review active cards for any exception to the Operations roll before using the digital die.',[{label:'I checked the active cards; roll now',command:{type:'PLANNING_OPERATIONS_FINISH',ack:true}}]);
+        const cardAudit=cultureCardEffectAudit(s);
+        if(active&&cardAudit.safe)return auto('Planning: verified Operations check','All active card effects have a verified non-modifier proof for this specific Operations roll. Roll the seeded die.',{type:'PLANNING_OPERATIONS_FINISH'});
+        if(active)return decision('Confirm Operations card modifiers',`Only these active card(s) remain unverified for this roll: ${cardAudit.blockers.map(c=>`${c.kind} ${c.number||c.cardId}`).join(', ')}. Review those printed cards before the digital die.`,[{label:'I checked the listed cards; roll now',command:{type:'PLANNING_OPERATIONS_FINISH',ack:true}}]);
         return auto('Planning: Operations check','Roll using the game’s seeded die, or advance from Start without rolling.',{type:'PLANNING_OPERATIONS_FINISH'});
       }
       const choices=planningActionChoices(s);
@@ -407,9 +713,37 @@ export function nextPlayerPrompt(s) {
       return decision('Complete Planning procedures',remaining.length?`Next: ${remaining[0][1]}. Open Turn controls to resolve it; do not mark it complete without applying the effect.`:safeNext(s).message,[]);
     }
     const ready=safeNext(s);
+    // A completed Take Actions checklist is followed by each in-play
+    // recurring Disease card. The reducer handles its own seeded target
+    // roll and any ensuing Band choice; do not leave an empty prompt.
+    if(s.operation==='Take Actions'&&!ready.ok&&!s.epidemicTakeActionsApplied){
+      const disease={type:'DEVELOPMENT_EPIDEMIC_END'};
+      try{perform(s,disease);return auto('Resolve end-of-operation Disease',ready.message,disease);}catch{}
+    }
     if(ready.ok)return auto('Operation completed','Continue to Cleanup.',{type:'ADVANCE'});
     const first=checklist(s).find(([id])=>!['done','na'].includes(s.steps[id]));
-    return decision('Finish your operation', first?`${first[1]} — ${ready.message}`:ready.message,[]);
+    if(first){
+      const [key,description,section]=first,choices=[];
+      const tryChoice=(label,command)=>{try{perform(s,command);choices.push({label,command});}catch{}};
+      if(s.operation==='Take Actions'&&!s.activeBandId&&(!s.rancheriaActivation||s.rancheriaActivation.stage==='complete')){
+        // Only the player can decide whether to stop taking optional actions.
+        // The Operations step is completed by the actual recorded roll.
+        if(['a1','a2','a3','a4'].includes(key))tryChoice('I have finished this Take Actions step',{type:'CHECK',key,value:'done'});
+        if(key==='a5'){
+          if(s.operationEvents?.operationsRoll)tryChoice('Operations roll completed · confirm step',{type:'CHECK',key,value:'done'});
+          else tryChoice('Roll the Operations die',{type:'OPERATIONS_DIGITAL_ROLL',ack:true});
+        }
+      }else if(s.operation==='Culture'){
+        // Acknowledgement is never represented as a verified calculation.
+        // No replacement for the actual culture ledger and die procedures.
+        if(key==='cu1')tryChoice('I checked the Culture procedure',{type:'CHECK',key,value:'done'});
+        if(key==='cu2'&&s.operationEvents?.cultureGain)tryChoice('Culture result recorded · confirm',{type:'CHECK',key,value:'done'});
+        if(key==='cu3'&&s.operationEvents?.operationsRoll)tryChoice('Operations result recorded · confirm',{type:'CHECK',key,value:'done'});
+      }
+      return decision(`Finish ${s.operation}: ${key.toUpperCase()}`,
+        `${description} (${section}). ${ready.message}. ${choices.length?'Confirm only after the printed-board procedure is complete.':'This effect still needs its printed-board procedure; it cannot be skipped.'}`,choices);
+    }
+    return decision('Finish your operation',ready.message,[]);
   }
   if(s.phase==='cleanup'){
     // Cleanup step 1 card triggers are compulsory. Do not make a player
@@ -422,6 +756,26 @@ export function nextPlayerPrompt(s) {
       if(buffalo.some(c=>!(s.buffaloDoneIds||[]).includes(c.id)))return auto('Buffalo Hunters: Cleanup effect','Select the territory using the seeded game die; if several Bison are present, you choose which to remove.',{type:'DEVELOPMENT_BUFFALO_START'});
     }
     if(!['done','na'].includes(s.steps.cl1)){
+      // §2.4 / §3.4 step 1: absorbing a Band sharing a Ranchería space
+      // is mandatory and must be offered BEFORE the generic stacking gate.
+      // This resolves a legitimate temporary stack without administrative edits.
+      const absorptions=[];
+      for(const ranch of s.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location])){
+        for(const band of s.pieces.filter(p=>p.type==='Band'&&p.location===ranch.location&&p.id!==s.activeBandId)){
+          absorptions.push({ranch,band});
+        }
+      }
+      if(absorptions.length){
+        const choices=absorptions.map(({ranch,band})=>({
+          label:`Absorb ${band.label||band.id} into ${ranch.label||ranch.id}`,
+          command:{type:'CLEANUP_ABSORB_BAND',bandId:band.id,rancheriaId:ranch.id}
+        }));
+        // Each absorption is mandatory, independent, and preserves cargo.
+        // Use a stable first counter rather than interrupting the player with
+        // an artificial choice between equivalent mandatory operations.
+        return auto('Cleanup: absorb returning Band',
+          'Required §2.4 absorption: return each Band to its Ranchería Resources box, retaining its possessions.',choices[0].command);
+      }
       const stack=getStackingProblems(s);
       if(stack.length)return blocked('Cleanup: fix illegal stacking',stack.map(x=>x.message).join(' ')+' Use the on-board counter controls to resolve these before continuing.');
       if(s.pending||s.successCheck||s.enemyFlow||s.developmentPending||s.battlePending)return blocked('Cleanup: pending procedure','Resolve the pending rule or counter effect before the stacking checkpoint.');
@@ -482,7 +836,9 @@ export function nextPlayerPrompt(s) {
           if(/^peace(?:\s|$)/i.test(name)&&cupSafeSimplePeace(s,drawn))return auto('Cup Instruction: place Peace','No active War Column, old Peace or Recover target. Place the Peace in the Enemy square and continue the exchange.',{type:'CLEANUP_CUP_PEACE'});
           if(cupForcedEncroach(s,drawn))return auto('Cup Instruction: forced Encroach','One Tribe and one legal space remain. Resolve placement and the seeded territory roll.',{type:'CLEANUP_CUP_FORCED_ENCROACH'});
           if(cupEmptyRedirect(s,drawn))return auto('Cup Instruction: no-target redirect','Ally/Encroach has no target, no possible Tribe placement and no Bison to hunt.',{type:'CLEANUP_CUP_EMPTY_REDIRECT'});
+          if(['War','Raid'].includes(name)&&cupWarRaidAutoPreview(s).ready)return auto('Cleanup cup: verified '+name,'Apply the certified War/Raid effect and proceed to the mandatory exchange.',{type:'CLEANUP_CUP_AUTO_WAR_RAID'});
           if(['War','Raid'].includes(name))return blocked('Cleanup cup: resolve War/Raid', 'Choose a War Column, physical target and card modifiers where required; the engine will apply formation, movement and attrition, then exchange the Instruction.');
+          if(['Settle','Subjugate'].includes(name)&&cupColonialTargetPreview(s).ready)return auto('Cup Instruction: automatic '+name,'The verified map resolves the target, legal physical stock and random ties, then proceeds to the required display exchange.',{type:'CLEANUP_CUP_AUTO_COLONIAL'});
           if(['Settle','Subjugate'].includes(name))return blocked('Cleanup cup: resolve '+name+' on the board', 'Choose the real target in the guided form. The engine validates the route and counters, then advances to the display exchange.');
           return blocked(`Resolve ${drawn?.owner||'Enemy'} ${name} Instruction`,`The drawn Instruction acts for free under §6.2.2.C. Record and execute its specific §6.3 effect, then use the on-board cup-Instruction confirmation. Do not skip any target, battle or card effect.`);
         }
@@ -508,7 +864,11 @@ export function nextPlayerPrompt(s) {
     }
     if(!['done','na'].includes(s.steps.cl4)){
       if(!s.flags?.santaFe&&!s.cards.some(c=>c.kind==='Development'&&String(c.identifier||'').replace(/\D/g,'')==='43'&&['In play','Display'].includes(c.zone)))return auto('Santa Fé Trail not active','No Wagon Train counter is required this turn.',{type:'CLEANUP_SKIP_TRAIL'});
-      return blocked('Santa Fé Trail: verify a Wagon Train space','The card requires a face-down counter at the nearest eligible map space to northern East. Verify the location against the physical map before confirming placement; the partial digital graph cannot prove nearest.');
+      const trail=santaFeTrailPlacementPreview(s);
+      if(!trail.choices.length)return blocked('Santa Fé Trail: no legal destination','All Wagon Train spaces are occupied or unreachable. Check the recorded physical counters before continuing.');
+      if(!s.pieces.some(cupDrawable))return blocked('Santa Fé Trail: empty cup','No counter is available in the Success Check Draw Cup. Reconcile the counter stock.');
+      if(trail.unique)return auto('Santa Fé Trail: place hidden counter',`The verified map identifies ${trail.choices[0].to} as the nearest eligible space to northern East (E1), ${trail.nearest} connections away. Draw the counter face-down.`,{type:'CLEANUP_TRAIL_PLACE',to:trail.choices[0].to});
+      return decision('Santa Fé Trail: nearest-space tie',`Several eligible Wagon Train spaces are tied at ${trail.nearest} connections from northern East. Resolve the printed tie and choose its destination.`,trail.choices.map(x=>({label:`Place hidden counter at ${x.to}`,command:{type:'CLEANUP_TRAIL_PLACE',to:x.to,ack:true}})));
     }
     const next=safeNext(s);
     if(next.ok)return auto('Cleanup complete','Proceed to the next War phase.',{type:'ADVANCE'});

@@ -6,7 +6,7 @@
 export const PRINTED_BOARD={
   width:1080,height:720,
   rancheria:{firstY:89,rowGap:69,mahY:0,paraY:27,medicineX:794,medicineGap:24,successX:762,resourcesX:951,resourcesY:1,resourcesWidth:69},
-  instructions:{firstY:517,rowGap:25,cols:['West','South','East','North','Inactive'],columnX:{West:851,South:895,East:939,North:983,Inactive:1010}},
+  instructions:{firstY:516,rowGap:22,cols:['West','South','East','North','Inactive'],columnX:{West:893,South:920,East:946,North:973,Inactive:1000}},
   supply:{available:{x:572,y:590,w:126,h:78},out:{x:790,y:594,w:65,h:61},enemyAP:{x:917,y:664,w:103,h:26}},
   records:{x:{military:34,culture:58,ap:82},yByValue:[658,608,571,545,518,493,469,443,419,394]},
   operations:{x:67,yByValue:[168,198,227,257,288,318,349]},
