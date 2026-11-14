@@ -560,79 +560,109 @@ svg.world-board .map-node.piece-drop-hover .map-node-core{stroke:#ffdb7e;stroke-
    awaiting Medicine placement (not only generic Select actions). */
 .tt-printed-only svg.world-board [data-physical-piece-id] {touch-action:none;user-select:none;cursor:grab}
 
-/* v2.03 — single-board contract. No fixed external game menus or side drawers.
-   The decision dialog is a temporary card sitting ON the printed board, while
-   the sole external action log remains visible and scrollable. */
-.tt-printed-only .printed-utility,
-.tt-printed-only .board-command-drawers,
-.tt-printed-only .board-turn-hud,
-.tt-printed-only .printed-floating-actions {display:none!important}
-.tt-printed-only .printed-decision-cue{
- position:absolute;z-index:19;bottom:clamp(9px,2vh,22px);
- left:calc(var(--table-log-margin) + 12px);
- max-width:min(260px,42vw);min-height:36px;padding:7px 13px;
- border:1px solid #e7cf89;border-radius:6px;background:#22271de8;
- color:#ffedbf;box-shadow:0 2px 12px #0009;
- font:600 12px/1.25 system-ui,sans-serif;cursor:pointer;
- white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+/* Schematic board is playable even when optional privately imported artwork is absent. */
+.printed-board-fallback-note{position:absolute;z-index:6;top:10px;left:10px;max-width:280px;border:1px solid #9d8b65;background:rgba(25,30,24,.89);color:#f6e5c1;padding:8px 11px;border-radius:8px;font:12px/1.5 system-ui,sans-serif;pointer-events:auto}
+.printed-board-fallback-note button{color:#f7d697;background:transparent;border:0;text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+
+/* v2.54 — consequential decisions appear over the printed board, not in a side menu.
+   Existing reducer-backed forms remain the source of truth. */
+.tt-printed-only .board-turn-hud.board-focus-battle,
+.tt-printed-only .board-turn-hud.board-focus-passage{
+  position:absolute;left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%);
+  width:min(850px,calc(100vw - 28px));max-height:min(84dvh,760px);
+  z-index:29;overflow-y:auto;display:block;padding:18px 22px;
+  border:3px solid #edce88;background:rgba(31,33,25,.98);
+  box-shadow:0 0 0 200vmax #070807b3,0 18px 60px #000e;
 }
-.tt-printed-only .printed-decision-cue:hover,.tt-printed-only .printed-decision-cue:focus-visible{background:#435138;outline:2px solid #f3dcaa}
-.tt-printed-only .player-panel-shade{
- position:absolute;z-index:30;top:0;bottom:0;
- left:var(--table-log-margin);right:0;display:flex;
- justify-content:center;align-items:center;padding:clamp(8px,3vw,26px);
- background:#100f0baa;box-sizing:border-box
+.tt-printed-only .board-focus-battle .board-turn-summary,
+.tt-printed-only .board-focus-passage .board-turn-summary{margin-bottom:12px}
+.tt-printed-only .board-focus-battle .board-turn-actions,
+.tt-printed-only .board-focus-passage .board-turn-actions{display:block}
+.board-focus-battle .board-turn-actions .panel,
+.board-focus-passage .board-turn-actions .panel{border:0;background:transparent;padding:0}
+.board-passage-options{display:grid;gap:10px}
+.board-passage-options>p{margin:0;color:#f7e9c5}
+.board-passage-good{padding:10px;border:1px solid #a38b5b;border-radius:8px;display:grid;gap:8px}
+.board-passage-destinations{display:flex;flex-wrap:wrap;gap:9px}
+.board-passage-destinations .board-turn-command{flex:1 1 140px}
+@media(max-width:680px){.tt-printed-only .board-turn-hud.board-focus-battle,.tt-printed-only .board-turn-hud.board-focus-passage{padding:12px 14px;max-height:86dvh}}
+
+/* v2.55: All auxiliary decisions and guided procedures stay in the board's
+   spatial context. No full-height, off-board navigation drawer. */
+.tt-printed-only .player-panel-shade{position:absolute;inset:0;z-index:35;display:grid;place-items:center;padding:12px;background:#080907a6;backdrop-filter:blur(2px)}
+.tt-printed-only .player-panel{width:min(850px,calc(100% - 10px));height:auto;max-height:min(85dvh,780px);border:2px solid #dec388;border-radius:12px;box-shadow:0 16px 70px #000e;background:#24281ff7}
+.tt-printed-only .player-panel-head{background:#3c3929;position:sticky;top:0;z-index:2}
+.tt-printed-only .player-panel-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tt-printed-only .player-panel-choices button{min-height:50px}
+.tt-printed-only #modal-root:empty{display:none}
+.tt-printed-only #modal-root:not(:empty){position:absolute;inset:0;z-index:45;display:grid;place-items:center;pointer-events:none}
+.tt-printed-only #modal-root .modal-bg{position:absolute;inset:0;display:grid;place-items:center;pointer-events:auto}
+.tt-printed-only #modal-root .modal{width:min(850px,calc(100% - 28px));max-height:min(88dvh,800px);overflow:auto}
+@media(max-width:680px){.tt-printed-only .player-panel-shade{padding:5px}.tt-printed-only .player-panel{width:100%;max-height:90dvh}.tt-printed-only .player-panel-choices{grid-template-columns:1fr}}
+.tt-printed-only .player-panel-shade{justify-content:center;align-items:center;justify-items:center}
+
+/* v2.56: one real, rules-backed decision per frame, over the printed board. */
+.guided-stepper{--step-ink:#f4e4bd;position:relative;margin:8px 0 16px;padding:12px;border:1px solid #aa9160;border-radius:11px;color:var(--step-ink);background:linear-gradient(120deg,#3b3123f7,#252920f7);box-shadow:0 8px 20px #0005}
+.guided-stepper-progress{display:flex;align-items:center;gap:13px;font-weight:700;font-size:12px;letter-spacing:.09em;text-transform:uppercase}
+.guided-stepper-track{height:5px;background:#716447;border-radius:8px;flex:1;overflow:hidden}
+.guided-stepper-track i{display:block;height:100%;background:#e8c376;border-radius:8px;transition:width .28s ease-out}
+.guided-stepper-hero{display:flex;align-items:center;gap:15px;padding:12px 4px}
+.guided-stepper-hero small{display:block;font-size:11px;color:#e9bb75;font-weight:700;letter-spacing:.15em}
+.guided-stepper-title{display:block;font:600 clamp(17px,2.2vw,24px)/1.25 Georgia,serif;color:#fff0c8}
+.guided-stepper-art{height:94px;max-width:72px;object-fit:contain;border:1px solid #d4b37b;border-radius:5px;box-shadow:0 5px 16px #0008;animation:guided-art-in .32s ease-out}
+.guided-stepper-medallion{height:65px;width:65px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,#a8793c,#574629 70%);border:2px solid #c49b61;color:#f2d69d;font-size:32px;box-shadow:0 0 0 5px #ffffff0a}
+.guided-stepper-art:not([hidden])~.guided-stepper-medallion{display:none}
+.guided-stepper-navigation{display:flex;gap:10px;justify-content:space-between;align-items:center}
+.guided-stepper-navigation button[hidden],.guided-stepper-art[hidden],.guided-step-hidden{display:none!important}
+.guided-step-active{animation:guided-field-in .23s ease-out;min-width:0}
+.guided-step-enter .guided-stepper-hero{animation:guided-field-in .23s ease-out}
+@keyframes guided-field-in{from{opacity:.25;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes guided-art-in{from{opacity:.25;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.guided-stepper *, .guided-step-active{animation:none!important;transition:none!important}}
+@media(max-width:600px){.guided-stepper-hero{gap:9px}.guided-stepper-art{height:70px;max-width:50px}.guided-stepper-medallion{height:48px;width:48px}}
+.guided-stepper-hero:has(.guided-stepper-art:not([hidden])) .guided-stepper-medallion{display:none}
+/* v2.57: printed-choice cards on the board; the native select remains in the DOM. */
+.guided-choice-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:9px;margin:10px 0}
+.guided-choice-tile{min-height:62px;padding:12px 14px;border:2px solid #8f7956;border-radius:10px;color:#f5e6c8;background:linear-gradient(130deg,#473b2b,#262d28);font-family:inherit;font-size:15px;font-weight:600;line-height:1.3;cursor:pointer;text-align:center;box-shadow:0 3px 9px #0004;transition:transform .15s,border-color .15s,background .15s}
+.guided-choice-tile:is(:hover,:focus-visible){border-color:#f0d38e;transform:translateY(-2px);outline-offset:2px}
+.guided-choice-tile.is-chosen{border-color:#f2ce7d;background:linear-gradient(135deg,#6e5630,#394b3c);box-shadow:0 0 0 2px #e8c77644,0 5px 13px #0006}
+.guided-native-select{position:absolute!important;width:1px!important;height:1px!important;clip-path:inset(50%)!important;overflow:hidden!important;opacity:0!important}
+@media(prefers-reduced-motion:reduce){.guided-choice-tile{transition:none}.guided-choice-tile:is(:hover,:focus-visible){transform:none}}
+
+/* v2.58: all printed select options stay on the board as paged direct choices. */
+.guided-choice-tile[hidden]{display:none!important}
+.guided-choice-pages{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:9px 0;color:#f4e4bd}
+.guided-choice-pages button{min-height:42px;border-radius:8px;border:1px solid #b79a68;background:#413a2a;color:#fff0c8;padding:8px 12px;cursor:pointer}
+.guided-choice-pages button:disabled{opacity:.45;cursor:default}
+.guided-native-checkbox{position:absolute!important;width:1px!important;height:1px!important;clip-path:inset(50%)!important;overflow:hidden!important;opacity:0!important}
+
+/* v2.60: numeric decisions use board choice tiles, with the native field retained only for rules validation. */
+.guided-native-number{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;}
+
+/* v2.61: printed Development choices become tactile counter decisions. */
+.board-development-choice .board-horse-counter-list{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;max-height:220px;overflow-y:auto;padding:8px 2px}
+.board-development-choice .board-horse-choice{min-height:56px;max-width:240px;min-width:105px;flex:1 0 120px;padding:8px 12px;border-radius:12px;font-size:13px;gap:10px;transition:transform .18s ease,border-color .18s ease,background .18s ease;animation:board-choice-arrive .24s ease both}
+.board-development-choice .board-horse-choice:hover{transform:translateY(-3px);border-color:#f3ca68}
+.board-development-choice .board-horse-choice img{width:43px;height:43px;object-fit:contain}
+.board-development-choice .board-horse-progress{font-size:14px;font-weight:700;padding:6px 2px}
+@keyframes board-choice-arrive{from{opacity:.45;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.board-development-choice .board-horse-choice{animation:none;transition:none}}
+
+/* v2.96: Bison choices require a clickable map destination. Keep the
+   player prompt visible without occluding the target on the printed board. */
+.tt-printed-only .board-turn-hud.board-spatial-bison,
+.tt-printed-only .board-turn-hud.board-focus-passage.board-spatial-bison{
+ position:absolute;left:auto;right:8px;top:8px;bottom:auto;transform:none;
+ width:min(330px,calc(100vw - 16px));max-height:min(76dvh,650px);
+ padding:10px 12px;display:block;z-index:23;
+ box-shadow:0 6px 26px #000a;
 }
-.tt-printed-only .player-panel{
- width:min(590px,95%);height:auto;max-height:min(83dvh,740px);
- border:2px solid #bca26c;border-radius:12px;
- box-shadow:0 12px 55px #000e;background:#25281f;
- overflow:hidden
-}
-.tt-printed-only .player-panel-body{padding:14px 18px 18px;overflow-y:auto}
-.tt-printed-only .player-panel-footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:12px;border-top:1px solid #817257}
-.tt-printed-only .player-panel-footer .board-turn-command{width:auto;min-height:34px}
-.tt-printed-only .player-panel-choices{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.tt-printed-only .board-spatial-bison .board-turn-summary{margin-bottom:7px}
+.tt-printed-only .board-spatial-bison .board-turn-actions{display:block}
 @media(max-width:680px){
- .tt-printed-only .player-panel-shade{padding:6px;align-items:center}
- .tt-printed-only .player-panel{width:100%;max-height:90dvh}
- .tt-printed-only .player-panel-choices{grid-template-columns:1fr}
- .tt-printed-only .printed-decision-cue{font-size:10px;max-width:52vw}
+ .tt-printed-only .board-turn-hud.board-spatial-bison,
+ .tt-printed-only .board-turn-hud.board-focus-passage.board-spatial-bison{
+  top:4px;right:4px;width:min(220px,56vw);max-height:48dvh;padding:6px 8px;font-size:11px;
+ }
+ .tt-printed-only .board-spatial-bison .board-turn-summary p{display:none}
 }
-
-/* v2.04: every interactive layer is contained by the board, never an external
-   screen; the action log alone remains in its original left-hand margin. */
-.tt-printed-only #modal-root,.tt-printed-only #card-reveal-root{display:contents}
-.tt-printed-only .modal-bg,.tt-printed-only .card-reveal-shade{
- position:absolute;top:0;bottom:0;left:var(--table-log-margin);right:0;
- inset:auto 0 0 var(--table-log-margin);height:100%;width:auto;
- box-sizing:border-box;z-index:60;overflow-y:auto
-}
-.tt-printed-only .modal-bg{display:flex;align-items:center;justify-content:center;background:#080a08b8}
-.tt-printed-only .card-reveal-shade{display:grid;place-items:center;background:#080a08d4}
-.tt-printed-only .game-cinematic-shade{left:var(--table-log-margin);right:0;width:auto}
-.tt-printed-only .board-legal-decisions{display:block}
-.tt-printed-only .board-legal-decisions>.board-turn-actions{display:flex;flex-wrap:wrap;align-items:stretch;gap:9px}
-.tt-printed-only .board-legal-decisions .board-turn-command{min-width:min(190px,100%);flex:1 1 190px;min-height:46px}
-.tt-printed-only .board-legal-decisions .board-direct-hint{width:100%;padding:6px 0}
-.tt-printed-only .player-panel-meta{display:grid;gap:8px}
-.tt-printed-only .player-panel-meta b{font:700 clamp(18px,2.4vw,24px) Georgia,serif}
-.tt-printed-only .player-panel-meta p{margin:0}
-.tt-printed-only .player-panel-footer{position:sticky;bottom:-18px;background:#25281f;padding-bottom:10px;z-index:1}
-@media(max-width:680px){
- .tt-printed-only .board-legal-decisions .board-turn-command{flex-basis:100%}
- .tt-printed-only .player-panel-body{padding:12px}
-}
-
-/* v2.05: decisions for ambiguous physical counters are transient overlays,
-   never another persistent menu. Visible focus helps keyboard users. */
-.tt-printed-only svg.world-board [data-physical-piece-id]:focus-visible{outline:3px solid #f5dd95;outline-offset:2px}
-.tt-printed-only .player-panel-shade .player-panel{animation:board-decision-arrive .15s ease-out}
-@keyframes board-decision-arrive{from{opacity:.75;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
-@media(prefers-reduced-motion:reduce){.tt-printed-only .player-panel-shade .player-panel{animation:none}}
-
-/* v2.06: selection highlights only reducer-validated clickable destinations. */
-.tt-printed-only .map-node.click-drop-legal .printed-hit-target{stroke:#f9df75;stroke-width:3;stroke-dasharray:5 3;fill:#f6d75921}
-.tt-printed-only .map-node.click-drop-legal{cursor:pointer;filter:drop-shadow(0 0 6px #e4ba49)}
-.tt-printed-only .map-node.click-drop-legal:hover .printed-hit-target,
-.tt-printed-only .map-node.click-drop-legal:focus-visible .printed-hit-target{stroke:#fff1a8;stroke-width:5;fill:#fff0a835}

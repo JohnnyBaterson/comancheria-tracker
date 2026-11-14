@@ -24,7 +24,7 @@ export const VERIFIED_STOCK=Object.freeze([
 const TOTALS=new Map(VERIFIED_STOCK.map(x=>[x.key,x]));
 export const UNKNOWN_STOCK_FAMILIES=Object.freeze(['Band:1','Band:unidentified','Settlement:East','Settlement:South','Settlement:West','Marker:Ravaged','War Column']);
 export function componentStockKey(p){
- if(p.type==='Band')return `Band:${p.strength>0?p.strength:(Number.isInteger(p.stockStrength)&&p.stockStrength>=1&&p.stockStrength<=3?p.stockStrength:'unidentified')}`;
+ if(p.type==='Band')return `Band:${Number.isInteger(p.stockStrength)&&p.stockStrength>=1&&p.stockStrength<=3?p.stockStrength:(p.strength>0?p.strength:'unidentified')}`;
  if(p.type==='Marker'&&['Success','Enemy AP 4','Enemy AP 3','Enemy AP 2','Ravaged','Mahimiana Medicine'].includes(p.hiddenSubtype||p.subtype))return `Marker:${p.hiddenSubtype||p.subtype}`;
  if(p.type==='Resource')return `Resource:${p.subtype==='Horses'?'Horse':p.subtype}`;
  if(p.type==='Settlement')return `Settlement:${p.owner}`;

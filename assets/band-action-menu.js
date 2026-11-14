@@ -15,6 +15,12 @@ export function activeBandChoices(state){
   // decision is unresolved. Finishing an activation is not a shortcut.
   if(state.pending||state.successCheck||state.battlePending||state.enemyFlow||state.developmentPending||state.countermeasureWindow)return [];
   const actions=[];
+  // Cards #70/#71 offer a genuine counter-action; do not force Cleanup losses
+  // without allowing the player to spend MPs trying to discard either card.
+  for(const card of state.cards.filter(c=>c.kind==='Development'&&['70','71'].includes(String(c.identifier||'').replace(/\D/g,'').padStart(2,'0'))&&['In play','Display'].includes(c.zone))){
+    const command={type:'DEVELOPMENT_BUFFALO_DISCARD_ATTEMPT',cardId:card.id};
+    if(permitted(state,command))actions.push({id:`buffalo:${card.id}`,kind:'development',label:`Buffalo Hunters #${card.identifier}: attempt discard · 1 MP`,detail:'Roll a digital die: on 6 discard this card; otherwise it stays in play.',command});
+  }
   if(permitted(state,{type:'HUNT'}))actions.push({id:'hunt',kind:'hunt',label:'Hunt Bison',detail:'Collect one Bison; movement cost calculated by the game.',command:{type:'HUNT'}});
   if(permitted(state,{type:'CULTURE_WARPATH_START'}))actions.push({id:'warpath',kind:'raid',label:'Warpath against Tribe/Settlement',detail:'Warfare I: spend MP equal to Band strength; each Success places Ravaged.',command:{type:'CULTURE_WARPATH_START'}});
   if(permitted(state,{type:'BEGIN_RAID'}))actions.push({id:'raid',kind:'raid',label:'Raid this space',detail:'Spend 1 movement point, then resolve the Success Check.',command:{type:'BEGIN_RAID'}});
@@ -25,7 +31,7 @@ export function activeBandChoices(state){
   for(const resource of owned){
     for(const receive of ['Food','Trade Goods']){
       const command={type:'TRADE',resourceId:resource.id,receive};
-      if(permitted(state,command))actions.push({id:`trade:${resource.id}:${receive}`,kind:'trade',label:`Trade ${resource.subtype||resource.type} for ${receive}`,detail:'Validated trade: AP and movement costs applied automatically.',command});
+      if(permitted(state,command))actions.push({id:`trade:${resource.id}:${receive}`,kind:'trade',label:`Trade ${resource.subtype||resource.type} [${resource.id.replace(/^setup-bison-/, "").replace(/^stock-certified-/, "")}] for ${receive}`,detail:'Validated trade: AP and movement costs applied automatically.',command});
     }
   }
   for(const counter of state.pieces.filter(p=>p.location===band.location&&p.faceDown===true)){

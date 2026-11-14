@@ -421,3 +421,7 @@ body{background:radial-gradient(ellipse at 70% 0%,#25362c 0,#0d1715 48%)}
 .enemy-reset-preview summary{cursor:pointer;color:#ecd49d;font-weight:700}
 .enemy-reset-preview .rowline{overflow-wrap:anywhere;align-items:flex-start}
 
+/* Informational toasts must never block the printed board's action buttons.
+   Keep their dismiss control clickable while passing clicks through the notice. */
+.toast-wrap,.toast{pointer-events:none}
+.toast button{pointer-events:auto}
