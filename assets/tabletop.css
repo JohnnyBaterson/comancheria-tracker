@@ -824,3 +824,22 @@ svg.world-board .map-node.piece-drop-hover .map-node-core{stroke:#ffdb7e;stroke-
 .tt-printed-only .board-inline-procedure details summary{cursor:pointer;padding:9px;border:1px solid #987b49;border-radius:8px}
 /* A single decision does not need a step-by-step wizard. */
 .guided-single-choice .guided-stepper-progress,.guided-single-choice .guided-stepper-navigation{display:none!important}
+
+/* v3.88: keep audit information accessible without covering the playing board. */
+.tt-printed-only .board-resource-status{margin:6px 0;border:1px solid #a18b62;border-radius:8px;padding:7px 9px;background:#1a2920;color:#ead9b6;font-size:11px;line-height:1.4}
+.tt-printed-only .board-resource-status summary{cursor:pointer;font-weight:700}
+.tt-printed-only .board-resource-status[open]{max-height:220px;overflow:auto}
+.tt-printed-only .board-resource-status ul{padding-left:18px;margin:6px 0}
+.tt-printed-only .passage-culture-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin:10px 0}
+.tt-printed-only .passage-culture-card{max-height:310px;overflow:auto;align-items:stretch;text-align:left}
+.tt-printed-only .passage-culture-card .setup-card-face img{max-height:180px;object-fit:contain}
+.tt-printed-only .passage-culture-card .setup-card-effect{white-space:normal;line-height:1.4}
+.tt-printed-only .board-battle-direct-options{display:grid;gap:8px;margin:10px 0}
+.tt-printed-only .table-action-log.expanded{height:min(48dvh,440px)!important;max-height:min(48dvh,440px)!important}
+@media(max-width:700px){.tt-printed-only .passage-culture-gallery{grid-template-columns:1fr 1fr}.tt-printed-only .table-action-log.expanded{max-height:36dvh!important;height:36dvh!important}}
+
+/* The Success cup reveals the latest physical counter in play. Older draws
+   stay still, so an end-of-check screenshot is a static final result. */
+@keyframes tt-cup-reveal{0%{opacity:0;transform:translateY(-11px) scale(.73) rotate(-7deg)}60%{opacity:1;transform:translateY(3px) scale(1.1) rotate(2deg)}100%{opacity:1;transform:none}}
+.tt-raid-story .tt-cup-counter.latest-draw{animation:tt-cup-reveal .48s ease-out both;outline:1px solid #ffe7a0;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.tt-raid-story .tt-cup-counter.latest-draw{animation:none}}

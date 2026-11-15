@@ -511,8 +511,20 @@ function proposedPlayerPrompt(s) {
       // bookkeeping; it can safely join the Enemy's automatic sequence.
       if(choices.length===1)return auto('Enemy AP payment · only legal option',
         choices[0].label+'. '+choices[0].detail,choices[0].command);
-      if(choices.length)return decision('Enemy AP payment · choose counters',
-        'Rule 6.2.2.A: choose which available Enemy AP counters to spend. Each legal mix changes which physical counters return to the Success cup, so the game will not choose between them for you.',choices);
+      if(choices.length){
+        // An enemy's administrative counter payment must not strand board play.
+        // Prefer the smallest overpayment, then fewest counters, then least
+        // track expenditure, with stable IDs as the final deterministic tie.
+        // This is a legal simulator choice, NOT a claim of a printed mandated mix.
+        const ranked=[...choices].sort((a,b)=>{
+          const x=a.command,y=b.command;
+          const sum=c=>c.counterIds.reduce((v,id)=>v+Number(s.pieces.find(p=>p.id===id)?.subtype?.at(-1)||0),0)+c.trackSpent;
+          const paid=Number(s.pieces.find(p=>p.id===s.enemyFlow.currentId)?.strength||0);
+          return (sum(x)-paid)-(sum(y)-paid)||x.counterIds.length-y.counterIds.length||x.trackSpent-y.trackSpent||x.counterIds.join('|').localeCompare(y.counterIds.join('|'));
+        });
+        return auto('Enemy AP · automatic legal payment',
+          'Enemy counters pay the printed Instruction cost, not your Comanche AP. The engine selects a legal mix deterministically; alternative legal mixes remain a simulation policy, not a mandatory player task.',ranked[0].command);
+      }
       return blocked('Enemy payment needs attention','No reducer-legal payment was found. Inspect the physical Enemy AP stock and printed Instruction cost; do not bypass payment.');
     }
     const status=enemyAutomationPreview(s);
@@ -1228,8 +1240,27 @@ function proposedPlayerPrompt(s) {
 }
 
 /** Authoritative command-legality gate, shared with every board prompt. */
+/** Mandatory interrupts outrank the phase's ordinary operation. These are
+ * reducer-backed *choices*, not UI-only acknowledgement steps. Otherwise a
+ * legal prior card result can make the entire turn director appear dead. */
+function outstandingInterrupt(s){
+ if(s.developmentUte){
+  const die=s.developmentUte.die;
+  const choices=[{label:die<=2?'Finish Ute Alliance (die 1–2: no removal)':'Decline optional Ute removal',command:{type:'DEVELOPMENT_UTE_RESOLVE',targetId:''}}];
+  if(die>=3)for(const piece of s.pieces.filter(p=>['Tribe','Settlement'].includes(p.type)&&SPACE[p.location]))
+   choices.push({label:`Remove ${piece.label||piece.id} at ${SPACE[piece.location]?.name||piece.location}`,command:{type:'DEVELOPMENT_UTE_RESOLVE',targetId:piece.id}});
+  if(!s.developmentUte.rerolled&&s.cards.some(c=>c.kind==='Development'&&Number(c.identifier)===9&&c.zone==='Hand'))
+   choices.push({label:'Play Counting Coup to reroll Ute Alliance',command:{type:'DEVELOPMENT_COUNTING_COUP_UTE_REROLL'}});
+  return decision('Ute Alliance — resolve digital die',`Die ${die}. ${die<=2?'No removal is legal.':'Choose a legal Tribe/Settlement or decline.'} This card resolution must finish before Planning continues.`,choices);
+ }
+ if(s.warRouteChoice?.choice?.options?.length){
+  const route=s.warRouteChoice,choice=route.choice;
+  return decision('Choose War Column route',`${route.card}: select an equal-shortest connection for ${choice.warId} at ${choice.from}; the card is not redrawn.`,choice.options.map(to=>({label:`Move via ${SPACE[to]?.name||to}`,command:{type:'WAR_ROUTE_CHOOSE',to}})));
+ }
+ return null;
+}
 export function nextPlayerPrompt(s) {
-  const prompt=gateProposedPrompt(s, proposedPlayerPrompt(s), perform);
+  const prompt=gateProposedPrompt(s, outstandingInterrupt(s)||proposedPlayerPrompt(s), perform);
   return {...prompt,procedure:procedureState(s)};
 }
 

@@ -1,6 +1,6 @@
 # Comanchería — Digital Tabletop
 
-A browser-based digital tabletop companion for GMT Games’ *Comanchería*. The game runs on a single board, with clickable pieces, guided decisions, automated procedures and local save support.
+A browser-based digital implementation of GMT Games’ *Comanchería*. The game runs on a single board, with clickable pieces, rules-driven procedures and local save support.
 
 ## Play online
 
@@ -31,4 +31,4 @@ The game consists of `index.html`, the `assets/` code and presentation files, `m
 
 ## Notes
 
-This is an unofficial digital tabletop companion. The printed game rules and card text remain authoritative. Your saved games are local to your browser; changing browsers, clearing site data or changing the site's address may make existing saves unavailable.
+This is an unofficial digital implementation. Some exceptional card and battle rules are not yet fully automated; a blocked procedure is an implementation issue to fix, not permission to invent a result. The original game remains the rules reference. Your saved games are local to your browser; changing browsers, clearing site data or changing the site's address may make existing saves unavailable.

@@ -10,7 +10,7 @@ import {assertNoContradictedSouthLinks} from './map-fact-checks.js';
  * No GMT imagery or card text is redistributed. Source: Spring 2024 Living Rules.
  * A validated command is NOT a claim of full rules compliance. See README.
  */
-export const VERSION = '3.86.0-passage-browser-stress';
+export const VERSION = '3.88.0-board-continuity-repairs';
 const RAID_CUP_COMMANDS=['RAID_CUP_TERMINAL_CULTURE','RAID_CUP_AUTO_COLONIAL','RAID_CUP_AUTO_WAR_RAID','RAID_CUP_EMPTY_REDIRECT','RAID_CUP_SINGLE_BISON_HUNT','RAID_CUP_SAME_TERRITORY_HUNT','RAID_CUP_GUIDED_HUNT','RAID_CUP_GUIDED_ENCROACH','RAID_CUP_FORCED_ENCROACH','RAID_CUP_SINGLE_ALLY','RAID_CUP_CHOOSE_ALLY','RAID_CUP_CULTURE_ATTACK','RAID_CUP_SETTLE','RAID_CUP_SUBJUGATE','RAID_CUP_WAR_RAID','RAID_CUP_PEACE','RAID_CUP_EMPTY_HUNT','RAID_CUP_CONFIRM_EFFECT','RAID_CUP_CARD_NO_EFFECT','RAID_CUP_ROLL_SWAP','RAID_CUP_REROLL_SWAP','RAID_CUP_EXCHANGE'];
 export const RULES_SOURCE = 'GMT Games, Comanchería Second Edition Living Rules, Spring 2024';
 // Die faces printed on the physical map; these are not geographical sort order.
@@ -340,7 +340,25 @@ const CULTURE_OPERATION_NON_MODIFIER_CARDS=Object.freeze({
  C03:'Horsemanship III: mounted Band MP bonus, no Culture/Operations modifier',
  C09:'Trade I: resource Trade effect, not a Culture Operation modifier',
  C10:'Trade II: Trade Fairs at Planning start, not the Planning Operations check',
- C11:'Trade III: Culture bonus from trading in a Peace Space, not a Culture Operation modifier'
+ C11:'Trade III: Culture bonus from trading in a Peace Space, not a Culture Operation modifier',
+ C04:'Lords I: optional evasion during War attrition, not Culture/Operations',
+ C05:'Warfare I: Take Actions Warpath, not Culture/Operations',
+ C06:'Warfare II: optional extra Success Check draw on Raid/Warpath, not Culture/Operations',
+ C07:'Warfare III: bonus Ravaged counter on Raid/Warpath, not Culture/Operations',
+ C08:'Lords II: Take Actions Harass action, not Culture/Operations',
+ C12:'Lords III: optional Ranchería War evasion, not Culture/Operations',
+ C13:'Diplomacy I: printed face has no effect',
+ C14:'Diplomacy II: Planning flip of an Enemy Instruction, not Culture/Operations',
+ C15:'Diplomacy III: Planning removal of Peace/Ally Instruction, not Culture/Operations',
+ C16:'Politics I: Allied Tribe movement in Planning, not Culture/Operations',
+ C17:'Spirituality I: Medicine-rating die choice for new Headman, not Culture/Operations',
+ C18:'Spirituality II: Planning Headman medicine action, not Culture/Operations',
+ C19:'Spirituality III: extra Headman dice during Planning, not Culture/Operations',
+ C20:'Politics II: Planning Allied Tribe replacement, not Culture/Operations',
+ C21:'Tactics I: fourth Ravaged counter removes a target, not Culture/Operations',
+ C22:'Tactics II: Take Actions War-deck Scout, not Culture/Operations',
+ C23:'Tactics III: Take Actions Raid against question-mark counters, not Culture/Operations',
+ C24:'Politics III: Enemy Action Table replacement during Planning/Cleanup, not Culture/Operations'
 });
 export function cultureCardEffectAudit(s){
  const reviewed=[],blockers=[];
@@ -558,7 +576,26 @@ export function battleSafeRoundPreview(s, selectedUnitId=null){
  // failed Raid, and #66 runs its own one-round Battle ON REVEAL. None adds
  // an ongoing modifier to ordinary War Column Battle rounds.
  const battleReviewedDevelopment=new Set(['1','2','3','6','7','8','9','10','11','12','13','15','16','17','18','19','20','21','26','28','29','30','32','35','36','42','49','64','65','66','67','74','81','83']);
- const unidentified=s.cards.find(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&!battleReviewedDevelopment.has(String(Number(c.identifier))));
+ // A card's reveal/cleanup/activation choice is not a continuous Battle
+ // modifier. Derive those *timing* exemptions from the shared Development
+ // registry, rather than growing a second accidental Battle blacklist.
+ // Unknown modes and cards with unimplemented printed procedures remain
+ // guarded; completing the card's own pending procedure is still compulsory.
+ const otherWindowModes=new Set([
+  'automatic','automatic-with-stock-validation','random-space-with-choice',
+  'passage-step-12-guided','automatic-flag','automatic-with-stacking',
+  'random-rancheria','automatic-or-displacement-choice',
+  'automatic-cleanup-with-choice','automatic-with-stock'
+ ]);
+ const developmentBattleNeutral=card=>{
+  const number=devNumber(card),rule=number&&DEVELOPMENT_EFFECT_CATALOG[number];
+  if(!rule)return false;
+  if(battleReviewedDevelopment.has(String(Number(number))))return true;
+  if(rule.trigger==='when-revealed'&&otherWindowModes.has(rule.mode))return true;
+  return ['cleanup-step-1 and Band action','Raid bonus'].includes(rule.trigger)&&
+    ['automatic-cleanup-with-choice','automatic-with-stock'].includes(rule.mode);
+ };
+ const unidentified=s.cards.find(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&!developmentBattleNeutral(c));
  if(unidentified)return {ready:false,reason:`An active Development #${unidentified.identifier} (${DEVELOPMENT_EFFECT_CATALOG[devNumber(unidentified)]?.name||'unverified'}) needs Battle-specific review; use the guided scorecard.`};
  const unresolvedWarEvent=s.cards.find(c=>c.kind==='War'&&c.zone==='War Event');
  // W01/W02 Alert Pickets suppress Tactics/Lords effects (already reflected
@@ -587,9 +624,26 @@ export function battleSafeRoundPreview(s, selectedUnitId=null){
  }
  // C04 affects War attrition evasion, C08 affects Take Actions Harass, C16 affects Planning
  // Allied Tribe movement; C09 affects Trade, C17 affects Passage Mahimiana replacement,
- // and C21 affects Ravaged placement. None modifies War Battle rolls.
- if(s.cards.some(c=>c.kind==='Culture'&&c.zone==='In play'&&!['C01','C02','C03','C04','C05','C08','C09','C10','C11','C13','C16','C17','C21'].includes(String(c.identifier))))
-  return {ready:false,reason:'An active Culture effect requires Battle review.'};
+ // C21 affects Ravaged placement; C22/C23 are Take Actions Scout abilities;
+ // C24 changes Enemy selection during Planning/Cleanup. None modifies War Battle rolls.
+ // Single rules-timing audit for all 24 printed Culture faces. The former
+ // 16-card whitelist incorrectly blocked C06/C07/C12/C14/C15/C18/C19/C20
+ // during ordinary Battles, although their abilities operate at other
+ // decision windows. C01's only Battle modifier is already calculated by
+ // battleRollPreview; C04/C12 remain separate optional War windows. An
+ // unknown card identity is *not* silently treated as Battle-neutral.
+ const cultureBattleTiming=Object.freeze({
+  C01:'battle-drm-calculated',C02:'take-actions',C03:'take-actions',
+  C04:'war-attrition-window',C05:'take-actions',C06:'raid-warpath',
+  C07:'raid-warpath',C08:'take-actions',C09:'trade',C10:'planning',
+  C11:'trade',C12:'rancheria-war-evasion-window',C13:'no-printed-effect',
+  C14:'planning',C15:'planning',C16:'planning',C17:'passage',
+  C18:'planning',C19:'planning',C20:'planning',C21:'ravaged-placement',
+  C22:'take-actions-scout',C23:'take-actions-raid',C24:'enemy-selection'
+ });
+ const unknownCulture=s.cards.find(c=>c.kind==='Culture'&&c.zone==='In play'&&
+   !Object.hasOwn(cultureBattleTiming,cultureIdentity(c)?.id||''));
+ if(unknownCulture)return {ready:false,reason:`Unknown active Culture card ${unknownCulture.identifier||unknownCulture.id} requires a card identity before Battle.`};
  if(s.cards.some(c=>c.kind==='Development'&&c.zone==='Hand'&&String(Number(c.identifier))==='9'))
   return {ready:false,reason:'Counting Coup can reroll a Battle die; use the guided procedure.'};
  try{
@@ -8758,6 +8812,27 @@ export function perform(original,command){
   if(ranch&&ranch.location!=='removed')p.location=SPACE[ranch.location]?`medicine:setup-mahimiana-${ranch.subtype}`:`box:${ranch.id}`;
  }
  syncBandCounterFaces(s);
+ // Every Band state change is part of the durable event journal. A Band in
+ // its Ranchería Resources box is not a casualty, and a counter exchanged for
+ // a stronger printed face is not destroyed. This audit records the actual
+ // before/after identities, instead of relying on generic casualty prose.
+ const originalBands=new Map((original.pieces||[]).filter(p=>p.type==='Band').map(p=>[p.id,p]));
+ const bandChanges=[];
+ for(const band of s.pieces.filter(p=>p.type==='Band')){
+  const prior=originalBands.get(band.id);
+  if(!prior)continue;
+  if(prior.location===band.location&&prior.strength===band.strength)continue;
+  const fate=prior.strength>0&&band.strength===0?'BAND DESTROYED':
+    band.strength<prior.strength?'Band weakened':
+    band.location.startsWith('box:')?'Band to Ranchería Resources (NOT destroyed)':
+    band.location==='reserve'?'Band counter to stock (check replacement/exchange)':
+    band.location==='RESERVATION'||band.location==='PD'?'Band to Reservation':
+    'Band moved/placed';
+  bandChanges.push(`${fate}: ${band.label||band.id} [${band.id}] ${prior.location} (${prior.strength}) → ${band.location} (${band.strength})`);
+ }
+ if(bandChanges.length)message+=` BAND LEDGER: ${bandChanges.join(' | ')}.`;
+ const trackChanges=['military','culture'].filter(key=>Number.isInteger(original.tracks?.[key])&&Number.isInteger(s.tracks?.[key])&&original.tracks[key]!==s.tracks[key]);
+ if(trackChanges.length)message+=` POINT LEDGER: ${trackChanges.map(key=>`${key} ${original.tracks[key]}→${s.tracks[key]} (${s.tracks[key]-original.tracks[key]>=0?'+':''}${s.tracks[key]-original.tracks[key]})`).join('; ')}.`;
  const physicalAudit=componentStockAudit(s.pieces,s.stockVerifiedTotals||{});
  if(physicalAudit.overstock.length)fail('Physical stock exceeded: '+physicalAudit.overstock.map(x=>`${x.key} ${x.counted}/${x.printedTotal}`).join(', '));
  logIt(s,message,quality,type);
