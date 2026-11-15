@@ -21,7 +21,7 @@ export function procedureState(s){
   if(s.cleanupCupResult)add('cleanup-cup',s.cleanupCupResult.stage||s.cleanupCupResult.kind||'resolve');
   if(s.cleanupFinishedPending)add('cleanup-finished',s.cleanupFinishedPending.stage||'resolve');
   if(s.rancheriaActivation)add('rancheria-activation',s.rancheriaActivation.stage||'activate');
-  if(s.planningRanchTransit)add('rancheria-transit',s.planningStage||'moving');
+  if(s.phase==='execution'&&s.operation==='Planning'&&s.planningRanchTransit&&Object.keys(s.planningRanchTransit).length)add('rancheria-transit',s.planningStage||'moving');
   if(s.phase==='execution'&&s.operation==='Planning')add('planning',s.planningStage||1);
   if(s.phase==='execution'&&s.operation==='Passage of Time'){
     const next=Array.from({length:15},(_,i)=>`pt${i+1}`).find(key=>!['done','na'].includes(s.steps?.[key]));

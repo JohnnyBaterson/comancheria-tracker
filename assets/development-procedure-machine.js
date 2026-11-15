@@ -12,6 +12,8 @@ const COMMANDS=Object.freeze({
  'cuerno-medicine':['DEVELOPMENT_RESOLVE_MEDICINE'],
  'quanah-medicine':['DEVELOPMENT_RESOLVE_MEDICINE'],
  'kiowa-alliance':['DEVELOPMENT_RESOLVE_KIOWA'],
+ 'indian-removal-displace':['DEVELOPMENT_INDIAN_REMOVAL_MOVE'],
+ 'fort-gibson-displace':['DEVELOPMENT_FORT_GIBSON_MOVE'],
  'nuevo-apacheria':['DEVELOPMENT_NUEVO_APACHERIA'],
  'ute-displacement':['DEVELOPMENT_RESOLVE_UTE_DISPLACEMENT'],
  'van-dorn-rancheria':['DEVELOPMENT_VAN_DORN_TARGET'],
@@ -35,7 +37,7 @@ export function developmentProcedureIssues(p){
  if(p.kind!=null&&(typeof p.kind!=='string'||!Object.hasOwn(COMMANDS,p.kind)))issues.push(`Unknown Development pending kind ${String(p.kind)}`);
  if(typeof p.number!=='string'||!/^\d{2}$/.test(p.number))issues.push('Development pending card number is not a two-digit identifier');
  if(typeof p.cardId!=='string'||!p.cardId)issues.push('Development pending cardId is missing');
- const arrays={'epidemic':['spaces'],'smallpox-end':['bandIds'],'horse-discard':['horseIds'],'kiowa-alliance':['tribeIds'],'cuerno-medicine':['chiefIds'],'quanah-medicine':['chiefIds'],'ute-displacement':['destinations'],'special-battle-band':['bandIds'],'special-battle-roll':['gunIds','chiefIds'],'van-dorn-battle':['gunIds','chiefIds']};
+ const arrays={'epidemic':['spaces'],'smallpox-end':['bandIds'],'horse-discard':['horseIds'],'kiowa-alliance':['tribeIds'],'indian-removal-displace':['rancheriaIds'],'cuerno-medicine':['chiefIds'],'quanah-medicine':['chiefIds'],'ute-displacement':['destinations'],'special-battle-band':['bandIds'],'special-battle-roll':['gunIds','chiefIds'],'van-dorn-battle':['gunIds','chiefIds']};
  for(const field of arrays[p.kind]||[])if(!Array.isArray(p[field]))issues.push(`Development ${p.kind} missing ${field} list`);
  return issues;
 }

@@ -2,7 +2,7 @@
  * Preview with the real reducer so the menu cannot propose an invalid command.
  */
 import {perform,SPACE,cultureActive} from './engine.js';
-const HAND_NUMBERS=new Set(['08','09','10','11','13','15','16','17','18','28','32','35','36','39','40','42','54','59']);
+const HAND_NUMBERS=new Set(['08','09','10','11','13','15','16','17','18','28','32','35','36','39','40','42','54','59','76','77','78']);
 const number=c=>String(c.identifier||'').replace(/\D/g,'').padStart(2,'0');
 const active=c=>c.kind==='Development'&&['In play','Display'].includes(c.zone);
 const legal=(state,command)=>{
@@ -57,7 +57,7 @@ export function planningActionChoices(state){
   for(const c of cards){
    const n=number(c);
    if(n==='02')addCardAction('Take Ute Alliance into hand · 1 AP','A verified Headman Action; the card enters your hand.',{type:'DEVELOPMENT_TAKE_HAND'});
-   else if(HAND_NUMBERS.has(n))addCardAction(`Take ${c.title||'Development #'+n} (#${n}) · 1 AP`,'Move this in-play Development card into your hand.',{type:'DEVELOPMENT_TAKE_VERIFIED_HAND',number:n});
+   else if(HAND_NUMBERS.has(n)&&state.tracks.ap>=(n==='78'?2:1))addCardAction(`Take ${c.title||'Development #'+n} (#${n}) · ${n==='78'?2:1} AP`,'Move this in-play Development card into your hand.',{type:'DEVELOPMENT_TAKE_VERIFIED_HAND',number:n});
   }
   if(cards.some(c=>number(c)==='56')&&!state.giftGivingUsed){
    for(const ranch of state.pieces.filter(p=>p.type==='Rancheria'&&SPACE[p.location])){

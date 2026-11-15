@@ -1,11 +1,34 @@
-# Comanchería
+# Comanchería — Digital Tabletop
 
-A browser-based digital adaptation of the solitaire board game *Comanchería*, with an interactive board, automated game procedures and local autosave.
+A browser-based digital tabletop companion for GMT Games’ *Comanchería*. The game runs on a single board, with clickable pieces, guided decisions, automated procedures and local save support.
 
-## Play
+## Play online
 
-Open the published GitHub Pages site, or serve the project folder locally and open `index.html`. For example, run `python -m http.server 8000` and visit `http://localhost:8000`.
+Open the GitHub Pages site for this repository (if enabled). No account or installation is required.
 
-Saved games are kept in your browser.
+## Run locally
 
-*Unofficial fan project. Comanchería and its associated materials belong to their respective rights holders.*
+The game is a static website. Serve this folder with a local web server, for example:
+
+```sh
+python -m http.server 8000
+```
+
+Then open `http://localhost:8000` in a modern browser. Opening `index.html` directly as a file may prevent JavaScript modules and offline features from working.
+
+## Publish to GitHub Pages
+
+Upload the contents of this folder to the root of your repository. In **Settings → Pages**, choose **Deploy from a branch**, your desired branch and **/(root)**, then save.
+
+## How it works
+
+- Select a scenario and follow the on-board prompts to begin.
+- Use the board and its contextual controls to select actions, move pieces and resolve player choices.
+- The game records moves and procedures in its journal and keeps saves in your browser.
+- The service worker supports offline use after the site has loaded successfully and its files have been cached.
+
+The game consists of `index.html`, the `assets/` code and presentation files, `manifest.webmanifest` and `service-worker.js`. There is no server-side process or build step.
+
+## Notes
+
+This is an unofficial digital tabletop companion. The printed game rules and card text remain authoritative. Your saved games are local to your browser; changing browsers, clearing site data or changing the site's address may make existing saves unavailable.

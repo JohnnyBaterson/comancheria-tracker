@@ -666,3 +666,161 @@ svg.world-board .map-node.piece-drop-hover .map-node-core{stroke:#ffdb7e;stroke-
  }
  .tt-printed-only .board-spatial-bison .board-turn-summary p{display:none}
 }
+
+/* Source-led readable in-board resolution: no detached form or disappearing log. */
+.tt-resolution-receipt{position:absolute;z-index:19;right:10px;top:10px;width:min(345px,33%);display:grid;gap:6px;pointer-events:none;max-height:36%;overflow:auto}
+.tt-resolution-card{background:#17261feF;color:#ffefd3;border:1px solid #b99b62;border-radius:9px;padding:8px 10px;box-shadow:0 5px 17px #0009;font:12px/1.42 system-ui,sans-serif;overflow-wrap:anywhere}
+.tt-resolution-card b{color:#f8d38c;font-size:13px}.tt-resolution-card p{margin:4px 0 0}.tt-resolution-card strong{color:#ffe9a3}
+@media(max-width:760px){.tt-resolution-receipt{top:8px;right:6px;width:min(270px,47%);max-height:28%}.tt-resolution-card{font-size:10px;padding:5px 7px}.tt-resolution-card b{font-size:11px}}
+@media(max-width:480px){.tt-resolution-receipt{top:4px;width:48%;max-height:24%}}
+
+/* Non-destructive choice navigation: both directions and circular paging. */
+.board-choice-pager{grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:space-between;min-width:0}
+.board-choice-pager .board-turn-next{flex:1;min-height:30px;padding:4px 8px}
+.board-choice-count{font:700 11px/1.25 system-ui,sans-serif;white-space:nowrap;color:#fff0cb;text-align:center}
+
+/* v3.38: expose overlapping pieces by a permanent, restrained cardboard stagger. */
+.tt-printed-only .world-board.authentic-board .map-mini-counter{
+ transform:translate(var(--stack-x,0px),var(--stack-y,0px));
+}
+.tt-printed-only .world-board.authentic-board .map-node:hover .map-mini-counter,
+.tt-printed-only .world-board.authentic-board .map-node:focus-within .map-mini-counter{
+ transform:translate(var(--fan-x,0px),var(--fan-y,0px));
+}
+/* The Enemy Instruction Display occupies the board's lower right. On wide
+   screens place the guide outside the entire board instead of over its cells. */
+@media(min-width:1100px){
+ .tt-surface.tt-printed-only{--guide-width:clamp(300px,29vw,390px)}
+ .tt-printed-only .tt-printed-board{inset:0 var(--guide-width) 0 0!important}
+ .tt-printed-only .tt-printed-board svg.world-board{width:min(calc(100vw - var(--guide-width)),150dvh)!important}
+ .tt-printed-only .board-turn-hud{left:auto;right:8px;top:10px;bottom:auto;transform:none;width:calc(var(--guide-width) - 16px);max-height:calc(100% - 20px);display:block;overflow-y:auto}
+ .tt-printed-only .board-turn-summary{margin-bottom:10px}
+ .tt-printed-only .board-turn-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tt-printed-only .board-turn-hud.board-focus-battle,
+ .tt-printed-only .board-turn-hud.board-focus-passage,
+ .tt-printed-only .board-turn-hud.board-spatial-bison{left:auto;right:8px;top:10px;bottom:auto;transform:none;width:calc(var(--guide-width) - 16px);max-height:calc(100% - 20px)}
+ .tt-printed-only .tt-resolution-receipt{left:8px;right:auto;width:min(300px,25%);top:10px;max-height:30%}
+}
+/* Narrow screens reserve an independent control strip below the actual map. */
+@media(max-width:1099px){
+ .tt-surface.tt-printed-only{--guide-height:clamp(145px,30dvh,265px)}
+ .tt-printed-only .tt-printed-board{inset:0 0 var(--guide-height) 0!important}
+ .tt-printed-only .tt-printed-board svg.world-board{width:min(100vw,calc((100dvh - var(--guide-height))*1.5))!important}
+ .tt-printed-only .board-turn-hud{bottom:4px;top:auto;left:50%;right:auto;transform:translateX(-50%);max-height:calc(var(--guide-height) - 8px);width:calc(100% - 10px)}
+ .tt-printed-only .tt-resolution-receipt{left:6px;right:auto;top:6px;max-height:23%;width:min(235px,35%)}
+}
+
+/* Culture cards have a dedicated holder outside the printed Development spaces. */
+.tt-printed-only .tt-culture-tray{position:absolute;z-index:22;right:8px;bottom:8px;background:#1b2a24ef;color:#f8e8c7;border:1px solid #ae8c53;border-radius:9px;padding:8px;max-height:27%;overflow:auto;width:min(360px,29%);font:12px system-ui}
+.tt-printed-only .tt-culture-tray>div{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.tt-printed-only .tt-culture-tray button{display:flex;align-items:center;gap:5px;max-width:150px;background:#f1e6cd;color:#302319;border:1px solid #846b43;border-radius:6px;padding:3px 6px;cursor:pointer;font-size:11px}
+.tt-printed-only .tt-culture-tray img{width:20px;height:29px;object-fit:cover}
+.tt-printed-only .tt-history-explanation{position:absolute;z-index:26;top:10px;left:10px;max-width:360px;width:30%;background:#30251ceb;color:#fff1d5;padding:12px;border:2px solid #d1ac62;border-radius:10px;font:13px/1.4 system-ui;pointer-events:none;box-shadow:0 5px 25px #0007}
+.tt-history-explanation strong{color:#ffda95}.tt-history-explanation p{margin:5px 0 0}
+@media(min-width:1100px){.tt-printed-only .tt-culture-tray{right:calc(var(--guide-width) + 12px);width:min(250px,21%);bottom:8px}.tt-printed-only .tt-history-explanation{top:auto;bottom:10px;width:27%;max-width:360px}}
+@media(max-width:1099px){.tt-printed-only .tt-culture-tray{right:8px;bottom:calc(var(--guide-height) + 8px);width:40%;max-height:100px}.tt-printed-only .tt-history-explanation{width:45%;max-height:27%;overflow:auto}}
+/* v3.40: legible consequences and choices; never a modal over the map. */
+.board-turn-command.board-action-explained{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:3px;padding:9px 10px;line-height:1.3;white-space:normal;min-height:54px}
+.board-action-explained strong{font-size:12px;font-weight:800}
+.board-action-explained span{font-size:11px;line-height:1.35;opacity:.85;font-weight:400;overflow-wrap:anywhere}
+.tt-resolution-card.tt-enemy-story{pointer-events:auto;max-height:240px;overflow-y:auto}
+.tt-enemy-story .tt-story-heading{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.tt-enemy-story .tt-story-heading span{font-size:10px;color:#d9ba82;white-space:nowrap}
+.tt-enemy-story ol{padding-left:18px;margin:7px 0;display:grid;gap:5px}
+.tt-enemy-story li{font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.tt-enemy-story button{cursor:pointer;display:block;margin-top:7px;background:transparent;border:1px solid #dbc08a;border-radius:5px;color:inherit;padding:5px 8px;font-size:11px}
+@media(min-width:1100px){.tt-printed-only .tt-resolution-receipt{max-height:38%;width:min(340px,27%)}}
+/* The receipt is part of the dedicated control rail, not a floating obstruction
+   on the map or Enemy Instruction Display. The rail scrolls when necessary. */
+.tt-printed-only .board-turn-hud .tt-resolution-receipt{position:static;z-index:auto;display:block;width:100%;max-height:260px;overflow-y:auto;pointer-events:auto;margin-top:10px}
+.tt-printed-only .board-turn-hud .tt-resolution-card{margin-bottom:8px}
+.player-enemy-history{border:1px solid #9e845b;background:#282d23;padding:12px;border-radius:8px;margin-bottom:16px}
+.player-enemy-history h3{margin:0 0 6px}
+.player-enemy-history p{margin:0 0 8px;color:#e3cfaa}
+.player-enemy-history ol{margin:0;padding-left:20px;display:grid;gap:7px;line-height:1.45}
+
+/* Raid draw outcomes remain on the dedicated action rail, with actual
+   drawn counter faces rather than a generic draw count. */
+.tt-raid-story .tt-cup-counter-list{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0;align-items:center}
+.tt-raid-story .tt-cup-counter{display:inline-flex;align-items:center;padding:5px 7px;border:1px solid #a89370;border-radius:6px;background:#29342b;color:#f5e7c5;font-weight:750;font-size:11px;line-height:1.2}
+.tt-raid-story .tt-cup-counter.success{background:#244736;border-color:#79ab83;color:#e0ffe8}
+.tt-raid-story .tt-cup-counter.enemy-ap{background:#4b342b;border-color:#d5a37e;color:#ffe5d4}
+.tt-raid-story .tt-cup-counter.instruction{background:#3c3049;border-color:#a99cc7;color:#f3eaff}
+.tt-raid-story .tt-cup-counter.canceled{text-decoration:line-through;opacity:.55}
+.tt-raid-story .tt-cup-waiting{font-size:11px;opacity:.75;font-style:italic}
+.tt-raid-story .tt-cup-totals{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tt-raid-story .tt-cup-totals span{font-size:11px;font-weight:700;border:1px solid #b99b62;border-radius:5px;padding:4px 6px}
+.tt-raid-story .tt-raid-guidance{border-top:1px solid #ffffff25;padding-top:6px;font-size:11px;color:#eed5aa}
+
+/* v3.42 — Board replay is a safe, full-board look at actual recorded checkpoints.
+   The printed board stays visible; its pointer input is disabled while viewing. */
+.tt-printed-only .tt-replay-board {filter:saturate(.76) contrast(.98)}
+.tt-printed-only .tt-replay-board [data-action],
+.tt-printed-only .tt-replay-board svg {pointer-events:none!important;cursor:default!important}
+.tt-replay-watermark{position:absolute;z-index:25;top:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border:1px solid #e5c48c;background:#211910e8;color:#ffe3ac;border-radius:6px;font:800 11px system-ui;letter-spacing:.11em;pointer-events:none}
+.tt-replay-panel{position:absolute;z-index:26;right:8px;top:52px;bottom:9px;width:clamp(300px,30vw,420px);display:flex;flex-direction:column;gap:10px;padding:14px;background:#172820f5;border:1px solid #d0b780;border-radius:10px;box-shadow:0 15px 55px #000a;color:#f4e6ce;font:12px/1.5 system-ui;overflow:hidden}
+.tt-replay-panel>header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #9a856957;padding-bottom:10px}
+.tt-replay-panel header div{display:grid;gap:3px}.tt-replay-panel header small{font-size:10px;letter-spacing:.12em;color:#e7ce99}
+.tt-replay-panel header strong{font:700 20px Georgia,serif}.tt-replay-panel header button{background:transparent;color:#f6e4c5;border:1px solid #ba9d73;border-radius:6px;padding:4px 10px;cursor:pointer}
+.tt-replay-panel .replay-explain{margin:0;color:#cfdbc9}
+.replay-ticks{display:flex;overflow-x:auto;gap:4px;padding:5px 0 9px;min-height:44px;flex-shrink:0}
+.replay-tick{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-width:39px;border:1px solid #776f56;background:#28372d;color:#e7d3ad;border-radius:5px;padding:6px 3px;cursor:pointer}
+.replay-tick.selected{border-color:#ffd783;background:#5c4a2d;color:#fff2cc}.replay-tick b{font-size:8px}
+.replay-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.replay-controls button,.replay-return{border:1px solid #d7b47d;border-radius:6px;padding:9px;background:#47543d;color:#fff3d2;font-weight:700;cursor:pointer}
+.replay-controls button:disabled{opacity:.35;cursor:default}
+.replay-description{border-left:3px solid #d3ad68;background:#273b2c;padding:9px 11px}.replay-description p{margin:5px 0 0;overflow-wrap:anywhere}.replay-description b{color:#ffe2a3}
+.replay-deltas{overflow:auto;flex:1;min-height:0;padding:0 3px 7px}.replay-deltas>strong{display:block;margin-bottom:7px;font-size:13px}.replay-deltas h4{font-size:11px;color:#ead2a3;margin:10px 0 3px;letter-spacing:.07em;text-transform:uppercase}.replay-deltas ul{padding-left:18px;margin:3px 0}.replay-deltas li{margin-bottom:5px;overflow-wrap:anywhere}.replay-deltas li small{display:block;color:#c2c7b1}.replay-return{flex-shrink:0;background:#916d39;color:#fff;min-height:40px}
+.tt-printed-only .board-field-brief{display:grid;gap:9px;margin:9px 0;padding:11px;border:1px solid #92784e;background:#25362cee;border-radius:8px;color:#f4e5c9;font:12px/1.4 system-ui}
+.board-field-tracks{display:grid;grid-template-columns:1fr 1fr;gap:8px}.board-field-tracks>div{display:flex;flex-direction:column;gap:3px;border:1px solid #6e795f;background:#1b2b23;border-radius:6px;padding:8px;min-width:0}.board-field-tracks small,.board-field-objective>span,.board-field-band>span{font-size:10px;letter-spacing:.08em;color:#e7cb92;font-weight:800}.board-field-tracks strong{font:700 18px Georgia,serif}.board-field-tracks span{font-size:10px;color:#c9d4c1}.board-field-objective p,.board-field-band p{margin:3px 0 0;font-size:11px;line-height:1.4}.board-field-objective{border-top:1px solid #8b875a;padding-top:8px}.board-field-band{border-top:1px solid #8b875a;padding-top:6px}.board-history-shortcut{background:transparent;color:#f3d6a3;border:1px dashed #8e9c7e;padding:7px 9px;border-radius:6px;text-align:left;cursor:pointer}.board-history-shortcut kbd{float:right;font:700 11px system-ui;background:#3e4d3e;padding:0px 5px;border-radius:3px}
+@media(min-width:1100px){.tt-printed-only .board-field-brief{margin:10px 0}}
+@media(max-width:1099px){.tt-replay-panel{right:5px;top:auto;bottom:5px;width:min(540px,calc(100% - 10px));max-height:48dvh}.tt-replay-watermark{top:45px;font-size:9px}.tt-printed-only .board-field-brief{grid-column:1/-1}}
+@media(max-width:550px){.tt-replay-panel{width:calc(100% - 10px);max-height:58dvh;padding:9px}.tt-printed-only .board-field-tracks{grid-template-columns:1fr 1fr}.tt-replay-panel header strong{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.replay-tick,.tt-replay-panel,.board-field-brief{animation:none!important;transition:none!important}}
+/* v3.42 — Stop rendering unreadable vertical journal text in a 30px board
+   gutter. The log is now an explicitly opened, legible, capped event dock. */
+.tt-printed-only .table-action-log{box-sizing:border-box;position:absolute!important;left:8px!important;top:64px!important;bottom:auto!important;width:250px!important;height:auto!important;max-height:calc(100% - 85px);z-index:24!important;display:flex;flex-direction:column;overflow:hidden!important;scrollbar-width:none;background:#18251fef;border:1px solid #ae9168;border-radius:8px;color:#efe5d0;font:12px/1.4 system-ui,sans-serif;box-shadow:0 4px 20px #0007}
+.tt-printed-only .table-action-log.collapsed{width:120px!important;max-height:34px;opacity:.92}
+.tt-printed-only .table-action-log-toggle{flex-shrink:0;display:flex;justify-content:space-between;gap:5px;align-items:center;width:100%;height:33px;padding:6px 9px;border:0;background:#2e4031;color:#ffe2b1;text-align:left;font-weight:750;font-size:11px;cursor:pointer}
+.tt-printed-only .table-action-log-toggle span{font-size:10px;color:#c5c8ae}
+.tt-printed-only .table-action-log-latest{display:none}
+.tt-printed-only .table-action-log-heading{padding:10px 10px 7px;border-bottom:1px solid #7d745f}.tt-printed-only .table-action-log-heading strong{font:700 17px Georgia,serif}.tt-printed-only .table-action-log-heading p{font-size:10px;margin:3px 0 0;color:#c7c6ae}
+.tt-printed-only .table-action-log-items{overflow:auto;overscroll-behavior:contain;flex:1;min-height:70px;min-width:0;padding:7px 11px 10px!important;box-sizing:border-box;scroll-behavior:auto}
+.tt-printed-only .table-action-log-entry{word-break:normal;overflow-wrap:break-word;white-space:normal;font-size:11px;line-height:1.5;border-bottom:1px solid #ead5b31a;padding:8px 0}
+.tt-printed-only .table-action-log-entry small{display:inline-block;font:700 9px system-ui;color:#e4c18d;margin-right:5px}
+.tt-printed-only .table-action-log-journal{flex-shrink:0;background:#40523c;color:#fff0d4;border:0;border-top:1px solid #957c5c;padding:10px;cursor:pointer;text-align:left}
+@media(max-width:620px){.tt-printed-only .table-action-log{top:48px!important;max-height:44dvh;width:min(290px,70vw)!important}.tt-printed-only .table-action-log.collapsed{width:107px!important}}
+/* Counter Finder: only the found position is overlaid on the printed board. */
+.finder-map-highlight{filter:drop-shadow(0 0 7px #2d1700);isolation:isolate}.finder-map-ring{fill:none;stroke:#fff5c9;stroke-width:5;stroke-dasharray:11 6}.finder-map-pulse{fill:#ffc85a33;stroke:#ffbd4d;stroke-width:3}.finder-map-cross{fill:none;stroke:#fff1ab;stroke-width:4;stroke-linecap:round}
+@media(prefers-reduced-motion:no-preference){.finder-map-ring{animation:finder-spin 9s linear infinite;transform-origin:center}.finder-map-pulse{animation:finder-pulse 1.8s ease-in-out infinite}}@keyframes finder-spin{to{transform:rotate(360deg)}}@keyframes finder-pulse{50%{opacity:.35;transform:scale(1.18)}}
+/* Event text itself is the map navigator: no counter-search panel. */
+.event-map-link{appearance:none;display:inline;padding:0 1px;margin:0;border:0;border-bottom:1px dotted currentColor;border-radius:0;background:transparent;color:#f4c773;font:inherit;font-weight:750;text-decoration:none;cursor:pointer;white-space:normal;vertical-align:baseline}
+.event-map-link:hover{color:#fff2c1;border-bottom-style:solid;background:#b59a6533}
+.event-map-link:focus-visible{outline:2px solid #ffdf83;outline-offset:2px;border-radius:2px}
+.player-panel-events .event-map-link,.log-entry .event-map-link{color:#866017}
+
+.table-action-log .event-link-hint{margin:4px 0 0;font-size:10px;color:#e2cba6}
+
+/* v3.74: procedures and optional reference panels are attached to the board,
+   never wrapped in full-screen menu scrims. The map remains visible. */
+.tt-printed-only #modal-root{position:absolute;z-index:27;right:clamp(6px,1vw,16px);top:clamp(8px,2vh,20px);width:min(405px,calc(100% - 16px));max-height:calc(100% - 24px);pointer-events:none}
+.tt-printed-only #modal-root .board-inline-procedure{display:flex;flex-direction:column;position:relative;width:100%;max-height:calc(100dvh - 155px);box-sizing:border-box;overflow:auto;pointer-events:auto;border:2px solid #d1af6c;background:#20291ff5;box-shadow:0 9px 35px #0009;border-radius:13px}
+.tt-printed-only #modal-root .board-inline-procedure .modal-header{padding:10px 14px}
+.tt-printed-only #modal-root .board-inline-procedure .modal-header h2{font-size:18px}
+.tt-printed-only #modal-root .board-inline-procedure .modal-body{padding:12px}
+.tt-printed-only #modal-root .board-inline-procedure .form-grid{grid-template-columns:1fr}
+.tt-printed-only .board-side-rail{position:absolute;z-index:26;left:8px;top:8px;bottom:8px;width:min(390px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;display:flex;flex-direction:column;border:2px solid #bca16b;border-radius:12px;background:#1a291ff5;color:#f8e9c9;box-shadow:0 7px 24px #0009;pointer-events:auto}
+.tt-printed-only .board-side-rail .player-panel-body{overflow:auto;padding:12px}
+@media(max-width:680px){.tt-printed-only #modal-root{top:6px;right:5px;width:min(340px,calc(100% - 10px))}.tt-printed-only #modal-root .board-inline-procedure{max-height:55dvh}.tt-printed-only .board-side-rail{top:5px;bottom:auto;max-height:55dvh;left:5px;width:min(340px,calc(100% - 10px))}}
+/* Keep the live action rail unobstructed on wide boards. */
+@media(min-width:900px){
+ .tt-printed-only #modal-root{left:8px;right:auto;width:min(405px,calc(100% - var(--guide-width,380px) - 20px))}
+ .tt-printed-only:has(.board-side-rail) #modal-root{left:410px;width:min(405px,calc(100% - var(--guide-width,380px) - 430px))}
+}
+/* v3.75: counter-sized choices remain on the printed board, not in dropdown menus. */
+.tt-printed-only .board-procedure-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px;margin:12px 0}
+.tt-printed-only .board-procedure-choices .board-counter-choice{min-height:53px;white-space:normal;text-align:center;line-height:1.25;border:1px solid #c6aa70;border-radius:10px;padding:9px}
+.tt-printed-only .board-procedure-choices .board-counter-choice:disabled{opacity:.45;cursor:not-allowed}
+.tt-printed-only .board-inline-procedure details{margin-top:10px}
+.tt-printed-only .board-inline-procedure details summary{cursor:pointer;padding:9px;border:1px solid #987b49;border-radius:8px}
+/* A single decision does not need a step-by-step wizard. */
+.guided-single-choice .guided-stepper-progress,.guided-single-choice .guided-stepper-navigation{display:none!important}

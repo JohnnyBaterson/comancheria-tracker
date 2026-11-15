@@ -425,3 +425,20 @@ body{background:radial-gradient(ellipse at 70% 0%,#25362c 0,#0d1715 48%)}
    Keep their dismiss control clickable while passing clicks through the notice. */
 .toast-wrap,.toast{pointer-events:none}
 .toast button{pointer-events:auto}
+
+.setup-card-meta .setup-card-effect{font-size:.85rem;line-height:1.43;color:#eee2bf;border-top:1px solid #4b5e4e;padding-top:9px;margin:8px 0 0;overflow-wrap:anywhere}.setup-card-tile:disabled .setup-card-effect{opacity:.85}
+
+/* v3.52: ordinary rule outcomes remain in the reserved action rail. */
+.board-routine-receipt{padding:9px 11px;border:1px solid #9e875c;border-radius:9px;background:#293d2f;color:#f4e7c9;min-width:0;flex-shrink:0}
+.board-routine-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.board-routine-head strong{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.board-routine-head button{background:transparent;border:0;color:inherit;font-size:19px;min-width:28px;min-height:26px;cursor:pointer}
+.board-routine-receipt p{font-size:12px;line-height:1.4;margin:5px 0 0}
+.board-routine-receipt small{display:block;font-size:10px;opacity:.84;margin-top:5px;overflow-wrap:anywhere}
+
+/* v3.76: Counter-based Raid spoils, always attached to the playing board. */
+.raid-board-rewards{margin:12px 0;padding:12px;border:1px solid var(--line, #806c4a);border-radius:10px}
+.raid-board-rewards strong{display:block;margin-bottom:6px}
+.raid-reward-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:10px}
+.raid-reward-grid .board-reward-choice{white-space:normal;min-height:52px;text-align:left}
+.raid-physical-fallback{margin:12px 0;padding:10px;border:1px solid var(--line, #806c4a);border-radius:8px}
