@@ -843,3 +843,66 @@ svg.world-board .map-node.piece-drop-hover .map-node-core{stroke:#ffdb7e;stroke-
 @keyframes tt-cup-reveal{0%{opacity:0;transform:translateY(-11px) scale(.73) rotate(-7deg)}60%{opacity:1;transform:translateY(3px) scale(1.1) rotate(2deg)}100%{opacity:1;transform:none}}
 .tt-raid-story .tt-cup-counter.latest-draw{animation:tt-cup-reveal .48s ease-out both;outline:1px solid #ffe7a0;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.tt-raid-story .tt-cup-counter.latest-draw{animation:none}}
+
+/* v3.90.1: leave the printed board's top-right utility controls unobstructed.
+   Apply to every right-hand action state, including Battle and Passage. */
+@media (min-width:1100px) {
+  .tt-printed-only .board-turn-hud,
+  .tt-printed-only .board-turn-hud.board-focus-battle,
+  .tt-printed-only .board-turn-hud.board-focus-passage,
+  .tt-printed-only .board-turn-hud.board-spatial-bison,
+  .tt-printed-only .board-turn-hud.board-focus-passage.board-spatial-bison {
+    top: 64px;
+    max-height: calc(100% - 74px);
+  }
+}
+
+/* v3.91: outside-board declutter only. Printed-board geometry is LOCKED. */
+.tt-printed-only .board-turn-hud{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.tt-printed-only .board-turn-hud .board-turn-summary{flex:none;margin:0}
+.tt-printed-only .board-turn-hud .board-turn-actions{flex:none;margin:0;order:0}
+.tt-printed-only .board-turn-hud .tt-resolution-receipt{position:static;max-height:190px;overflow:auto;margin:0}
+.tt-printed-only .board-secondary-details{border-top:1px solid #8d7952;padding-top:9px;margin-top:2px;min-width:0}
+.tt-printed-only .board-secondary-details>summary{cursor:pointer;font:700 11px/1.5 system-ui;color:#e8c896;padding:4px 1px}
+.tt-printed-only .board-secondary-details:not([open]){padding-bottom:1px}
+.tt-printed-only .board-secondary-details .board-field-brief{margin:7px 0;padding:8px}
+.tt-printed-only .board-secondary-details .board-routine-receipt{margin:7px 0;max-height:160px;overflow:auto}
+.tt-printed-only .table-action-log.expanded{height:min(33dvh,300px)!important;max-height:min(33dvh,300px)!important}
+.tt-printed-only .table-log-actions{display:grid;grid-template-columns:1fr auto;flex:none;border-top:1px solid #927854}
+.tt-printed-only .table-log-actions .table-action-log-journal{font-size:10px;padding:7px 8px;border-top:0}
+.tt-printed-only .tt-culture-tray{width:auto;max-width:min(330px,34vw);padding:6px 9px}
+.tt-printed-only .tt-culture-tray summary{cursor:pointer;white-space:nowrap;font:700 11px/1.5 system-ui;color:#f4ddb5}
+.tt-printed-only .tt-culture-tray:not([open])>div{display:none}
+.tt-printed-only .tt-culture-tray[open]{width:min(285px,32vw);max-height:38dvh}
+.tt-printed-only .tt-culture-tray[open] img{width:46px;height:65px;object-fit:contain}
+.tt-printed-only .tt-culture-tray[open] button{max-width:100%;width:100%;text-align:left}
+@media(max-width:700px){.tt-printed-only .table-action-log.expanded{height:min(30dvh,245px)!important;max-height:min(30dvh,245px)!important}.tt-printed-only .tt-culture-tray[open]{width:min(260px,70vw)}}
+
+/* v3.92 — one action surface. Gameplay procedures live inside the existing
+   right-hand rail, without moving, sizing or restyling the printed board. */
+.tt-printed-only .board-inline-procedure-host:empty{display:none}
+.tt-printed-only .board-inline-procedure-host:not(:empty){display:block;min-width:0;width:100%;padding-top:8px;border-top:1px solid #927b52}
+.tt-printed-only .board-inline-procedure-host .board-inline-procedure{display:block;position:static;width:100%;max-height:none;overflow:visible;box-sizing:border-box;border:1px solid #b9a06d;border-radius:9px;background:#1d2b22;box-shadow:none;color:#ffeed0}
+.tt-printed-only .board-inline-procedure-host .modal-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #877049}
+.tt-printed-only .board-inline-procedure-host .modal-header h2{font-size:15px;line-height:1.3;margin:0}
+.tt-printed-only .board-inline-procedure-host .modal-body{padding:10px;max-height:none;overflow:visible}
+.tt-printed-only .board-inline-procedure-host .form-grid{grid-template-columns:1fr}
+.tt-printed-only .board-inline-procedure-host .board-procedure-choices{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.tt-printed-only .board-exception-details{border-top:1px solid #927b52;padding:9px 0 2px;min-width:0}
+.tt-printed-only .board-exception-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;color:#f0d9ac;font-size:12px}
+.tt-printed-only .board-exception-heading button{background:transparent;border:1px solid #af9360;border-radius:6px;color:#fff0ce;padding:4px 8px;cursor:pointer}
+.tt-printed-only .board-exception-details .player-phase-help,
+.tt-printed-only .board-exception-details .notice{font-size:11px;line-height:1.45}
+.tt-printed-only .board-exception-details .panel{width:100%;max-width:100%;box-sizing:border-box}
+.tt-printed-only .board-exception-details .panel-header{padding:7px 5px}
+.tt-printed-only .board-exception-details .panel-body,
+.tt-printed-only .board-exception-details .procedure{padding:8px 5px}
+.tt-printed-only .board-exception-details .form-grid{grid-template-columns:1fr}
+.tt-printed-only .board-exception-details .player-panel-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px}
+
+/* v3.93: clearer physical-counter decisions, limited to right-hand rail. */
+.tt-printed-only .board-turn-hud .board-counter-place{display:block;font-size:10px;line-height:1.35;font-weight:400;opacity:.8;overflow-wrap:anywhere;margin-top:3px}
+.tt-printed-only .board-turn-hud .board-horse-choice:disabled{opacity:.37;cursor:not-allowed}
+.tt-printed-only .board-turn-hud .board-epidemic-summary{margin:6px 0 9px;padding:9px 10px;border:1px solid #8b774e;border-radius:6px;color:#f3dfbd;font-size:11px}
+.tt-printed-only .board-turn-hud .board-epidemic-summary ul{margin:6px 0 0;padding-left:17px}
+.tt-printed-only .board-turn-hud ul.board-epidemic-summary{padding-left:26px}

@@ -46,6 +46,6 @@ export function activeBandChoices(state){
   }
   if(permitted(state,{type:'CULTURE_TACTICS_SCOUT'}))actions.push({id:'culture-scout',kind:'scout',label:'Scout the War deck · 1 MP',detail:'Tactics II: reveal the next War Card and leave it on top of the deck.',command:{type:'CULTURE_TACTICS_SCOUT'}});
   if(permitted(state,{type:'SPEND_HORSE'}))actions.push({id:'horse',kind:'horse',label:'Spend Horse for +1 MP',detail:'Returns one Horse to stock.',command:{type:'SPEND_HORSE'}});
-  if(permitted(state,{type:'FINISH_BAND'}))actions.push({id:'finish',kind:'finish',label:'Finish this Band',detail:'End this activation.',command:{type:'FINISH_BAND'}});
+  if(permitted(state,{type:'FINISH_BAND'}))actions.push({id:'finish',kind:'finish',label:`Finish Band${state.tracks.movement>0?` · forfeit ${state.tracks.movement} MP`:''}`,detail:'Voluntarily end activation. This marks the Band Finished, including at its home Ranchería; Planning can reduce its strength unless it is flipped Unfinished first.',command:{type:'FINISH_BAND'}});
   return actions;
 }

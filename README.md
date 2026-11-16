@@ -1,34 +1,15 @@
 # Comanchería — Digital Tabletop
 
-A browser-based digital implementation of GMT Games’ *Comanchería*. The game runs on a single board, with clickable pieces, rules-driven procedures and local save support.
+An unofficial, browser-based adaptation of *Comanchería*. Play on a single board with clickable counters, guided decisions, and local browser saves. Some exceptional card effects are not yet fully automated.
 
-## Play online
+## Play
 
-Open the GitHub Pages site for this repository (if enabled). No account or installation is required.
+Open the GitHub Pages site for this repository. For local use, run `python -m http.server 8000` in this folder and visit `http://localhost:8000`.
 
-## Run locally
+## Publish
 
-The game is a static website. Serve this folder with a local web server, for example:
+Place this folder’s contents at the repository root. In GitHub **Settings → Pages**, choose **Deploy from a branch** and select the root directory.
 
-```sh
-python -m http.server 8000
-```
+## Update
 
-Then open `http://localhost:8000` in a modern browser. Opening `index.html` directly as a file may prevent JavaScript modules and offline features from working.
-
-## Publish to GitHub Pages
-
-Upload the contents of this folder to the root of your repository. In **Settings → Pages**, choose **Deploy from a branch**, your desired branch and **/(root)**, then save.
-
-## How it works
-
-- Select a scenario and follow the on-board prompts to begin.
-- Use the board and its contextual controls to select actions, move pieces and resolve player choices.
-- The game records moves and procedures in its journal and keeps saves in your browser.
-- The service worker supports offline use after the site has loaded successfully and its files have been cached.
-
-The game consists of `index.html`, the `assets/` code and presentation files, `manifest.webmanifest` and `service-worker.js`. There is no server-side process or build step.
-
-## Notes
-
-This is an unofficial digital implementation. Some exceptional card and battle rules are not yet fully automated; a blocked procedure is an implementation issue to fix, not permission to invent a result. The original game remains the rules reference. Your saved games are local to your browser; changing browsers, clearing site data or changing the site's address may make existing saves unavailable.
+The v3.95 GitHub release includes cumulative game-engine fixes through Update 18 and refreshes the service-worker cache for the updated modules. Existing browser saves remain local. The board's size, position, scaling and artwork are unchanged.

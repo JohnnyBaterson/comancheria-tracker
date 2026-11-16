@@ -8,7 +8,7 @@ import {gateProposedPrompt} from './legal-action-gate.js';
 import {procedureState} from './procedure-state.js';
 import {cupDrawable} from './cup-system.js';
 import {planningActionChoices} from './planning-action-menu.js';
-import { OPERATIONS, requiredPassage, warAutomationStatus, travoisOptions, warCountermeasureOptions, passageAutomationStatus, battleSafeRoundPreview, battleSafeStartPreview, enemyProcedureCompleted, eligibleBattleUnits, battleAutoResolutionPreview, rancheriaFightPreview, rancheriaSacrificePreview, pointLossPreview, warRancheriaObligations, warBattleObligations, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, culturePurchaseOptions, santaFeTrailPlacementPreview, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, encroachTargetPreview, enemyWarRaidPreview, enemyWarAdvanceAudit, peaceWarColumnPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, SPACES, getStackingProblems, allyTargetPreview, recoverTargetAudit, settleTargetAudit, subjugateTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, unverifiedEnemyDevelopment, cultureActive, perform, cultureWarEvasionOptions, historyObjectiveAudit, h2HistoryRevealOptions, h4HistoryRevealOptions, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, cupColonialTargetPreview, cupColonialTerminalPreview, cupWarRaidAutoPreview, safeNext as setupSafeNext } from './engine.js';
+import {planningBandAttritionPreview, OPERATIONS, requiredPassage, warAutomationStatus, travoisOptions, warCountermeasureOptions, passageAutomationStatus, battleSafeRoundPreview, battleSafeStartPreview, enemyProcedureCompleted, eligibleBattleUnits, battleAutoResolutionPreview, rancheriaFightPreview, rancheriaSacrificePreview, pointLossPreview, warRancheriaObligations, warBattleObligations, safeNext, checklist, cultureGainPreview, cultureCardEffectAudit, culturePurchaseOptions, santaFeTrailPlacementPreview, raidPeaceResolutionPreview, enemyAutomationPreview, enemyApPreview, encroachTargetPreview, enemyWarRaidPreview, enemyWarAdvanceAudit, peaceWarColumnPreview, peaceTargetPreview, verifiedHistoryEnemy,VERIFIED_HISTORY_NAMED_ENEMIES, DISPLAY_ROWS, SPACE, SPACES, getStackingProblems, allyTargetPreview, recoverTargetAudit, settleTargetAudit, subjugateTargetAudit, activeCardEffects, DEVELOPMENT_EFFECT_CATALOG, unverifiedEnemyDevelopment, cultureActive, perform, cultureWarEvasionOptions, historyObjectiveAudit, h2HistoryRevealOptions, h4HistoryRevealOptions, openingLedgerAudit, scenarioSetupOptions, SCENARIOS, cupColonialTargetPreview, cupColonialTerminalPreview, cupWarRaidAutoPreview, safeNext as setupSafeNext } from './engine.js';
 
 const stepLabels = {
   WAR_AUTO_UNTIL_CHOICE: 'Resolve the War phase',
@@ -66,7 +66,7 @@ function cupSafeSimplePeace(s,p){
  if(rec.candidates.length||rec.ambiguousRavaged.length)return false;
  const known=activeCardEffects(s);
  if(known.some(x=>x.blockedInstructions?.includes('Peace')&&(!x.enemies||x.enemies.includes(p.owner))))return false;
- return !s.cards.some(c=>c.kind==='Development'&&['In play','Display'].includes(c.zone)&&(!DEVELOPMENT_EFFECT_CATALOG[String(c.identifier||'').replace(/\D/g,'')]||DEVELOPMENT_EFFECT_CATALOG[String(c.identifier||'').replace(/\D/g,'')].mode.startsWith('manual-required')));
+ return !unverifiedEnemyDevelopment(s,'Peace',p.owner);
 }
 /** Optional, reproducible computer-player setup: never silently chooses for a human.
  * Test every proposed placement against the production reducer, including
@@ -328,6 +328,16 @@ function proposedPlayerPrompt(s) {
         'South Subjugates a nearest eligible Tribe despite Ravaged counters, then settles the vacated space. If no eligible Tribe, South Settles twice. Card discards without replacement.',command);}
       catch(error){return blocked('San Sabá Mission: counter exception',error.message);}
     }
+    // The reducer already validates authenticated physical stock. Expose that
+    // continuation as an on-board decision rather than a separate inspector form.
+    // Never auto-confirm stock: the player must attest to the real counter.
+    if(pending.kind==='physical-stock'||pending.kind==='texas-stock'){
+      const command={type:pending.kind==='texas-stock'?'DEVELOPMENT_REGISTER_TEXAS_STOCK':'DEVELOPMENT_REGISTER_PHYSICAL_STOCK',ack:true};
+      try{perform(s,command);return decision(`Development #${pending.number}: verify counter stock`,
+        `${pending.reason||'Confirm the required unused physical counter.'} Only confirm after inspecting the real counter supply; this does not create an unverified counter.`,
+        [{label:'I verified the unused counter — register it and continue',command}]);}
+      catch(error){return blocked(`Development #${pending.number}: stock needs reconciliation`,error.message);}
+    }
     if(pending.number==='42'&&!pending.kind)return auto('Continue after Tactical Advantage #42 reveal',
       'Tactical Advantage is an optional in-hand Success Check card, not a reveal effect.',
       {type:'DEVELOPMENT_CLEAR_HAND_REVEAL'});
@@ -338,6 +348,20 @@ function proposedPlayerPrompt(s) {
     if(pending.kind==='van-dorn-battle'){
       for(const gunId of ['',...(pending.gunIds||[])])for(const mahimianaId of ['',...(pending.chiefIds||[])])
         offer(`${gunId?'Spend Guns':'No Guns'} / ${mahimianaId?'Use Mahimiana':'No Mahimiana'} — roll the one-round Battle`,{type:'DEVELOPMENT_VAN_DORN_BATTLE',gunId,mahimianaId});
+    }else if(pending.kind==='special-battle-target'){
+      for(const target of pending.candidates||[])
+        offer(`Choose ${target.label||target.id} for the special Battle`,
+          {type:'DEVELOPMENT_SPECIAL_TARGET',rancheriaId:target.id});
+    }else if(pending.kind==='special-battle-band'){
+      for(const bandId of pending.bandIds||[]){
+        const band=s.pieces.find(p=>p.id===bandId);
+        offer(`Fight with ${band?.label||bandId} (strength ${band?.strength||'?'})`,
+          {type:'DEVELOPMENT_SPECIAL_BAND',bandId});
+      }
+    }else if(pending.kind==='special-battle-roll'){
+      for(const gunId of ['',...(pending.gunIds||[])])for(const mahimianaId of ['',...(pending.chiefIds||[])])
+        offer(`${gunId?'Use Guns':'No Guns'} / ${mahimianaId?'Use Mahimiana':'No Mahimiana'} — resolve special Battle`,
+          {type:'DEVELOPMENT_SPECIAL_BATTLE',gunId,mahimianaId});
     }else if(pending.kind==='van-dorn-rancheria'){
       for(const rancheria of pending.candidates||[])offer(`Select ${rancheria.label} (${rancheria.mp} MPs)`,{type:'DEVELOPMENT_VAN_DORN_TARGET',rancheriaId:rancheria.id});
     }else if(pending.kind==='epidemic'){
@@ -347,33 +371,93 @@ function proposedPlayerPrompt(s) {
         !(pending.phase==='reveal'&&s.pieces.some(p=>p.type==='Rancheria'&&p.location===space))&&
         !(pending.phase==='end-take-actions'&&s.pieces.some(p=>p.type==='Tribe'&&p.location===space))
       ).map(space=>({space,bands:s.pieces.filter(p=>p.type==='Band'&&p.location===space)})).filter(x=>x.bands.length>1);
-      if(contested.length===0)offer('Apply the recorded Epidemic effects',
-        {type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices:{}});
-      else return decision(`Development #${pending.number}: select affected Bands`,
-        `Choose one Band in each of ${contested.length} affected spaces on the board. No combinations are omitted.`,[]);
+      const selected=pending.bandChoices||{};
+      const unresolved=contested.filter(x=>!selected[x.space]);
+      if(unresolved.length===0)offer('Apply the recorded Epidemic effects',
+        {type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices:selected});
+      else{
+        const current=unresolved[0];
+        for(const band of current.bands)offer(`Choose ${band.label||band.id} at ${SPACE[current.space]?.name||current.space}`,
+          {type:'DEVELOPMENT_SELECT_EPIDEMIC_BAND',space:current.space,bandId:band.id});
+        return proposals.length?decision(`Epidemic: choose Band (${unresolved.length} spaces remaining)`,
+          `Choose one Band in ${SPACE[current.space]?.name||current.space}. Previous selections are preserved and no counters move before the full effect is valid.`,proposals):blocked('Epidemic: no valid Band selection','The recorded selected spaces and Band ledger need reconciliation.');
+      }
     }else if(pending.kind==='ute-displacement'){
       for(const space of pending.destinations||[])offer(`Move Ranchería to ${SPACE[space]?.name||space}`,{type:'DEVELOPMENT_RESOLVE_UTE_DISPLACEMENT',space});
     }else if(pending.kind==='buffalo-hunters'){
       for(const bisonId of pending.bisonIds||[])offer(`Remove Bison ${bisonId}`,{type:'DEVELOPMENT_BUFFALO_RESOLVE',bisonId});
     }else if(['cuerno-medicine','quanah-medicine'].includes(pending.kind)){
       for(const mahimianaId of pending.chiefIds||[])offer(`Apply Medicine to ${mahimianaId}`,{type:'DEVELOPMENT_RESOLVE_MEDICINE',mahimianaId});
+      if(pending.kind==='quanah-medicine'&&pending.chiefIds?.length===1){
+        const chief=s.pieces.find(p=>p.id===pending.chiefIds[0]);
+        if(chief){
+          for(let rating=0;rating<=6;rating++)offer(`Verified ${chief.label||chief.id} Medicine ${rating} — apply +3`,
+            {type:'DEVELOPMENT_VERIFY_QUANAH_MEDICINE',mahimianaId:chief.id,medicine:rating,ack:true});
+        }
+      }
     }else if(pending.kind==='smallpox-end'){
       for(const bandId of pending.bandIds||[])offer(`Reduce Band ${bandId}`,{type:'DEVELOPMENT_RESOLVE_SMALLPOX',bandId});
     }else if(pending.kind==='nuevo-apacheria'){
       for(const tribe of s.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location])){
         for(const space of Object.values(SPACE).filter(x=>x.territory==='RG'&&x.type==='round'))offer(`Move ${tribe.id} to ${space.name}`,{type:'DEVELOPMENT_NUEVO_APACHERIA',tribeId:tribe.id,space:space.id});
       }
+    }else if(pending.kind==='indian-removal-displace'){
+      const nextId=(pending.rancheriaIds||[])[0];
+      const ranch=s.pieces.find(p=>p.id===nextId&&p.type==='Rancheria');
+      if(ranch){
+        for(const space of Object.values(SPACE).filter(x=>['round','canyon'].includes(x.type)&&x.territory!=='LA')){
+          offer(`Move ${ranch.label||ranch.id} to ${space.name||space.id}`,
+            {type:'DEVELOPMENT_INDIAN_REMOVAL_MOVE',space:space.id});
+        }
+      }
+    }else if(pending.kind==='fort-gibson-displace'){
+      const ranch=s.pieces.find(p=>p.id===pending.rancheriaId&&p.type==='Rancheria');
+      if(ranch){
+        for(const space of Object.values(SPACE).filter(x=>['round','canyon'].includes(x.type)&&x.id!=='LA-6')){
+          offer(`Relocate ${ranch.label||ranch.id} to ${space.name||space.id}`,
+            {type:'DEVELOPMENT_FORT_GIBSON_MOVE',space:space.id});
+        }
+      }
+    }else if(pending.kind==='kiowa-alliance'){
+      // D53's printed subject-to-availability clause permits a Tribe-only
+      // resolution when all Ranchería counters are already in use. The board
+      // otherwise provides the staged counter choices without a second form.
+      const ranches=s.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`);
+      const selected=pending.selected||{};
+      const bands=s.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.stockStrength||p.strength));
+      const horses=s.pieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse'&&p.location==='reserve');
+      if(!ranches.length){
+        for(const tribeId of pending.tribeIds||[])offer(`Remove Tribe ${tribeId} (no Ranchería stock available)`,
+          {type:'DEVELOPMENT_RESOLVE_KIOWA',tribeId,rancheriaId:null,bandId:null,horseIds:[]});
+      }else if(!selected.tribeId){
+        for(const tribeId of pending.tribeIds||[])offer(`Choose Tribe ${tribeId}`,{type:'DEVELOPMENT_KIOWA_STAGE',stage:'tribe',id:tribeId});
+      }else if(!selected.rancheriaId){
+        for(const ranch of ranches)offer(`Establish ${ranch.label||ranch.id}`,{type:'DEVELOPMENT_KIOWA_STAGE',stage:'rancheria',id:ranch.id});
+      }else if(bands.length&&!selected.bandId){
+        for(const band of bands)offer(`Add ${band.label||band.id} (strength ${band.stockStrength||band.strength})`,{type:'DEVELOPMENT_KIOWA_STAGE',stage:'band',id:band.id});
+      }else{
+        const chosenHorses=selected.horseIds||[];
+        for(const horse of chosenHorses.length<2?horses:[]){
+          if(!chosenHorses.includes(horse.id))offer(`Include ${horse.label||horse.id} (${chosenHorses.length+1}/2 Horses)`,{type:'DEVELOPMENT_KIOWA_STAGE',stage:'horse',id:horse.id});
+        }
+        offer(`Complete Kiowa Alliance with ${chosenHorses.length} Horse(s)`,{type:'DEVELOPMENT_RESOLVE_KIOWA',tribeId:selected.tribeId,rancheriaId:selected.rancheriaId,bandId:selected.bandId||null,horseIds:chosenHorses});
+      }
     }else if(pending.kind==='horse-discard'){
       const ids=pending.horseIds||[],count=pending.required;
-      if(Number.isInteger(count)&&count>=0&&count<=ids.length){
-        // A valid default is offered only when the choice is forced; otherwise
-        // the card form lets the player select exactly which Horses to lose.
-        if(count===0||count===ids.length)offer(`Return ${count} Horse counters`,{type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:count?ids:[]});
+      const selected=pending.selectedHorseIds||[];
+      if(Number.isInteger(count)&&count>=0&&count<=ids.length&&selected.length<=count){
+        if(count===0)offer('No Horses to return',{type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:[]});
+        else if(!selected.length&&count===ids.length)offer(`Return all ${count} Horse counters`,{type:'DEVELOPMENT_RESOLVE_HORSE_DISCARD',horseIds:ids});
+        else for(const horseId of ids.filter(id=>!selected.includes(id))){
+          const horse=s.pieces.find(p=>p.id===horseId&&p.subtype==='Horse');
+          offer(`Select ${horse?.label||horseId} (${selected.length+1}/${count} Horses to return)`,
+            {type:'DEVELOPMENT_SELECT_HORSE_DISCARD',horseId});
+        }
       }
     }
     // Mandatory, uniquely determined printed effects do not require an extra click.
     // Multi-option effects remain genuine player decisions.
-    if(proposals.length===1&&['epidemic','ute-displacement','buffalo-hunters','smallpox-end','horse-discard'].includes(pending.kind))
+    if(proposals.length===1&&['epidemic','ute-displacement','buffalo-hunters','smallpox-end'].includes(pending.kind)||(pending.kind==='horse-discard'&&proposals.length===1))
       return auto(`Resolve Development #${pending.number}`,pending.reason||'Apply the uniquely determined mandatory card effect.',proposals[0].command);
     if(proposals.length)return decision(`Development #${pending.number}: ${pending.kind}`,pending.reason||'Choose a legal printed card effect.',proposals);
     if(pending.kind==='horse-discard'&&Number.isInteger(pending.required)&&Array.isArray(pending.horseIds)){
@@ -773,7 +857,9 @@ function proposedPlayerPrompt(s) {
     if(!s.operation){
       const mandatory=requiredPassage(s);
       const choices=OPERATIONS.filter(x=>!mandatory||x==='Passage of Time').filter(x=>x!=='Passage of Time'||mandatory||s.tracks.operations>=3).map(x=>({label:x,command:{type:'SELECT_OPERATION',value:x}}));
-      return decision(mandatory?'Passage of Time is compulsory':'Choose your next operation',mandatory?'The Operations marker or Band state requires Passage.':'You decide the strategy. The game will handle verified automatic effects after your choice.',choices);
+      const risk=planningBandAttritionPreview(s);
+      const riskText=!mandatory&&risk.losses.length?` Planning will affect ${risk.losses.length} Finished Band(s)${risk.protectedByCivilWar?' (protected by D67)':`, eliminating ${risk.destroyed}`}: ${risk.losses.map(x=>`${x.label} ${x.before}→${x.after}`).join(', ')}.`:'';
+      return decision(mandatory?'Passage of Time is compulsory':'Choose your next operation',(mandatory?'The Operations marker or Band state requires Passage.':'You decide the strategy. The game resolves mandatory effects.')+riskText,choices);
     }
     const status=safeNext(s);
     if(status.ok)return auto(`Begin ${s.operation}`,'Your selected operation is ready.',{type:'ADVANCE'});
@@ -1260,7 +1346,18 @@ function outstandingInterrupt(s){
  return null;
 }
 export function nextPlayerPrompt(s) {
-  const prompt=gateProposedPrompt(s, outstandingInterrupt(s)||proposedPlayerPrompt(s), perform);
+  const underlying=outstandingInterrupt(s)||proposedPlayerPrompt(s);
+  // D02 Ute Alliance is a playable card in hand, not merely an off-board
+  // Development form. Surface the printed removal roll alongside the normal
+  // decision rather than forcing the player to navigate away from the board.
+  // Mandatory interrupted procedures must remain exclusive until resolved.
+  const hasUte=s.cards.some(c=>c.kind==='Development'&&Number(c.identifier)===2&&c.zone==='Hand');
+  const canOffer=hasUte&&underlying.kind==='player'&&s.phase==='execution'
+    &&!s.pending&&!s.developmentUte&&!s.developmentPending&&!s.enemyFlow
+    &&!s.battlePending&&!s.successCheck&&!s.warRouteChoice;
+  const proposed=canOffer?{...underlying,choices:[...underlying.choices,
+    {label:'Play Ute Alliance · roll to remove a Tribe or Settlement',command:{type:'DEVELOPMENT_PLAY_UTE',choice:'remove'}}]}:underlying;
+  const prompt=gateProposedPrompt(s,proposed,perform);
   return {...prompt,procedure:procedureState(s)};
 }
 

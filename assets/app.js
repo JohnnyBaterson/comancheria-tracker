@@ -11,13 +11,14 @@ import {cupInventory} from './cup-system.js';
 import {componentStockAudit} from './component-stock.js';
 import {cardRevealEvents, artReferenceForCard, revealLabel, revealDestination, BOARD_CARD_ZONES} from './card-reveal.js';
 import {nextPlayerPrompt, enemyPaymentChoices} from './next-action.js';
+import {tradeBoardChoices} from './trade-board-choices.js';
 import {activeBandChoices} from './band-action-menu.js';
 import {WAR_CARD_DATA} from './war-card-effects.js';
 import {PHYSICAL_FACES,physicalCounterFace,physicalCounterCoverage,digitalCounterProxyUrl} from './physical-counter-catalog.js';
 import {CARD_REFERENCE,EXPECTED_ART,localCardCount,counterTileCount,boardImageUrl,lastAssetReport,cardImageUrl,loadCardImage,loadCounterTiles,physicalCounterImageUrlByIndex,physicalCounterArtUrl,loadPhysicalCounterArt,bandCounterArtUrl,loadBandCounterArt,refreshLocalCards,importLocalCards,clearLocalArt,counterArtAssignments,counterArtUrl,assignCounterArt,unassignCounterArt} from './tts-asset-library.js';
 import {southMapFacts} from './map-fact-checks.js';
 import {MAP_EVIDENCE_EDGES,MAP_CONNECTION_CANDIDATES,MAP_EVIDENCE_SOURCE,MAP_EVIDENCE_URL,FINAL_MAP_URL,mapConnectionReconciliation,mapConnectionMatches} from './map-evidence.js';
-import { DEVELOPMENT_EFFECT_CATALOG,DEVELOPMENT_SOURCE_INDEX,developmentSourceCoverage,developmentCardAudit,developmentCoverage,CULTURE_CARD_CATALOG,culturePurchaseOptions,cultureCardEffectAudit,santaFeTrailPlacementPreview,verifiedWarEventStatus, fastColumnEligible, travoisOptions,warCountermeasureOptions, VERSION, rollSeededDie, warAutomationStatus, passageAutomationStatus, historyObjectiveAudit, CARD_EVIDENCE_STATES, cardEvidenceAudit, TEMPLATE_SCENARIOS, SCENARIO_DETAILS, BAND_COUNTER_FACES, scenarioSetupOptions, openingLedgerAudit, TERRITORIES, TERRITORY_DIE_ORDER, SPACES, SPACE, SQUARES, SCENARIOS, PIECE_TYPES, RESOURCES, OPERATIONS, newGame, perform, migrateGame, cultureBaseTerritories, cultureGainPreview, territoryControlAudit, pointLossPreview, basicIntegrity, getStackingProblems, getProblems, requiredPassage, checklist, allChecksDone, safeNext, formatLocation, planBandRoute, mapCoverage, eligibleBattleUnits, warBattleObligations, warRancheriaObligations, rancheriaSacrificePreview, rancheriaFightPreview, battleAutoResolutionPreview, battleSafeRoundPreview, battleSafeStartPreview, enemyApPreview, enemyDisplayAudit, enemyDisplayResetPlan, enemyFlowPreview, enemyAutomationPreview, enemyRecoverChoicePending, mapReviewAudit, enemyColorNetwork, enemyCulturePreview, huntTargetPreview, encroachTargetPreview, allyTargetPreview, peaceTargetPreview, peaceWarColumnPreview, enemyWarRaidPreview, peaceSpaceStatus, enemyCardExceptionPreview, activeCardEffects, instructionName, verifiedHistoryEnemy, VERIFIED_HISTORY_NAMED_ENEMIES, settleTargetAudit, subjugateTargetAudit, recoverTargetAudit, ENEMY_COLUMNS, DISPLAY_ROWS, warColumnStopUnits, warColumnBattleModifier, warMoveChoices, autoWarMovementPreview } from './engine.js';
+import { DEVELOPMENT_EFFECT_CATALOG,DEVELOPMENT_SOURCE_INDEX,developmentSourceCoverage,developmentCardAudit,developmentCoverage,CULTURE_CARD_CATALOG,culturePurchaseOptions,cultureCardEffectAudit,santaFeTrailPlacementPreview,verifiedWarEventStatus, fastColumnEligible, travoisOptions,warCountermeasureOptions, VERSION, planningBandAttritionPreview, rollSeededDie, warAutomationStatus, passageAutomationStatus, historyObjectiveAudit, CARD_EVIDENCE_STATES, cardEvidenceAudit, TEMPLATE_SCENARIOS, SCENARIO_DETAILS, BAND_COUNTER_FACES, scenarioSetupOptions, openingLedgerAudit, TERRITORIES, TERRITORY_DIE_ORDER, SPACES, SPACE, SQUARES, SCENARIOS, PIECE_TYPES, RESOURCES, OPERATIONS, newGame, perform, migrateGame, cultureBaseTerritories, cultureGainPreview, territoryControlAudit, pointLossPreview, basicIntegrity, getStackingProblems, getProblems, requiredPassage, checklist, allChecksDone, safeNext, formatLocation, planBandRoute, mapCoverage, eligibleBattleUnits, warBattleObligations, warRancheriaObligations, rancheriaSacrificePreview, rancheriaFightPreview, battleAutoResolutionPreview, battleSafeRoundPreview, battleSafeStartPreview, enemyApPreview, enemyDisplayAudit, enemyDisplayResetPlan, enemyFlowPreview, enemyAutomationPreview, enemyRecoverChoicePending, mapReviewAudit, enemyColorNetwork, enemyCulturePreview, huntTargetPreview, encroachTargetPreview, allyTargetPreview, peaceTargetPreview, peaceWarColumnPreview, enemyWarRaidPreview, peaceSpaceStatus, enemyCardExceptionPreview, activeCardEffects, instructionName, verifiedHistoryEnemy, VERIFIED_HISTORY_NAMED_ENEMIES, settleTargetAudit, subjugateTargetAudit, recoverTargetAudit, ENEMY_COLUMNS, DISPLAY_ROWS, warColumnStopUnits, warColumnBattleModifier, warMoveChoices, autoWarMovementPreview } from './engine.js';
 import {BOARD_WIDTH,BOARD_HEIGHT,MAP_POSITIONS,MAP_PALETTE,MAP_REGION_LABELS,boardPosition,boardImagePosition,mapEdgesForDisplay} from './board-layout.js';
 import {PRINTED_BOARD,rancheriaPrintedIndex,rancheriaMedicinePoint,instructionPrintedPoint,recordPrintedPoint,operationsPrintedPoint,spreadPrintedCounters} from './printed-board-anchors.js';
 import {printedRancheriaAt,printedMedicineSlotAt,printedSupplyAt,printedPieceDrop,printedMedicineArrangement,printedPossessionDrop,printedAPActivationDrop,printedBattleDrop,printedBandExchangeDrop,printedMedicineBandActivationAtMap,printedMedicineTrackFinish} from './printed-board-interactions.js';
@@ -48,7 +49,7 @@ const smallIcon=t=>({'Band':'♞','Rancheria':'⌂','Settlement':'▥','War Colu
 const details=p=>[p.subtype,p.type==='Band'?`${p.strength}–${p.finished?'F':p.mpRating} printed Band face`:p.strength&&p.strength+' str.',p.type!=='Band'&&p.finished?'Finished':null].filter(Boolean).join(' · ');
 const navItems=[['board','Play board','◎']]; // Advanced tools live in on-board drawers, not separate navigation screens.
 const phases=[['war','War column'],['selection','Select operation'],['execution','Execute'],['cleanup','Cleanup']];
-const stateUI={eventHighlightSpace:null,eventHighlightPiece:null,replayIndex:null,logExpanded:false,playerPanel:null,tabletopDetails:false,tabletopChoices:false,choicePage:0,historyVerification:null,horseDiscardSelection:[],horseDiscardKey:null,passageBisonSource:null,passagePeacePiece:null,kiowaChoice:null,epidemicSelection:{},epidemicKey:null,recruitChoice:{rancheriaId:null,bandId:null,resourceIds:[],stage:0},medicinePendingBandId:null,rancheriaBandOrder:{},instructionFocus:null,enemyFaceKind:null,warBoardSelectedId:null,home:true,eventNotice:null,pendingBoardConsequences:null,cardReveals:[],cardRevealArt:null,cardRevealBusy:false,drawers:{turn:true,dice:false,cards:false,journal:false,advanced:false},toolsOpen:false,tab:'board',modal:null,tradeResourceChoice:null,selectedSpace:'UA-2',pieceFilter:'',pieceType:'All',modalId:null,toasts:'',toastError:false,showAllLog:false,referenceKind:'War',referenceSelected:'war-01',routeTarget:'UA-1',battleWarId:null,battleUnitId:null,mapZoom:1,mapConnectMode:false,digitalSelectedPieceId:null,digitalDeck:'Development',edgeStart:null,edgeTarget:null,mapShowReach:true,saveConflict:false,showCounterGallery:false,counterGalleryPage:0,selectedCounterArt:null,counterArtType:'Band',counterCorrection:false};
+const stateUI={eventHighlightSpace:null,eventHighlightPiece:null,replayIndex:null,logExpanded:false,playerPanel:null,ruleDetailsOpen:false,tabletopDetails:false,tabletopChoices:false,choicePage:0,historyVerification:null,horseDiscardSelection:[],horseDiscardKey:null,passageBisonSource:null,passagePeacePiece:null,kiowaChoice:null,nuevoTribeId:null,epidemicSelection:{},epidemicKey:null,recruitChoice:{rancheriaId:null,bandId:null,resourceIds:[],stage:0},medicinePendingBandId:null,rancheriaBandOrder:{},instructionFocus:null,enemyFaceKind:null,warBoardSelectedId:null,home:true,eventNotice:null,pendingBoardConsequences:null,cardReveals:[],cardRevealArt:null,cardRevealBusy:false,drawers:{turn:true,dice:false,cards:false,journal:false,advanced:false},toolsOpen:false,tab:'board',modal:null,tradeResourceChoice:null,selectedSpace:'UA-2',pieceFilter:'',pieceType:'All',modalId:null,toasts:'',toastError:false,showAllLog:false,referenceKind:'War',referenceSelected:'war-01',routeTarget:'UA-1',battleWarId:null,battleUnitId:null,mapZoom:1,mapConnectMode:false,digitalSelectedPieceId:null,digitalDeck:'Development',edgeStart:null,edgeTarget:null,mapShowReach:true,saveConflict:false,showCounterGallery:false,counterGalleryPage:0,selectedCounterArt:null,counterArtType:'Band',counterCorrection:false};
 // Live sessions use a fresh browser-entropy seed. Tests continue to use
 // explicit deterministic SEED_RNG values so failures can be replayed.
 function newLiveGame(scenario='plains',demo=false){
@@ -253,7 +254,8 @@ async function commit(cmd,resolveVerifiedRoutine=false){
   stateUI.eventNotice=ceremony;
 
   if(!await persist()){state=before;history=oldHistory;stateUI.eventNotice=oldEvent;savingFailed();return;}
-  stateUI.enemyFaceKind=null;stateUI.warBoardSelectedId=null;stateUI.choicePage=0;stateUI.spatialChoice=null;stateUI.playerPanel=null;stateUI.passageBisonSource=null;stateUI.passagePeacePiece=null;
+  if(GAMEPLAY_DIALOGS.has(stateUI.modal)){stateUI.modal=null;stateUI.modalId=null;stateUI.tradeResourceChoice=null;}
+  stateUI.enemyFaceKind=null;stateUI.warBoardSelectedId=null;stateUI.choicePage=0;stateUI.spatialChoice=null;stateUI.playerPanel=null;stateUI.ruleDetailsOpen=false;stateUI.passageBisonSource=null;stateUI.passagePeacePiece=null;
   stateUI.epidemicSelection={};stateUI.epidemicKey=null;
   if(newlyDrawn.length){stateUI.cardReveals.push(...newlyDrawn);stateUI.cardRevealArt=null;}
   if(ceremony)stateUI.toasts='';
@@ -314,7 +316,7 @@ function cardPanel(title,body,sub='',actions=''){return `<section class="panel">
 function hButton(action,text,cl='btn sm',extra=''){return `<button type="button" class="${cl}" data-action="${action}" ${extra}>${text}</button>`;}
 function header(){const scenario=SCENARIOS.find(x=>x[0]===state.scenario);const titles={dashboard:'Your table at a glance',digital:'Digital tabletop',board:'Play board',pieces:'Counter inventory',operations:'Sequence of play',cards:'Card register',journal:'Action journal',settings:'Settings & local saves'};
  const desc={dashboard:'A second set of eyes for your physical Comanchería game.',digital:'Play on this screen: roll dice, draw counters and cards, select map pieces, and record game moves.',board:'Interactive spatial layout with live piece markers and player-confirmed connections.',pieces:'Every recorded counter has a single location and an individual identity.',operations:'Follow the printed sequence, log validated actions and acknowledge manual checks.',cards:'Track card identifiers, zones and reminders; read effects on physical cards.',journal:'An auditable trail of recorded actions, including manual overrides.',settings:'Set up, export archival files and configure your locally stored game.'};
- return `<header class="masthead"><div><p class="eyebrow">${stateUI.tab==='digital'?'DIGITAL TABLETOP · ALPHA':'BOARD COMPANION'} · game-first interface · ${VERSION} rules</p><h1 class="page-title">${titles[stateUI.tab]}</h1><p class="subtitle">${desc[stateUI.tab]}</p></div><div class="mast-actions">${hButton('undo','↶ Undo','btn sm',history.past.length?'':'disabled')}${hButton('redo','↷ Redo','btn sm',history.future.length?'':'disabled')}${hButton('export','⇩ Export save','btn sm')}${hButton('modal-add-piece','＋ Record piece','btn primary sm')}</div></header>`;}
+ return `<header class="masthead"><div><p class="eyebrow">DIGITAL TABLETOP · ${VERSION} rules</p><h1 class="page-title">${titles[stateUI.tab]}</h1><p class="subtitle">${desc[stateUI.tab]}</p></div><div class="mast-actions">${hButton('undo','↶ Undo','btn sm',history.past.length?'':'disabled')}${hButton('redo','↷ Redo','btn sm',history.future.length?'':'disabled')}${hButton('export','⇩ Export save','btn sm')}${hButton('modal-add-piece','＋ Record piece','btn primary sm')}</div></header>`;}
 function renderStats(){const scenario=SCENARIOS.find(x=>x[0]===state.scenario);const vals=[['Military',state.tracks.military,'/ 9 max'],['Culture',state.tracks.culture,'/ 9 max'],['Player AP',state.tracks.ap,'/ 9 max'],['Enemy AP',state.tracks.enemyAp,'/ 9 max'],['Movement',state.tracks.movement,'active Band'],['Counters',state.pieces.filter(p=>p.location!=='removed'&&p.location!=='reserve').length,'recorded in play']];return `<div class="stats">${vals.map(([a,b,c],i)=>`<div class="stat ${i<2?'highlight':''}"><div class="stat-title">${a}</div><div class="stat-number">${fmt(b)}</div><div class="stat-foot">${c}</div></div>`).join('')}</div>`;}
 function warnings(){const p=getProblems(state);const warns=p.map(x=>`<div class="notice alert"><strong>Check:</strong> ${esc(x)}</div>`).join('');
  return `${state.phase==='setup'?`<div class="banner"><span style="font-size:22px;color:var(--gold)">✧</span><div><h3>Setup mode — not yet playing</h3><p>Enter your counters and track values from the physical scenario setup. ${esc(state.setupNote)} Game setup is not automatically enforced.</p><div style="margin-top:10px">${hButton('start','Start tracking ▶','btn primary sm')}${hButton('demo','Use example game','btn ghost sm')}</div></div></div>`:''}${warns}${state.quality.manual?`<div class="notice compact info">${state.quality.manual} entry/ies were manually verified or corrected on the physical board. These are <strong>not</strong> automatically rules-validated.</div>`:''}`;}
@@ -425,6 +427,12 @@ function dicePanel(){
  ${recent.length?`<div class="small muted" style="margin-top:12px">Recent: ${recent.map(x=>esc(x.description)).join(' · ')}</div>`:''}
  `,'Random numbers are reproducible, not predictions of physical dice.');
 }
+function planningAttritionWarning(){
+ const forecast=planningBandAttritionPreview(state);
+ if(!forecast.losses.length)return '';
+ const rows=forecast.losses.map(x=>`<li>${esc(x.label)} · ${esc(formatLocation(state,x.location))} · strength ${x.before} → ${x.after}${x.destroyed?' · <strong>ELIMINATED (no stock replacement)</strong>':x.replacementId?` · physical counter ${esc(x.replacementId)}${x.stockFallback?' (1-strength fallback)':''}`:''}</li>`).join('');
+ return `<div class="notice ${forecast.destroyed?'alert':'info'}" role="note"><strong>Planning — Finished Band consequences</strong><p>${forecast.protectedByCivilWar?'D67 protects these Bands from attrition; all flip Unfinished.':`${forecast.losses.length} Finished Band(s) will exchange physical counters; ${forecast.destroyed} will be eliminated for lack of an available replacement.`} You can choose another legal Operation before committing. A Band being stored inside a Ranchería does not make it Unfinished.</p><ul>${rows}</ul></div>`;
+}
 function procedurePanel({currentOnly=false}={}){if(state.phase==='gameover')return cardPanel('Game finished',`<div class="notice ${state.gameResult?.outcome==='victory'?'info':'alert'}"><h3>${esc(state.gameResult?.grade||state.gameResult?.outcome||'Game ended')}</h3><p>${esc(state.gameResult?.reason||'Reconcile game ending with the printed rules.')}</p><p>${esc(state.gameResult?.note||'')}</p></div><p class="small muted">Final result saved to the journal. Export the record or Undo to correct the physical-board result.</p>`);if(state.phase==='setup')return cardPanel('Ready your board',`<p class="intro">Choose and prepare one of the five official scenarios on the Board screen. Finish its printed choices and confirmations before starting. The <strong>Start tracking</strong> button begins at the War Column Phase.</p>${hButton('start','Start tracking ▶','btn primary',safeNext(state).ok?'':'disabled title="Finish physical setup confirmation first"')}`,'The printed scenario instructions remain authoritative.');
  const steps=checklist(state),next=safeNext(state),phaseName=state.phase==='execution'?(state.operation||'Operation'):state.phase==='war'?'War Column Phase':state.phase==='cleanup'?'Operation Cleanup':state.phase==='selection'?'Operation selection':'Game finished';
  const passageDigital=state.phase==='execution'&&state.operation==='Passage of Time';
@@ -435,7 +443,7 @@ function procedurePanel({currentOnly=false}={}){if(state.phase==='gameover')retu
  const stepHTML=visibleSteps.map(([id,text,rule],i)=>`<div class="check-item ${state.steps[id]==='done'?'completed':''}"><span class="step-index">${steps.findIndex(([stepId])=>stepId===id)+1}</span><div class="check-main"><div class="step-head">${esc(text)}</div><div class="step-meta">Living Rules ${esc(rule)} · check printed rules/cards before marking</div></div><div class="check-actions">${state.phase==='execution'&&state.operation==='Passage of Time'&&['pt1','pt6','pt7','pt8','pt10'].includes(id)?`<button type="button" class="btn primary sm" data-action="${id==='pt1'?'passage-unfinish':id==='pt6'?'passage-death':id==='pt7'?'passage-replace':id==='pt8'?'passage-success':'passage-ravaged'}" ${state.steps[id]==='done'||!passageCommandAllowed(id)?'disabled title="Finish the required preceding step and card choices first"':''}>Apply digitally</button>`:''}<button type="button" ${state.phase==='execution'&&state.operation==='Passage of Time'&&['pt1','pt8','pt9','pt10','pt11','pt12','pt14','pt15'].includes(id)?'disabled title="Use the digital Passage of Time action"':''} data-action="check" data-key="${id}" data-value="${state.steps[id]==='done'?'':'done'}" class="${state.steps[id]==='done'?'selected':''}">✓ Done</button><button type="button" ${state.phase==='execution'&&state.operation==='Passage of Time'&&['pt1','pt8','pt9','pt10','pt11','pt12','pt14','pt15'].includes(id)?'disabled title="Use the digital Passage of Time action"':''} class="na ${state.steps[id]==='na'?'selected':''}" data-action="check" data-key="${id}" data-value="${state.steps[id]==='na'?'':'na'}">N/A</button></div></div>`).join('');
  const passAuto=passageDigital?passageAutomationStatus(state):null;
  const passageAssist=passAuto?`<div class="notice info"><b>Digital Passage assistant</b><p>${esc(passAuto.reason)}</p>${hButton('passage-auto-progress','Resolve next verified Passage step','btn primary sm',!passAuto.ready?'disabled':'')}</div>`:'';
- const operationSelect=state.phase==='selection'?`<div class="notice ${requiredPassage(state)?'alert':'info'}">${requiredPassage(state)?'Mandatory Passage of Time: no recorded in-play Band or Operations marker is marked mandatory.':'Choose ONE of the four Operations. Refer to rule 3.2 and relevant cards.'}</div><div class="action-grid">${OPERATIONS.map(op=>`<button class="action-card" data-action="select-operation" data-value="${op}" ${requiredPassage(state)&&op!=='Passage of Time'?'disabled':''} style="${state.operation===op?'border-color:var(--gold);background:#4b4131':''}"><b>${op==='Take Actions'?'♞ ':op==='Culture'?'✦ ':op==='Planning'?'⊞ ':'⌛ '}${op}</b><span>${state.operation===op?'Selected · ':''}Rules ${({ 'Take Actions':'4.1','Culture':'4.2','Planning':'4.3','Passage of Time':'4.4'})[op]}</span></button>`).join('')}</div>`:'';
+ const operationSelect=state.phase==='selection'?`${planningAttritionWarning()}<div class="notice ${requiredPassage(state)?'alert':'info'}">${requiredPassage(state)?'Mandatory Passage of Time: no recorded in-play Band or Operations marker is marked mandatory.':'Choose ONE of the four Operations. Refer to rule 3.2 and relevant cards.'}</div><div class="action-grid">${OPERATIONS.map(op=>`<button class="action-card" data-action="select-operation" data-value="${op}" ${requiredPassage(state)&&op!=='Passage of Time'?'disabled':''} style="${state.operation===op?'border-color:var(--gold);background:#4b4131':''}"><b>${op==='Take Actions'?'♞ ':op==='Culture'?'✦ ':op==='Planning'?'⊞ ':'⌛ '}${op}</b><span>${state.operation===op?'Selected · ':''}Rules ${({ 'Take Actions':'4.1','Culture':'4.2','Planning':'4.3','Passage of Time':'4.4'})[op]}</span></button>`).join('')}</div>`:'';
  return `<section class="panel"><div class="panel-header"><div><h2>${esc(phaseName)}</h2><p class="panel-sub">Guided checkpoints · manual acknowledgement is required for unimplemented rules</p></div><span class="tag gold">${state.phase==='selection'?'CHOOSE':state.phase==='execution'?'IN PROGRESS':'PROCEDURE'}</span></div><div class="procedure">${phaseProgress()}${operationSelect}${state.phase==='war'?`<div class="notice info"><strong>War procedure assistant</strong><p>${esc(warAutomationStatus(state).reason)}</p>${hButton('war-auto-until-choice','Resolve all verified War steps','btn primary sm',warAutomationStatus(state).ready?'':'disabled')}</div>`:''}${passageAssist}${stepHTML}${passageDigital?passageHeadmanPanel()+passageResourcePanel()+passagePeacePanel()+passageBisonPanel()+passageCulturePanel()+passageEndPanel():''}${state.phase==='execution'&&state.operation==='Take Actions'?`<div class="divider"></div>${bandActions()}`:''}${state.phase==='cleanup'&&getStackingProblems(state).length?`<div class="notice alert">Resolve the stacking conflicts shown below before completing cleanup.</div>`:''}<div class="next-row"><div class="muted small">${steps.length?steps.filter(x=>['done','na'].includes(state.steps[x[0]])).length+' of '+steps.length+' checkpoints recorded':'Confirm the selected operation.'}</div>${hButton('advance',state.phase==='cleanup'?'Finish cleanup → War Column':state.phase==='war'?'Go to Operation selection →':state.phase==='selection'?'Execute Operation →':'Go to cleanup →','btn primary',next.ok?'':'disabled title="Complete all checkpoints first"')}</div></div></section>`;}
 
 function passageHeadmanPanel(){
@@ -638,7 +646,7 @@ function raidBoardRewardPanel(){
 function bandActions(){const active=state.activeBandId&&state.pieces.find(p=>p.id===state.activeBandId);
  if(state.pending?.type==='raid')return `<div class="notice alert"><strong>Raid in progress.</strong> The board records the cup draw, then offers only legal counter rewards. One movement point has been spent.</div>${successCheckPanel()}${raidBoardRewardPanel()}<div class="form-end">${hButton('cancel-raid','Cancel Raid · return MP','btn sm',state.successCheck||state.lastSuccessCheck?'disabled title="Use Undo after completing the check"':'')}</div>`;
  if(active){const horses=state.pieces.filter(x=>x.location===`held:${active.id}`&&x.subtype==='Horse');const bison=state.pieces.filter(x=>x.location===active.location&&x.type==='Bison');const mahimiana=state.pieces.some(x=>x.location===`held:${active.id}`&&x.type==='Mahimiana');
-  return `<div class="active-band"><div class="rowline"><div><span class="tiny-label">ACTIVE BAND</span><h3>${esc(active.label)}</h3><span class="small muted">${esc(formatLocation(state,active.location))} · ${active.strength} strength · ${horses.length} Horse counter(s)</span></div><div style="text-align:right"><span class="tiny-label">MOVEMENT LEFT</span><div style="font:40px Georgia,serif;color:var(--gold)">${state.tracks.movement}</div></div></div></div><div class="action-grid">${activeBandChoices(state).filter(x=>x.kind!=='finish').map(x=>`<button class="action-card" data-action="guided-band-choice" data-guided-id="${esc(x.id)}" title="${esc(x.detail)}"><b>${esc(x.label)}</b><span>${esc(x.detail)}</span></button>`).join('')||'<p class="small muted">No legal actions available. Finish this Band.</p>'}</div><div class="form-end">${hButton('horse-mp','Spend Horse → +1 movement','btn sm',horses.length?'':'disabled')}${hButton('finish-band','Finish Band','btn primary sm')}</div>`;}
+  return `<div class="active-band"><div class="rowline"><div><span class="tiny-label">ACTIVE BAND</span><h3>${esc(active.label)}</h3><span class="small muted">${esc(formatLocation(state,active.location))} · ${active.strength} strength · ${horses.length} Horse counter(s)</span></div><div style="text-align:right"><span class="tiny-label">MOVEMENT LEFT</span><div style="font:40px Georgia,serif;color:var(--gold)">${state.tracks.movement}</div></div></div></div><div class="action-grid">${activeBandChoices(state).filter(x=>x.kind!=='finish').map(x=>`<button class="action-card" data-action="guided-band-choice" data-guided-id="${esc(x.id)}" title="${esc(x.detail)}"><b>${esc(x.label)}</b><span>${esc(x.detail)}</span></button>`).join('')||'<p class="small muted">No legal actions available. Finish this Band.</p>'}</div><p class="small muted">Finishing marks this Band Finished, even at home. Planning later reduces Finished Bands; activating its Ranchería or Passage resets them.</p><div class="form-end">${hButton('horse-mp','Spend Horse → +1 movement','btn sm',horses.length?'':'disabled')}${hButton('finish-band',`Finish activation${state.tracks.movement>0?` · forfeit ${state.tracks.movement} MP`:''}`,'btn primary sm')}</div>`;}
  const bands=state.pieces.filter(x=>x.type==='Band'&&x.location!=='reserve'&&x.location!=='removed');
  return `<p class="intro">Select an eligible Band. For free Ranchería activation, you must separately verify medicine-track order using rule 4.1.</p>${bands.length?`<div class="rowline"><select class="control" id="activate-band-id" style="flex:1;min-width:170px">${bands.map(x=>option(x.id,`${x.label}${x.finished?' (Finished — AP activation)':''} · ${formatLocation(state,x.location)}`,x.id)).join('')}</select><select class="control" id="activate-mode" style="flex:1;min-width:170px">${option('rancheria','Ranchería / medicine (manual verification)')}${option('ap','Spend AP (outside Band)')}</select></div><div class="form-end"><label class="small"><input id="activate-ack" type="checkbox"> I checked Ranchería medicine prerequisites</label>${hButton('activate-band','Activate Band','btn primary sm')}</div>`:`<div class="empty">No unfinished Bands on the map or in Ranchería boxes. Add counters or finish this procedure.</div>`}`;
 }
@@ -776,7 +784,7 @@ function selectedBoardCounter(){
   ${cleanupCargo.map(q=>hButton('tabletop-relinquish',`Release ${esc(q.subtype||q.label||q.type)} to ${esc(storedRanch.label||storedRanch.id)}`,'btn sm',`data-id="${esc(q.id)}" data-band-id="${esc(piece.id)}" data-rancheria-id="${esc(storedRanch.id)}"`)).join('')}
   ${active?`<div class="notice compact info">Active Band · ${state.tracks.movement} movement points. Select a destination on the map, or use the verified destinations below.</div>
   ${moves.length?`<div class="legal-destinations">${moves.map(x=>hButton('board-move-selected',`${x.to} · ${x.cost} MP`,'btn primary sm',`data-to="${esc(x.to)}" title="Leaves ${x.remaining} movement points"`)).join('')}</div>`:'<p class="small muted">No legal one-edge moves currently available. Check the recorded lines and remaining movement points.</p>'}${blockedMoves.length?`<details class="blocked-moves"><summary>${blockedMoves.length} connected but unavailable destination(s)</summary>${blockedMoves.map(x=>`<p><b>${esc(x.to)}</b> — ${esc(x.reason)}</p>`).join('')}</details>`:''}
-  ${hButton('hunt','Hunt','btn sm',tryBoardCommandForUI({type:'HUNT'}).ok?'':'disabled')}${hButton('horse-mp','Spend Horse','btn sm',tryBoardCommandForUI({type:'SPEND_HORSE'}).ok?'':'disabled')}${hButton('modal-trade','Trade','btn sm')}${hButton('raid','Raid','btn sm',tryBoardCommandForUI({type:'BEGIN_RAID'}).ok?'':'disabled')}${hButton('finish-band','Finish activation','btn primary sm')}`:
+  ${hButton('hunt','Hunt','btn sm',tryBoardCommandForUI({type:'HUNT'}).ok?'':'disabled')}${hButton('horse-mp','Spend Horse','btn sm',tryBoardCommandForUI({type:'SPEND_HORSE'}).ok?'':'disabled')}${hButton('modal-trade','Trade','btn sm')}${hButton('raid','Raid','btn sm',tryBoardCommandForUI({type:'BEGIN_RAID'}).ok?'':'disabled')}${hButton('finish-band',`Finish activation${state.tracks.movement>0?` · ${state.tracks.movement} MP unused`:''}`,'btn primary sm')}`:
   `<div class="form-end">${hButton('board-activate-ap','Activate with AP','btn primary sm',ap.ok?'':`disabled title="${esc(ap.reason)}"`)}${hButton('board-activate-medicine','Activate on track','btn sm',medicine.ok?'':`disabled title="${esc(medicine.reason)}"`)}</div>
   ${medicine.ok?stateUI.medicinePendingBandId===piece.id?`<div class="tt-medicine-confirm"><strong>Verify Medicine-track order on the board</strong><p>The engine checks the occupied Medicine-track slot and requires activation from right to left.</p>${hButton('board-activate-medicine','I verified the printed rule · Activate','btn primary sm')}</div>`:'<p class="small muted">Ranchería activation requires verification of the visible Medicine track.</p>':''}`}
  </div>`:`<div class="tt-physical-status"><span class="tt-counter-symbol">${esc(smallIcon(piece.type))}</span><span><strong>${esc(piece.subtype||piece.type)}</strong><small>${piece.type==='Rancheria'?'Home for its Bands and stored resources. Select its space to inspect occupants.':piece.type==='Resource'?'Resource stock is moved only by validated Trade, Hunt and other rules actions.':piece.type==='Bison'?'Hunting removes this Bison only after a legal Hunt action.':'Moves through its corresponding rules procedure; selecting it never changes its location.'}</small></span></div>`;
@@ -1388,9 +1396,12 @@ function horseDiscardBoardCommands(pending){
  const required=pending.required;
  const choiceButtons=ids.map(id=>{
   const piece=state.pieces.find(p=>p.id===id),picked=selected.includes(id),art=physicalCounterArtUrl(piece);
-  return `<button type="button" class="board-horse-choice ${picked?'selected':''}" data-action="board-horse-discard-toggle" data-id="${esc(id)}" aria-pressed="${picked}" title="${esc(piece.label||'Horse')} at ${esc(formatLocation(state,piece.location))}">${art?`<img src="${esc(art)}" alt="">`:'♞'}<span>${esc(piece.label||'Horse')}</span><b>${picked?'✓':'+'}</b></button>`;
+  const location=formatLocation(state,piece.location),eligible=picked||selected.length<required;
+  // Physical Horse counters can share a printed face. Always identify both
+  // counter and location, so the choice is not a grid of indistinguishable icons.
+  return `<button type="button" class="board-horse-choice ${picked?'selected':''}" data-action="board-horse-discard-toggle" data-id="${esc(id)}" aria-pressed="${picked}" ${eligible?'':'disabled'} title="${esc(piece.label||'Horse')} · ${esc(location)} · ${esc(id)}">${art?`<img src="${esc(art)}" alt="">`:'♞'}<span>${esc(piece.label||'Horse')}<small class="board-counter-place">${esc(location)}</small></span><b>${picked?'✓':'+'}</b></button>`;
  }).join('');
- return `<div class="board-turn-actions board-horse-discard"><div class="board-horse-progress">Select ${required} Horses · ${selected.length} selected</div><div class="board-horse-counter-list">${choiceButtons}</div><button type="button" class="board-turn-command primary" data-action="board-horse-discard-confirm" ${selected.length===required?'':'disabled'}>Return selected Horses</button></div>`;
+ return `<div class="board-turn-actions board-horse-discard"><div class="board-horse-progress">Return ${required} physical Horse counter${required===1?'':'s'} · ${selected.length} of ${required} selected</div><p class="board-direct-hint">Choose which Horses to lose. Selected counters have a ✓; click again to deselect. No Horse leaves play until you confirm.</p><div class="board-horse-counter-list">${choiceButtons}</div><button type="button" class="board-turn-command primary" data-action="board-horse-discard-confirm" ${selected.length===required?'':'disabled'}>Confirm ${required} Horse loss${required===1?'':'es'}</button></div>`;
 }
 // A revealed Development card can require a real player choice. Keep the
 // existing reducer-backed forms in the board HUD instead of burying them in
@@ -1399,6 +1410,27 @@ function boardDevelopmentChoices(pending){
  if(!pending)return '';
  const piece=id=>state.pieces.find(p=>p.id===id);
  const kind=pending.kind;
+ // Missing map proof is an exceptional physical-board review, not a reason
+ // to abandon the game at an empty action prompt. Require the actual printed
+ // route and counter result to be documented; never manufacture a connection.
+ if(kind==='van-dorn-map'||kind==='special-battle-map'){
+  return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Development #${esc(pending.number)} · Map evidence required</div><p class="board-direct-hint">${esc(pending.reason||'The printed route cannot be established from the verified map graph.')} Compare the actual printed map and card before confirming. If the map ledger is missing a line, correct the connection on the board first. This confirmation records an externally resolved effect; it does not insert a route or roll a die.</p><label class="board-direct-hint" for="board-development-map-note">Record printed route, applicable counter choices and actual outcome (20–600 characters)</label><textarea id="board-development-map-note" maxlength="600" minlength="20" rows="3" placeholder="Printed spaces, line types, affected pieces and actual outcome"></textarea><button type="button" class="board-turn-command primary" data-action="board-development-map-confirm" data-id="${esc(pending.cardId)}">Confirm physically resolved effect</button></div>`;
+ }
+ // A printed board destination is a legal choice only if the SAME reducer
+ // accepts it. A stock shortage or compulsory return can otherwise leave
+ // visually enabled options that fail when clicked.
+ const reducerLegal=command=>{try{perform(state,command);return true;}catch{return false;}};
+ if(kind==='nuevo-apacheria'){
+  const candidates=state.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location]&&
+    SPACES.some(x=>x.territory==='RG'&&x.type==='round'&&
+      reducerLegal({type:'DEVELOPMENT_NUEVO_APACHERIA',tribeId:p.id,space:x.id})));
+  if(!candidates.some(p=>p.id===stateUI.nuevoTribeId))stateUI.nuevoTribeId=null;
+  const selected=stateUI.nuevoTribeId;
+  if(!selected)return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Nuevo Apachería #30 · Choose an in-play Tribe</div><div class="board-direct-hint">Choose the physical Tribe first, then its legal Rio Grande destination. The reducer handles displaced Settlement and Bison counters.</div><div class="board-horse-counter-list">${candidates.map(p=>`<button type="button" class="board-horse-choice" data-action="board-nuevo-tribe" data-id="${esc(p.id)}"><span>${esc(p.label||p.id)} · ${esc(SPACE[p.location]?.name||p.location)}</span></button>`).join('')||'<span>No legally movable Tribe; review the card procedure.</span>'}</div></div>`;
+  const targets=SPACES.filter(x=>x.territory==='RG'&&x.type==='round'&&
+    reducerLegal({type:'DEVELOPMENT_NUEVO_APACHERIA',tribeId:selected,space:x.id}));
+  return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Nuevo Apachería #30 · Choose Rio Grande destination</div><div class="board-horse-counter-list">${targets.map(x=>`<button type="button" class="board-horse-choice" data-action="board-nuevo-destination" data-space="${esc(x.id)}"><span>${esc(x.name)}</span></button>`).join('')}</div><button type="button" class="board-turn-command" data-action="board-nuevo-back">‹ Change Tribe</button></div>`;
+ }
  if(kind==='special-battle-target'){
   return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Kit Carson #72 · Nearest Ranchería to West · No dashed lines</div><div class="board-horse-counter-list">${(pending.candidates||[]).map(c=>`<button type="button" class="board-horse-choice" data-action="board-special-target" data-id="${esc(c.id)}"><span>${esc(c.label)} · ${c.mp} MPs</span></button>`).join('')}</div></div>`;
  }
@@ -1421,13 +1453,15 @@ function boardDevelopmentChoices(pending){
  if(kind==='fort-gibson-displace'){
   const ranch=piece(pending.rancheriaId);
   const choices=SPACES.filter(x=>['round','canyon'].includes(x.type)&&x.id!=='LA-6'&&
-    !state.pieces.some(p=>p.location===x.id&&['Rancheria','Tribe','Band','Settlement'].includes(p.type)));
+    !state.pieces.some(p=>p.location===x.id&&['Rancheria','Tribe','Band','Settlement'].includes(p.type))&&
+    reducerLegal({type:'DEVELOPMENT_FORT_GIBSON_MOVE',space:x.id}));
   return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Fort Gibson #45 · Move ${esc(ranch?.label||ranch?.id||'Ranchería')}</div><div class="board-direct-hint">Fort Gibson will occupy Lower Arkansas 6. Choose another legal location for your Ranchería. The East Settlement and removal of Tribe/Bison counters resolve automatically.</div><div class="board-horse-counter-list">${choices.map(x=>`<button type="button" class="board-horse-choice" data-action="board-fort-gibson-move" data-space="${esc(x.id)}"><span>${esc(x.name)}</span></button>`).join('')||'<span>No legal displacement destination.</span>'}</div></div>`;
  }
  if(kind==='indian-removal-displace'){
   const ranch=piece(pending.rancheriaIds?.[0]);
   const choices=SPACES.filter(x=>['round','canyon'].includes(x.type)&&x.territory!=='LA'&&
-    !state.pieces.some(p=>p.location===x.id&&['Rancheria','Tribe','Band','Settlement'].includes(p.type)));
+    !state.pieces.some(p=>p.location===x.id&&['Rancheria','Tribe','Band','Settlement'].includes(p.type))&&
+    reducerLegal({type:'DEVELOPMENT_INDIAN_REMOVAL_MOVE',space:x.id}));
   return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Indian Removal Act #55 · Move ${esc(ranch?.label||ranch?.id||'Ranchería')} out of Lower Arkansas</div><div class="board-direct-hint">Choose its destination. After all Rancherías move, available Tribes automatically fill eligible Lower Arkansas spaces, highest numbered area first. The Enemy Connection restriction is permanent.</div><div class="board-horse-counter-list">${choices.map(x=>`<button type="button" class="board-horse-choice" data-action="board-indian-removal-move" data-space="${esc(x.id)}"><span>${esc(x.name)}</span></button>`).join('')||'<span>No legal destination currently available.</span>'}</div></div>`;
  }
  if(kind==='kiowa-alliance'){
@@ -1435,7 +1469,7 @@ function boardDevelopmentChoices(pending){
   if(stateUI.kiowaChoice?.key!==key)stateUI.kiowaChoice={key,step:0,tribeId:null,rancheriaId:null,bandId:null,horseIds:[]};
   const c=stateUI.kiowaChoice;
   const ranches=state.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`).map(p=>p.id);
-  const bands=state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.strength)).map(p=>p.id);
+  const bands=state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.stockStrength||p.strength)).map(p=>p.id);
   const horses=state.pieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse'&&p.location==='reserve').map(p=>p.id);
   const stages=[{title:'Choose the Tribe',ids:pending.tribeIds||[],field:'tribeId'},
    {title:'Choose the Ranchería',ids:ranches,field:'rancheriaId'},
@@ -1445,8 +1479,13 @@ function boardDevelopmentChoices(pending){
   const buttons=stage.ids.map(id=>{const item=piece(id),art=item?physicalCounterArtUrl(item):null,selected=picked.includes(id);
    return `<button type="button" class="board-horse-choice ${selected?'selected':''}" data-action="board-kiowa-pick" data-id="${esc(id)}" aria-pressed="${selected}">${art?`<img src="${esc(art)}" alt="">`:''}<span>${esc(item?.label||id)}${item?.location?' · '+esc(item.location):''}</span><b>${selected?'✓':'+'}</b></button>`;
   }).join('');
-  const cannotProceed=c.step<3&&!c[stage.field];
-  return `<div class="board-turn-actions board-development-choice board-kiowa-choice"><div class="board-horse-progress">Kiowa Alliance · ${c.step+1} / 4 · ${esc(stage.title)}</div><div class="board-horse-counter-list">${buttons||'<span>No eligible physical counters available. This procedure cannot be completed.</span>'}</div>${c.step?'<button type="button" class="board-turn-command" data-action="board-kiowa-back">Previous</button>':''}<button type="button" class="board-turn-command primary" data-action="${c.step===3?'board-kiowa-confirm':'board-kiowa-next'}" ${cannotProceed?'disabled':''}>${c.step===3?'Resolve Alliance':'Next choice'}</button></div>`;
+  const cannotProceed=c.step===0&&!c.tribeId||c.step===1&&ranches.length>0&&!c.rancheriaId||c.step===2&&ranches.length>0&&bands.length>0&&!c.bandId;
+  const noRanch=!ranches.length;
+  const detail=noRanch?'No Ranchería counter remains in stock. The printed card still removes your chosen Tribe; placement is skipped.':
+    c.step===2&&!bands.length?'No strength-1/2 Band remains in stock. Place the Ranchería without a Band.':
+    c.step===3?'Horses are optional: select zero, one or two available Horse counters.':'';
+  const finish=noRanch&&c.step===0||c.step===3;
+  return `<div class="board-turn-actions board-development-choice board-kiowa-choice"><div class="board-horse-progress">Kiowa Alliance · ${c.step+1} / 4 · ${esc(stage.title)}</div>${detail?`<div class="board-direct-hint">${esc(detail)}</div>`:''}<div class="board-horse-counter-list">${buttons||'<span>No eligible physical counters in this stock.</span>'}</div>${c.step?'<button type="button" class="board-turn-command" data-action="board-kiowa-back">Previous</button>':''}<button type="button" class="board-turn-command primary" data-action="${finish?'board-kiowa-confirm':'board-kiowa-next'}" ${cannotProceed?'disabled':''}>${finish?(noRanch?'Remove selected Tribe':'Resolve Alliance'):'Next choice'}</button></div>`;
  }
  if(kind==='cuerno-medicine'||kind==='quanah-medicine'){
   const ids=(pending.chiefIds||[]).filter(id=>piece(id)?.type==='Mahimiana');
@@ -1495,9 +1534,20 @@ function epidemicBoardChoices(pending){
     !(pending.phase==='end-take-actions'&&state.pieces.some(p=>p.type==='Tribe'&&p.location===space))
  ).map(space=>({space,bands:state.pieces.filter(p=>p.type==='Band'&&p.location===space)})).filter(x=>x.bands.length>1);
  const selected=stateUI.epidemicSelection;
- const remaining=contested.find(x=>!x.bands.some(b=>b.id===selected[x.space]));
- if(remaining)return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Epidemic · Choose affected Band at ${esc(remaining.space)} · ${contested.length-1-contested.filter(x=>x.space!==remaining.space&&!selected[x.space]).length+1}/${contested.length}</div><div class="board-horse-counter-list">${remaining.bands.map(b=>`<button class="board-horse-choice" data-action="epidemic-pick" data-space="${esc(remaining.space)}" data-id="${esc(b.id)}">${pieceArt(b)?`<img src="${esc(pieceArt(b))}" alt="">`:''}<span>${esc(b.label||b.id)}</span></button>`).join('')}</div>${Object.keys(selected).length?'<button class="board-turn-next" data-action="epidemic-back">‹ Change last Band</button>':''}</div>`;
- return `<div class="board-turn-actions board-development-choice"><div class="board-horse-progress">Epidemic · ${contested.length} affected Band choices recorded</div><button class="board-turn-command primary" data-action="epidemic-apply">Apply verified Epidemic effects</button><button class="board-turn-next" data-action="epidemic-back">‹ Change last Band</button></div>`;
+ // Selection may outlive a rerender or a changed physical counter. Never
+ // enable a stale choice that is no longer eligible in the actual state.
+ for(const space of Object.keys(selected)){
+  if(!contested.some(x=>x.space===space&&x.bands.some(b=>b.id===selected[space])))delete selected[space];
+ }
+ const completed=contested.filter(x=>selected[x.space]).length;
+ const remaining=contested.find(x=>!selected[x.space]);
+ const progress=`Epidemic · ${completed} of ${contested.length} affected spaces selected`;
+ const selections=contested.filter(x=>selected[x.space]).map(x=>{
+  const band=x.bands.find(b=>b.id===selected[x.space]);
+  return `<li>${esc(SPACE[x.space]?.name||x.space)}: ${esc(band?.label||selected[x.space])} · strength ${esc(band?.strength??'?')}</li>`;
+ }).join('');
+ if(remaining)return `<div class="board-turn-actions board-development-choice board-epidemic-choice"><div class="board-horse-progress">${progress}</div><div class="board-direct-hint">Choose one Band at ${esc(SPACE[remaining.space]?.name||remaining.space)}. Its printed counter is reduced only when you confirm all spaces.</div><div class="board-horse-counter-list">${remaining.bands.map(b=>`<button type="button" class="board-horse-choice" data-action="epidemic-pick" data-space="${esc(remaining.space)}" data-id="${esc(b.id)}">${pieceArt(b)?`<img src="${esc(pieceArt(b))}" alt="">`:''}<span>${esc(b.label||b.id)}<small class="board-counter-place">Strength ${esc(b.strength)}</small></span></button>`).join('')}</div>${selections?`<details class="board-epidemic-summary"><summary>Review ${completed} chosen Band${completed===1?'':'s'}</summary><ul>${selections}</ul></details><button type="button" class="board-turn-next" data-action="epidemic-back">‹ Change previous Band</button>`:''}</div>`;
+ return `<div class="board-turn-actions board-development-choice board-epidemic-choice"><div class="board-horse-progress">${progress}</div><p class="board-direct-hint">Review the selected physical Bands before applying this card. The reducer will validate every choice.</p>${selections?`<ul class="board-epidemic-summary">${selections}</ul>`:'<p class="board-direct-hint">No multiply occupied eligible space requires a Band choice.</p>'}<button type="button" class="board-turn-command primary" data-action="epidemic-apply">Apply Epidemic to selected Bands</button>${completed?'<button type="button" class="board-turn-next" data-action="epidemic-back">‹ Change previous Band</button>':''}</div>`;
 }
 function boardTurnCommandsCore(prompt){
  if(state.phase==='gameover')return '<div class="board-turn-actions"><span class="board-direct-hint">The game is complete. Use Undo to correct the last recorded result, or start a new game from Settings.</span><button type="button" class="board-turn-command" data-action="player-panel-events">Review game events</button></div>';
@@ -1534,7 +1584,7 @@ function boardTurnCommandsCore(prompt){
   const onsite=available.filter(x=>x.kind!=='move');
   const move=available.filter(x=>x.kind==='move');
   const selection=stateUI.digitalSelectedPieceId;
-  return `<div class="board-turn-actions">${boardCommandButtons(onsite,'board-band-choice')}${move.length?`<span class="board-direct-hint">${move.length} legal destination${move.length===1?'':'s'} · click a highlighted map space to move</span>`:''}${!onsite.length&&!move.length?'<span class="board-direct-hint">No legal Band action is currently available. Inspect the pending rule below rather than manually changing a counter.</span><button type="button" class="board-turn-command" data-action="player-panel-guided">Inspect rule on board</button>':''}${selection&&selection!==band.id?'<button type="button" class="board-turn-next" data-action="board-clear-piece">Clear selection</button>':''}</div>`;
+  return `<div class="board-turn-actions">${boardCommandButtons(onsite,'board-band-choice')}${move.length?`<span class="board-direct-hint">${move.length} legal destination${move.length===1?'':'s'} · click a highlighted map space to move</span>`:''}${!onsite.length&&!move.length?'<span class="board-direct-hint">No legal Band action is currently available. Inspect the pending rule below rather than manually changing a counter.</span><button type="button" class="board-turn-command" data-action="player-panel-guided">Review procedure details</button>':''}${selection&&selection!==band.id?'<button type="button" class="board-turn-next" data-action="board-clear-piece">Clear selection</button>':''}</div>`;
  }
  if(prompt.kind==='automatic'&&prompt.command)return `<div class="board-turn-actions board-routine-action"><div class="board-direct-hint">${esc(prompt.detail||'The game can resolve this step without another player decision.')}</div><button type="button" class="board-turn-command primary" data-action="director-auto">${esc(prompt.title||'Continue game')}</button></div>`;
  // Show compulsory Passage choices on the actual board, not solely in the
@@ -1600,7 +1650,7 @@ function boardTurnCommandsCore(prompt){
  const mapTargets=directorSpatialTargets(prompt);
  const mapGuidance=mapTargets.size?`<span class="board-direct-hint">${mapTargets.size} glowing board target${mapTargets.size===1?'':'s'} · click the printed location to choose</span>`:'';
  const extra=prompt.title==='Gain Culture'?'<button type="button" class="board-turn-command" data-action="culture-ledger-gain">Apply Culture</button>':prompt.title==='Resolve Operations track'?'<button type="button" class="board-turn-command" data-action="operations-digital-roll">Roll Operations</button>':'';
- return `<div class="board-turn-actions">${boardCommandButtons(choices,'director-choice',choiceIndexes)}${choiceIndexes?'<button class="board-turn-next" data-action="board-clear-map-choice">All choices</button>':''}${mapGuidance}${extra}${!choices.length&&!extra?'<button type="button" class="board-turn-command" data-action="player-panel-guided">Resolve on board</button>':''}</div>`;
+ return `<div class="board-turn-actions">${boardCommandButtons(choices,'director-choice',choiceIndexes)}${choiceIndexes?'<button class="board-turn-next" data-action="board-clear-map-choice">All choices</button>':''}${mapGuidance}${extra}${!choices.length&&!extra?'<button type="button" class="board-turn-command" data-action="player-panel-guided">Review procedure details</button>':''}</div>`;
 }
 /** Last-mile board continuity guard: the reducer-validated director is the
  * source of legal actions. A phase-specific presentation must not make those
@@ -1673,6 +1723,34 @@ function guidedProcedureForPlayer(){
  if(e?.kind==='enemy')return `<p class="small muted">Current Enemy Instruction and cup controls. The printed counter and the recorded game state decide the next effect.</p>${enemyProcedurePanel()}${enemyDisplayPanel()}${cupInventoryPanel()}${procedurePanel()}`;
  return operationsPage();
 }
+/** One contextual explanation in the existing rail; ordinary legal choices
+ * are *not* rendered a second time. Exceptional rules keep the older
+ * reducer-backed controls available without launching a competing screen. */
+function inlineRuleAssistance(){
+ const pending=state.developmentPending;
+ if(pending?.kind==='horse-discard')return `<p class="small muted">This card returns ${esc(pending.required)} physical Horse counters to stock. Select the counters in the action buttons above, then confirm. The rules engine checks the exact number and available counters.</p>`;
+ if(pending?.kind==='epidemic')return `<p class="small muted">Epidemic affects the printed selected spaces. Choose one eligible Band in each contested location using the counter buttons above. Review the final selection before applying. No manual form is required.</p>`;
+ if(pending?.kind==='kiowa-alliance')return `<p class="small muted">Complete the four Kiowa Alliance stages using the displayed Tribe, Ranchería and physical counter choices above; the reducer validates the final selection.</p>`;
+ // Every Development procedure with a working direct board chooser must have
+ // ONE control surface. The legacy guided page still contains old form copies
+ // (including special Battles and Kiowa Alliance), and opening '?' must never
+ // expose a second route to mutate the same pending card.
+ const directDevelopmentKinds=new Set([
+  'epidemic','horse-discard','special-battle-target','special-battle-band',
+  'special-battle-roll','van-dorn-rancheria','van-dorn-battle',
+  'fort-gibson-displace','indian-removal-displace','kiowa-alliance','van-dorn-map','special-battle-map',
+  'cuerno-medicine','quanah-medicine','ute-displacement','nuevo-apacheria',
+  'smallpox-end','buffalo-hunters','physical-stock','texas-stock'
+ ]);
+ if(pending&&directDevelopmentKinds.has(pending.kind)){
+  return `<p class="small muted">${esc(pending.reason||'This Development card requires a counter decision.')} Make the selection with the counter buttons above. Only the rules engine applies the effect; this panel contains no duplicate form or confirmation.</p>`;
+ }
+ const prompt=nextPlayerPrompt(state);
+ const needsException=prompt.kind==='evidence'||(prompt.kind==='player'&&!(prompt.choices||[]).length);
+ if(needsException)return guidedProcedureForPlayer();
+ const card=state.cards.filter(c=>['In play','Display'].includes(c.zone)&&['Culture','Development'].includes(c.kind));
+ return `<p class="small muted">${esc(prompt.detail||'The current step is controlled by the rules engine.')} Use the legal choices above; there is no separate decision menu.</p>${card.length?`<p class="small muted">Active or displayed cards: ${card.map(c=>esc(c.title||c.identifier||c.kind)).join(' · ')}. Click their printed faces to inspect them.</p>`:''}`;
+}
 function playerBoardPanel(){
  const mode=stateUI.playerPanel;
  if(!mode)return '';
@@ -1683,7 +1761,6 @@ function playerBoardPanel(){
  let body='';
  if(state.phase==='gameover'&&mode!=='events')body=`${overview}${procedurePanel()}`;
  else if(mode==='decisions')body=`${overview}<h3>${activeChoices.length?'Actions for active Band':'Current legal decisions'}</h3>${activeChoices.length?`<div class="player-panel-choices">${activeChoices.map(action=>`<button type="button" class="board-turn-command" data-action="guided-band-choice" data-guided-id="${esc(action.id)}" title="${esc(action.detail)}">${esc(action.label)} · ${esc(action.detail)}</button>`).join('')}</div>`:prompt.kind==='automatic'&&prompt.command?`<button type="button" class="board-turn-command primary" data-action="director-auto">${esc(prompt.title||'Continue game')}</button>`:current.length?`<div class="player-panel-choices">${current.map((choice,i)=>`<button type="button" class="board-turn-command" data-action="director-choice" data-choice-index="${i}" title="${esc(choice.detail||'')}">${esc(choice.label)}</button>`).join('')}</div>`:'<p>No verified direct action is available. Open Guided resolution to inspect the exact rule blocker; no counters will be changed automatically.</p>'}`;
- else if(mode==='events')body=`${overview}${latestEnemyStory(state.log,12)?`<section class="player-enemy-history"><h3>Last Enemy activation</h3><p>${esc(latestEnemyStory(state.log,12).enemy)} · ${esc(latestEnemyStory(state.log,12).kind)} instructions · ${latestEnemyStory(state.log,12).completed?'Completed':'In progress'}</p><ol>${latestEnemyStory(state.log,12).steps.map(line=>`<li>${eventText(line)}</li>`).join('')}</ol></section>`:''}<h3>Recent events — newest first</h3><p class="small muted">These are recorded results, not instructions to click again. Click a linked counter or place name to locate its current position on the board.</p>${recent.length?`<ol class="player-panel-events">${recent.map(event=>`<li><strong>${esc(event.command||'Event')}</strong><p>${eventText(event.description||'Game state changed')}</p></li>`).join('')}</ol>`:'<p>No events recorded yet.</p>'}`;
  else if(mode==='guided')body=`${overview}<div class="notice alert"><b>Guided rules assistance.</b> The options below use existing engine commands. Corrections, physical confirmations and uncertified card effects must not be treated as automatically resolved.</div>${guidedProcedureForPlayer()}`;
  return `<aside class="player-panel board-side-rail" role="region" aria-label="On-board game assistance"><div class="player-panel-head"><strong>${mode==='guided'?'Resolve on the board':mode==='events'?'Game journal':'Choose on the board'}</strong><button type="button" data-action="player-panel-close" aria-label="Close panel">✕</button></div><div class="player-panel-body">${body}</div></aside>`;
 }
@@ -1738,9 +1815,11 @@ function liveResolutionReceipt(){
 /** A permanent, deliberately plain log in the left margin of the board. */
 function eventText(value){return linkEventLocations(value,SPACES,findableCounters(state.pieces,new Set(SPACES.map(sp=>sp.id))));}
 function tabletopActionLog(){
- const all=chronologicalTableEvents(state.log),events=all.slice(-80);
- const last=events.at(-1);
- return `<aside class="table-action-log ${stateUI.logExpanded?'expanded':'collapsed'}" aria-label="Game action log" aria-live="off"><button type="button" class="table-action-log-toggle" data-action="toggle-action-log" aria-expanded="${stateUI.logExpanded}" aria-label="${stateUI.logExpanded?'Hide':'Show'} recent game events">${stateUI.logExpanded?'✕ Close':'☷ Events'}${all.length?` <span>${all.length}</span>`:''}</button>${stateUI.logExpanded?`<div class="table-action-log-heading"><strong>Recent moves</strong><p>${all.length>events.length?`Latest ${events.length} of ${all.length} events`:`${all.length} recorded events`} · newest at bottom</p><p class="event-link-hint">Click a highlighted name to locate it on the board (current position).</p></div><div class="table-action-log-items" role="log" aria-live="off" aria-relevant="additions text">${events.length?events.map(event=>`<p class="table-action-log-entry" data-log-seq="${esc(event.seq)}"><small>${esc(event.seq??'')}</small>${eventText(briefTableEvent(event.description))}</p>`).join(''):'<p class="table-action-log-empty">Moves and consequences will appear here.</p>'}</div><button type="button" class="table-action-log-journal" data-action="player-panel-events">Open full Game Journal</button><button type="button" class="table-action-log-journal" data-action="export-full-journal">Download all events &amp; Band ledger</button>`:`<div class="table-action-log-latest" aria-live="off">${last?eventText(briefTableEvent(last.description)):'The game log will record what happens.'}</div>`}</aside>`;
+ const all=chronologicalTableEvents(state.log);
+ const events=stateUI.showAllLog?all:all.slice(-12);
+ const last=all.at(-1);
+ const range=stateUI.showAllLog?'Complete journal':`Latest ${events.length} of ${all.length} events`;
+ return `<aside class="table-action-log ${stateUI.logExpanded?'expanded':'collapsed'}" aria-label="Game action log" aria-live="off"><button type="button" class="table-action-log-toggle" data-action="toggle-action-log" aria-expanded="${stateUI.logExpanded}" aria-label="${stateUI.logExpanded?'Hide':'Show'} game events">${stateUI.logExpanded?'✕ Close':'☷ Events'}${all.length?` <span>${all.length}</span>`:''}</button>${stateUI.logExpanded?`<div class="table-action-log-heading"><strong>What happened</strong><p>${range}</p></div><div class="table-action-log-items" role="log" aria-live="off" aria-relevant="additions text">${events.length?events.map(event=>`<p class="table-action-log-entry" data-log-seq="${esc(event.seq)}"><small>${esc(event.seq??'')}</small>${eventText(briefTableEvent(event.description))}</p>`).join(''):'<p class="table-action-log-empty">Moves and consequences will appear here.</p>'}</div><div class="table-log-actions"><button type="button" class="table-action-log-journal" data-action="table-log-show-all">${stateUI.showAllLog?'Show recent moves':'Show entire journal'}</button><button type="button" class="table-action-log-journal" data-action="export-full-journal">Export</button></div>`:`<div class="table-action-log-latest" aria-live="off">${last?eventText(briefTableEvent(last.description)):'The game log will record what happens.'}</div>`}</aside>`;
 }
 function restoreTableActionLog(previous){
  const log=document.querySelector('.table-action-log-items');if(!log)return;
@@ -1754,7 +1833,7 @@ function restoreTableActionLog(previous){
 function cultureCardTray(){
  const cards=state.cards.filter(c=>c.kind==='Culture'&&['Hand','In play'].includes(c.zone));
  if(!cards.length)return '';
- return `<section class="tt-culture-tray" aria-label="Culture cards (separate from Development display)"><b>Culture cards</b><div>${cards.map(c=>{const art=cardImageUrl(artReferenceForCard(c));return `<button type="button" data-action="printed-card-inspect" data-id="${esc(c.id)}" title="Inspect ${esc(c.title||c.identifier)}">${art?`<img src="${esc(art)}" alt="">`:''}<span>${esc(c.title||c.identifier||'Culture')}</span></button>`;}).join('')}</div></section>`;
+ return `<details class="tt-culture-tray" aria-label="Culture cards (separate from Development display)"><summary>Culture cards · ${cards.length}</summary><div>${cards.map(c=>{const art=cardImageUrl(artReferenceForCard(c));return `<button type="button" data-action="printed-card-inspect" data-id="${esc(c.id)}" title="Inspect ${esc(c.title||c.identifier)}">${art?`<img src="${esc(art)}" alt="">`:''}<span>${esc(c.title||c.identifier||'Culture')}</span></button>`;}).join('')}</div></details>`;
 }
 function historyCheckExplanation(){
  const audit=historyObjectiveAudit(state),r=state.passageResult;
@@ -1810,7 +1889,7 @@ function onBoardBriefing(){
  const active=state.pieces.find(p=>p.id===state.activeBandId&&p.type==='Band');
  const cargo=active?state.pieces.filter(p=>p.location===`held:${active.id}`):[];
  const horse=cargo.some(p=>p.subtype==='Horse');
- return `<div class="board-field-brief" aria-label="Current goals and track positions"><div class="board-field-tracks"><div><small>OPERATIONS</small><strong>${esc(operationLabel)}</strong><span>Determines when you must pass time</span></div><div><small>PASSAGE OF TIME</small><strong>${esc(passageLabel)}</strong><span>${esc(chance)}</span></div></div><div class="board-field-objective"><span>H${esc(state.period)} · HISTORY OBJECTIVE</span><p>${esc(audit.reason||'Inspect the History card to see what you must achieve before its check.')}</p></div>${active?`<div class="board-field-band"><span>${esc(active.label||'Active Band')} · ${esc(state.tracks.movement)} MP</span><p>${horse?'Mounted: 1 MP per linked move':'On foot: 2 MP per linked move'} · Carrying: ${esc(cargo.map(p=>p.subtype||p.label||p.type).join(', ')||'nothing')}</p></div>`:''}<button type="button" data-action="replay-open" class="board-history-shortcut">◷ Review how the board got here <kbd>T</kbd></button></div>`;
+ return `<div class="board-field-brief" aria-label="Current goals and track positions"><div class="board-field-tracks"><div><small>OPERATIONS</small><strong>${esc(operationLabel)}</strong><span>Determines when you must pass time</span></div><div><small>PASSAGE OF TIME</small><strong>${esc(passageLabel)}</strong><span>${esc(chance)}</span></div></div><div class="board-field-objective"><span>H${esc(state.period)} · HISTORY OBJECTIVE</span><p>${esc(audit.reason||'Inspect the History card to see what you must achieve before its check.')}</p></div>${active?`<div class="board-field-band"><span>${esc(active.label||'Active Band')} · ${esc(state.tracks.movement)} MP</span><p>${horse?'Mounted: 1 MP per linked move':'On foot: 2 MP per linked move'} · Carrying: ${esc(cargo.map(p=>p.subtype||p.label||p.type).join(', ')||'nothing')}</p></div>`:''}</div>`;
 }
 /** Explain losses and physical Band locations without inferring losses from
  * pieces that were merely returned to a Ranchería box. */
@@ -1838,12 +1917,16 @@ function tabletopPage(){
  return `<section class="tt-surface tt-printed-only" aria-label="Comanchería printed board gameplay">
   ${stateUI.replayIndex===null?tabletopActionLog():'<div class="tt-replay-watermark">PAST BOARD POSITION · READ ONLY</div>'}
   <div class="tt-printed-board ${stateUI.replayIndex!==null?'tt-replay-board':''}">${replayBoardImage()}${importBoard}</div>
-  <div class="printed-utility" aria-label="Game utilities"><button data-action="replay-open" title="Replay previous board positions without undoing" aria-label="Board replay">◷</button><button data-action="focus-board-decisions" title="Current legal actions on board" aria-label="Focus current board decisions">◎</button><button data-action="player-panel-events" title="Recent events" aria-label="See recent events">☷</button><button data-action="player-panel-guided" title="Guided procedures" aria-label="Open guided rules assistance">?</button><button data-action="undo" ${history.past.length?'':'disabled'} title="Undo">↶</button><button data-action="redo" ${history.future.length?'':'disabled'} title="Redo">↷</button></div>
-  ${stateUI.replayIndex!==null?replayViewer():`<section class="board-turn-hud ${boardDecisionFocus(prompt)?'board-focus-'+boardDecisionFocus(prompt):''} ${state.phase==='execution'&&state.operation==='Passage of Time'&&state.passageBison?.currentTerritory?'board-spatial-bison':''}" aria-label="Current turn and legal actions"><div class="board-turn-summary"><span class="board-turn-kicker">${esc(guide.tag)}</span><strong>${esc(guide.headline)}</strong><p>${esc(guide.detail)}</p></div>${onBoardBriefing()}${boardResourceStatus()}${routineEventReceipt()}${boardTurnCommands(prompt)}${liveResolutionReceipt()}</section>`}
+  <div class="printed-utility" aria-label="Game utilities"><button data-action="replay-open" title="Replay previous board positions without undoing" aria-label="Board replay">◷</button><button data-action="focus-board-decisions" title="Current legal actions on board" aria-label="Focus current board decisions">◎</button><button data-action="player-panel-events" title="Open full event journal" aria-label="Open game journal">☷</button><button data-action="player-panel-guided" title="Optional rule details" aria-label="Show optional rule details">?</button><button data-action="undo" ${history.past.length?'':'disabled'} title="Undo">↶</button><button data-action="redo" ${history.future.length?'':'disabled'} title="Redo">↷</button></div>
+  ${stateUI.replayIndex!==null?replayViewer():`<section class="board-turn-hud ${boardDecisionFocus(prompt)?'board-focus-'+boardDecisionFocus(prompt):''} ${state.phase==='execution'&&state.operation==='Passage of Time'&&state.passageBison?.currentTerritory?'board-spatial-bison':''}" aria-label="Current turn and legal actions"><div class="board-turn-summary"><span class="board-turn-kicker">${esc(guide.tag)}</span><strong>${esc(guide.headline)}</strong><p>${esc(guide.detail)}</p></div>
+  ${boardTurnCommands(prompt)}
+  <div id="inline-procedure-root" class="board-inline-procedure-host" aria-label="Current contextual game procedure"></div>
+  ${stateUI.ruleDetailsOpen?`<section class="board-exception-details" aria-label="Additional contextual rule controls"><div class="board-exception-heading"><strong>Contextual rules and exceptions</strong><button type="button" data-action="player-panel-guided" aria-label="Close rule details">Close</button></div>${inlineRuleAssistance()}</section>`:''}
+  ${(state.successCheck||state.pending?.type==='raid'||state.enemyFlow)?liveResolutionReceipt():''}
+  <details class="board-secondary-details"><summary>Board status and recent results</summary>${onBoardBriefing()}${boardResourceStatus()}${routineEventReceipt()}</details></section>`}
   ${stateUI.replayIndex===null?cultureCardTray():''}
-  ${stateUI.replayIndex===null?historyCheckExplanation():''}
-  ${stateUI.replayIndex===null?gameplayCeremonyOverlay():''}
-  ${stateUI.replayIndex===null?playerBoardPanel():''}
+  ${stateUI.replayIndex===null&&state.phase!=='gameover'?historyCheckExplanation():''}
+  ${stateUI.replayIndex===null&&state.phase!=='gameover'?gameplayCeremonyOverlay():''}
   <div id="modal-root"></div>
  </section>`;
 }
@@ -2390,10 +2473,9 @@ function developmentAutomationPanel(){
  ${state.phase==='cleanup'&&!state.steps?.cl1&&active.some(c=>['70','71'].includes(c.number)&&!(state.buffaloDoneIds||[]).includes(c.id))&&!pending?hButton('development-buffalo-start','Resolve next Buffalo Hunters cleanup card','btn primary sm'):''}
  ${pending?.kind==='physical-stock'?`<form id="development-physical-stock-form"><p>${esc(pending.reason)}</p><label class="small"><input type="checkbox" name="ack" required> I have checked my physical game and confirmed that this unused counter really exists.</label><button class="btn primary sm" type="submit">Register physical counter and continue card</button></form>`:''}
  ${pending?.kind==='texas-stock'?`<form id="development-texas-stock-form"><p>Texas Independence (#51) requires an East Settlement from the physical game supply. The scenario ledger has none recorded; the revealed card has not removed any Tribe yet.</p><label class="small"><input type="checkbox" name="ack" required> I have checked the physical components and have an unused East Settlement counter.</label><button class="btn primary sm" type="submit">Register counter and resolve Texas Independence</button></form>`:''}
- ${pending?.kind==='kiowa-alliance'?`<form id="development-kiowa-form"><p>Kiowa Alliance: choose the Tribe, an available Ranchería, a strength-1 or -2 Band and up to two Horse counters.</p><label class="field"><span>Tribe</span><select name="tribeId">${pending.tribeIds.map(id=>option(id,state.pieces.find(p=>p.id===id)?.location||id)).join('')}</select></label><label class="field"><span>Ranchería</span><select name="rancheriaId">${state.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`).map(p=>option(p.id,p.label||p.id)).join('')}</select></label><label class="field"><span>Band</span><select name="bandId">${state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.strength)).map(p=>option(p.id,p.label||p.id)).join('')}</select></label>${state.pieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse'&&p.location==='reserve').map(p=>`<label class="field"><input type="checkbox" name="horseId" value="${esc(p.id)}"> ${esc(p.label||p.id)}</label>`).join('')}<button class="btn primary sm">Resolve complete Kiowa Alliance reveal</button></form>`:''}
+ ${pending?.kind==='kiowa-alliance'?'<p class="small muted">Use the active Kiowa Alliance counter choices in the main board action panel. If stock is exhausted, unavailable placements are skipped under the printed card.</p>':''}
  ${pending?.kind==='nuevo-apacheria'?`<form id="development-nuevo-form"><p>Nuevo Apachería: select one in-play Tribe, then one eligible Rio Grande space. Bison and Settlement counters there return to stock.</p><label class="field"><span>Tribe to move</span><select name="tribeId">${state.pieces.filter(p=>p.type==='Tribe'&&SPACE[p.location]).map(p=>option(p.id,p.label||p.id)).join('')}</select></label><label class="field"><span>Rio Grande space</span><select name="space">${options(SPACES.filter(p=>p.territory==='RG').map(p=>[p.id,p.name]),'RG-1')}</select></label><button class="btn primary sm">Resolve Nuevo Apachería</button></form>`:''}
- ${pending?.kind==='horse-discard'?`<form id="development-horse-loss-form"><p>Development #${esc(pending.number)}: select ${pending.required} in-play Horse counters to return to stock.</p>${pending.horseIds.map(id=>`<label class="field"><input type="checkbox" name="horseId" value="${esc(id)}"> ${esc(state.pieces.find(p=>p.id===id)?.label||id)}</label>`).join('')}<button class="btn primary sm">Apply printed Horse losses</button></form>`:''}
- ${pending?.kind==='epidemic'?`<form id="development-epidemic-form"><p>Printed Epidemic selected ${pending.spaces.map(esc).join(', ')}. Choose one affected Band in any multiply occupied selected space.</p>${pending.spaces.filter(loc=>state.pieces.filter(p=>p.type==='Band'&&p.location===loc).length>1&&!state.pieces.some(p=>p.type==='Rancheria'&&p.location===loc)).map(loc=>`<label class="field"><span>${esc(loc)}</span><select name="choice_${esc(loc)}">${state.pieces.filter(p=>p.type==='Band'&&p.location===loc).map(p=>option(p.id,p.label||p.id)).join('')}</select></label>`).join('')}<button class="btn primary sm">Apply Epidemic to selected spaces</button></form>`:''}
+ ${pending&&['horse-discard','epidemic'].includes(pending.kind)?'<p class="small muted">Resolve this multi-counter card through the current board decision above. There is no separate confirmation form.</p>':''}
  ${pending&&!['epidemic','smallpox-end','buffalo-hunters','horse-discard','texas-stock','physical-stock','nuevo-apacheria','kiowa-alliance','indian-removal-displace','fort-gibson-displace','cuerno-medicine','quanah-medicine','ute-displacement','van-dorn-rancheria','van-dorn-battle','van-dorn-map','special-battle-target','special-battle-band','special-battle-roll','special-battle-map','special-battle-no-band'].includes(pending.kind)?`<div class="notice alert">Card ${esc(pending.number)} has an unimplemented printed effect and blocks further play.</div><form id="development-confirm-form"><input type="hidden" name="id" value="${esc(pending.cardId)}"><label class="field"><span>Actual printed effect and result</span><textarea name="note" minlength="20" maxlength="600" required></textarea></label><label class="small"><input name="ack" type="checkbox" required> I resolved this card using its actual printed face.</label><button class="btn primary sm" type="submit">Record verified outcome</button></form>`:''}
  ${state.phase==='execution'&&state.operation==='Passage of Time'&&deck.length&&!pending&&state.steps?.pt13!=='done'&&Array.from({length:12},(_,i)=>`pt${i+1}`).every(k=>['done','na'].includes(state.steps?.[k]))?hButton('development-passage-step13','Resolve Development display · Passage step 13','btn primary sm'):''}
 
@@ -2615,10 +2697,11 @@ function modalContent(){const m=stateUI.modal;if(!m)return null;
 
  if(m==='trade'){
   const p=state.pieces.find(x=>x.id===state.activeBandId);if(!p)return null;
-  const resources=state.pieces.filter(x=>x.location===`held:${p.id}`&&(x.type==='Bison'||(x.type==='Resource'&&['Horse','Captives','Bison'].includes(x.subtype))));
+  const legalChoices=tradeBoardChoices(state);
+  const resources=state.pieces.filter(x=>legalChoices.some(choice=>choice.resourceId===x.id));
   const chosen=resources.find(x=>x.id===stateUI.tradeResourceChoice);
-  const gains=['Food','Trade Goods',...(state.cards.some(c=>c.kind==='Culture'&&c.zone==='In play'&&(c.identifier==='C09'||c.title==='Trade level 1'))&&state.tracks.culture>=1?['Guns']:[])];
-  return ['Trade · choose counters',`<p class="intro">${chosen?'2. Receive a counter from stock':'1. Select the carried counter to trade'}. The engine checks AP, movement, eligible location, card restrictions and stock.</p><div class="board-procedure-choices">${!chosen?resources.map(r=>hButton('board-trade-give',r.subtype||r.type,'btn board-counter-choice',`data-id="${esc(r.id)}"`)).join('')||'<div class="notice alert">No eligible carried resources.</div>':`${gains.map(receive=>hButton('board-trade-receive',receive,'btn primary board-counter-choice',`data-receive="${esc(receive)}"`)).join('')}${hButton('board-trade-back','← Change resource','btn sm')}`}</div>`];
+  const gains=chosen?legalChoices.filter(choice=>choice.resourceId===chosen.id).map(choice=>choice.receive):[];
+  return ['Trade · choose counters',`<p class="intro">${chosen?'2. Receive a counter from stock':'1. Select the carried counter to trade'}. The engine checks AP, movement, eligible location, card restrictions and stock.</p><div class="board-procedure-choices">${!chosen?resources.map(r=>hButton('board-trade-give',r.subtype||r.type,'btn board-counter-choice',`data-id="${esc(r.id)}"`)).join('')||'<div class="notice alert">No legal Trade is available with the current position, AP, MP, cards and stock.</div>':`${gains.map(receive=>hButton('board-trade-receive',receive,'btn primary board-counter-choice',`data-receive="${esc(receive)}"`)).join('')}${hButton('board-trade-back','← Change resource','btn sm')}`}</div>`];
  }
 
  if(m==='start-success-check'){const band=state.pieces.find(p=>p.id===state.pending?.bandId);const mah=state.pieces.find(p=>p.type==='Mahimiana'&&p.location===`held:${band?.id}`);return ['Start a digital Success Check',`<p class="intro">Rule 2.9: draw one counter per Band strength, with up to two bonus counters when a possessed Mahimiana qualifies. The app can roll the Mahimiana bonus and draw from its recorded cup. Physical entry is optional.</p>${hButton('board-digital-check','Roll & draw digitally','btn primary board-counter-choice')}<details><summary>Record a physical check instead</summary><form id="start-check-form"><div class="notice info">Active Band: <b>${esc(band?.label||'Unknown')}</b> · Strength ${band?.strength??0}</div>${mah?`<div class="form-grid"><label class="field"><span>Printed medicine of ${esc(mah.label)}</span><input type="number" name="medicine" min="0" max="9" value="${state.medicine.mahimiana??0}" required></label><label class="field"><span>Optional physical die (1–6)</span><input type="number" name="die" min="1" max="6" value="1"><span>Die source</span><select name="diceMode"><option value="digital">Digital roll</option><option value="physical">Record physical result</option></select></label></div><label class="small"><input type="checkbox" name="ack"> I verified the Mahimiana medicine when recording a physical roll.</label>`:'<p class="small muted">No possessed Mahimiana: draw count equals Band strength.</p>'}<div class="form-end"><button class="btn primary" type="submit">Begin counting drawn counters</button></div></form></details>`];}
@@ -2631,7 +2714,16 @@ function modalContent(){const m=stateUI.modal;if(!m)return null;
 
  return null;
 }
-function renderModal(){const root=$('modal-root');if(!root)return;const content=modalContent();root.innerHTML=content?modalContainer(content[0],content[1]):'';if(content&&GAMEPLAY_DIALOGS.has(stateUI.modal))mountBoardDecisionSteps(root);}
+function renderModal(){
+ const popup=$('modal-root'),inline=$('inline-procedure-root');
+ if(!popup)return;
+ const content=modalContent(),gameplay=Boolean(content&&GAMEPLAY_DIALOGS.has(stateUI.modal));
+ // Only one procedure is ever rendered. Gameplay is docked *inside* the
+ // existing action rail rather than creating another floating panel.
+ popup.innerHTML=!gameplay&&content?modalContainer(content[0],content[1]):'';
+ if(inline)inline.innerHTML=gameplay?modalContainer(content[0],content[1]):'';
+ if(gameplay&&inline)mountBoardDecisionSteps(inline);
+}
 const GAMEPLAY_DIALOGS=new Set(['cleanup-trail','move-band','trade','start-success-check','resolve-raid']);
 const CORRECTION_DIALOGS=new Set(['add-piece','edit-piece','move-piece','add-card','edit-card']);
 function openModal(modal,id){
@@ -2658,7 +2750,7 @@ function openModal(modal,id){
   notify('This procedure is unavailable in the current game state.',true);return;
  }
  renderModal();
- document.querySelector('#modal-root [role="dialog"] button, #modal-root [role="dialog"] input, #modal-root [role="dialog"] select')?.focus({preventScroll:true});
+ document.querySelector('#inline-procedure-root .board-inline-procedure button, #modal-root .board-inline-procedure button')?.focus({preventScroll:true});
 }
 function closeModal(){stateUI.tradeResourceChoice=null;stateUI.modal=null;stateUI.modalId=null;stateUI.edgeStart=null;stateUI.edgeTarget=null;renderModal();}
 function choose(tab){stateUI.tab=tab;stateUI.modal=null;render();window.scrollTo({top:0,behavior:'instant'});}
@@ -2688,6 +2780,13 @@ async function actionClick(e){
  if(actionTarget?.dataset.action==='choose-tts-folder'){document.getElementById('tts-unified-picker')?.click();return;}
  if(actionTarget?.dataset.action==='clear-tts-images'){if(!confirm('Remove all locally cached Comanchería artwork? Saved games remain untouched.'))return;clearLocalArt().then(()=>{notify('Local artwork removed; saves preserved.');render();}).catch(error=>notify(error.message,true));return;}
 const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action;if(activeCardReveal()&&a!=='next-card-reveal')return;const d=btn.dataset;if(a==='history-ledger-resolve'){commit({type:'RESOLVE_VICTORY_FROM_LEDGER',ack:Boolean(document.getElementById('history-ledger-ack')?.checked),transitionAck:Boolean(document.querySelector('#victory-check-form [name=transitionAck]')?.checked)});return;}if(a==='passage-auto-progress'){commit({type:'PASSAGE_AUTO_PROGRESS'});return;}if(a==='war-auto-progress'){commit({type:'WAR_AUTO_PROGRESS'});return;}if(a==='war-auto-until-choice'){commit({type:'WAR_AUTO_UNTIL_CHOICE'});return;}if(a==='war-draw-movement'){commit({type:'WAR_DRAW_MOVEMENT'});return;}if(a==='board-trail-place'){const trail=santaFeTrailPlacementPreview(state);if(trail.choices.some(x=>x.to===d.to))commit({type:'CLEANUP_TRAIL_PLACE',to:d.to,ack:true});return;}
+ if(a==='board-development-map-confirm'){
+  const pending=state.developmentPending;
+  if(!pending||!['van-dorn-map','special-battle-map'].includes(pending.kind)||pending.cardId!==d.id){notify('This map-evidence confirmation is no longer pending.',true);return;}
+  const note=String(document.getElementById('board-development-map-note')?.value||'').trim();
+  if(note.length<20||note.length>600){notify('Document the actual printed route and card outcome (20–600 characters).',true);return;}
+  commit({type:'DEVELOPMENT_CONFIRM_EFFECT',id:pending.cardId,ack:true,note});return;
+ }
  if(a==='board-passage-digital-finish'){commit({type:'PASSAGE_DIGITAL_FINISH'});return;}
  if(a==='board-dock-move'){if(state.activeBandId&&boardMoveStatus(state,state.activeBandId,d.to).ok)commit({type:'MOVE_BAND',to:d.to});else notify('This movement is no longer legal.',true);return;}
  if(a==='board-trade-give'){const band=state.activeBandId;const resource=state.pieces.find(x=>x.id===d.id&&x.location===`held:${band}`);if(resource){stateUI.tradeResourceChoice=d.id;renderModal();}return;}
@@ -2701,9 +2800,22 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  if(a==='recruit-back'){const c=stateUI.recruitChoice;c.stage=Math.max(0,c.stage-1);if(c.stage===0){c.bandId=null;c.resourceIds=[];}render();return;}
  if(a==='recruit-finish'){stateUI.recruitChoice={rancheriaId:null,bandId:null,resourceIds:[],stage:0};commit({type:'CHECK',key:'pt2',value:'done'});return;}
  if(a==='recruit-confirm'){const c=stateUI.recruitChoice;if(!c.rancheriaId||!c.bandId||!c.resourceIds.length){notify('Select the Ranchería, Band and population counters first.',true);return;}const command={type:'PASSAGE_RECRUIT_BAND',rancheriaId:c.rancheriaId,bandId:c.bandId,resourceIds:[...c.resourceIds]};try{perform(state,command);}catch(e){notify(e.message,true);return;}stateUI.recruitChoice={rancheriaId:c.rancheriaId,bandId:null,resourceIds:[],stage:1};commit(command);return;}
- if(a==='epidemic-pick'){stateUI.epidemicSelection[d.space]=d.id;render();return;}
+ if(a==='epidemic-pick'){
+  const pending=state.developmentPending;
+  if(pending?.kind!=='epidemic'||!pending.spaces?.includes(d.space)||!state.pieces.some(p=>p.id===d.id&&p.type==='Band'&&p.location===d.space)){
+   notify('That Band is no longer a legal Epidemic target.',true);return;
+  }
+  stateUI.epidemicSelection[d.space]=d.id;render();return;
+ }
  if(a==='epidemic-back'){const keys=Object.keys(stateUI.epidemicSelection);if(keys.length)delete stateUI.epidemicSelection[keys.at(-1)];render();return;}
- if(a==='epidemic-apply'){const choices={...stateUI.epidemicSelection};commit({type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices:choices});return;}
+ if(a==='epidemic-apply'){
+  const pending=state.developmentPending;
+  if(pending?.kind!=='epidemic'){notify('There is no pending Epidemic to apply.',true);return;}
+  const choices={...stateUI.epidemicSelection};
+  try{perform(state,{type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices:choices});}
+  catch(e){notify('The affected counter choices changed. Recheck the highlighted Bands: '+e.message,true);render();return;}
+  commit({type:'DEVELOPMENT_RESOLVE_EPIDEMIC',bandChoices:choices});stateUI.epidemicSelection={};stateUI.epidemicKey=null;return;
+ }
  if(a==='board-rancheria-defend'){
   const id=d.rancheriaId,preview=rancheriaFightPreview(state,id);
   if(!preview.ready){notify(preview.reason,true);return;}
@@ -2754,30 +2866,59 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
   if(state.developmentPending?.kind!=='ute-displacement'||!state.developmentPending.destinations.includes(d.space))return;
   commit({type:'DEVELOPMENT_RESOLVE_UTE_DISPLACEMENT',space:d.space});return;
  }
+ if(a==='board-nuevo-tribe'){
+  const pending=state.developmentPending;
+  if(pending?.kind!=='nuevo-apacheria'||!state.pieces.some(p=>p.id===d.id&&p.type==='Tribe'&&SPACE[p.location]))return;
+  stateUI.nuevoTribeId=d.id;render();return;
+ }
+ if(a==='board-nuevo-back'){
+  if(state.developmentPending?.kind!=='nuevo-apacheria')return;
+  stateUI.nuevoTribeId=null;render();return;
+ }
+ if(a==='board-nuevo-destination'){
+  if(state.developmentPending?.kind!=='nuevo-apacheria'||!stateUI.nuevoTribeId)return;
+  const command={type:'DEVELOPMENT_NUEVO_APACHERIA',tribeId:stateUI.nuevoTribeId,space:d.space};
+  try{perform(state,command);}catch{return notify('Destination is no longer legal. Choose another visible space.',true);}
+  stateUI.nuevoTribeId=null;commit(command);return;
+ }
  if(a==='board-fort-gibson-move'){
   if(state.developmentPending?.kind!=='fort-gibson-displace')return;
-  commit({type:'DEVELOPMENT_FORT_GIBSON_MOVE',space:d.space});return;
+  const command={type:'DEVELOPMENT_FORT_GIBSON_MOVE',space:d.space};
+  try{perform(state,command);}catch{return notify('That displacement is no longer legal.',true);}
+  commit(command);return;
  }
  if(a==='board-indian-removal-move'){
   if(state.developmentPending?.kind!=='indian-removal-displace')return;
-  commit({type:'DEVELOPMENT_INDIAN_REMOVAL_MOVE',space:d.space});return;
+  const command={type:'DEVELOPMENT_INDIAN_REMOVAL_MOVE',space:d.space};
+  try{perform(state,command);}catch{return notify('That displacement is no longer legal.',true);}
+  commit(command);return;
  }
  if(a==='board-kiowa-pick'){
   const pending=state.developmentPending,c=stateUI.kiowaChoice;
   if(pending?.kind!=='kiowa-alliance'||!c)return;
   const field=['tribeId','rancheriaId','bandId','horseIds'][c.step],id=d.id;
-  const allowed=c.step===0?pending.tribeIds||[]:c.step===1?state.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`).map(p=>p.id):c.step===2?state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.strength)).map(p=>p.id):state.pieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse'&&p.location==='reserve').map(p=>p.id);
+  const allowed=c.step===0?pending.tribeIds||[]:c.step===1?state.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`).map(p=>p.id):c.step===2?state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.stockStrength||p.strength)).map(p=>p.id):state.pieces.filter(p=>p.type==='Resource'&&p.subtype==='Horse'&&p.location==='reserve').map(p=>p.id);
   if(!allowed.includes(id))return;
   if(field==='horseIds'){c.horseIds=c.horseIds.includes(id)?c.horseIds.filter(x=>x!==id):c.horseIds.length<2?[...c.horseIds,id]:c.horseIds;}
   else c[field]=id;
   render();return;
  }
  if(a==='board-kiowa-back'){if(stateUI.kiowaChoice){stateUI.kiowaChoice.step=Math.max(0,stateUI.kiowaChoice.step-1);render();}return;}
- if(a==='board-kiowa-next'){const c=stateUI.kiowaChoice;if(c&&c.step<3&&c[['tribeId','rancheriaId','bandId'][c.step]]){c.step++;render();}return;}
+ if(a==='board-kiowa-next'){
+  const c=stateUI.kiowaChoice;
+  if(c&&c.step<3){
+   const hasBand=state.pieces.some(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.stockStrength||p.strength));
+   const valid=c.step===0?!!c.tribeId:c.step===1?!!c.rancheriaId:c.step===2?(!hasBand||!!c.bandId):false;
+   if(valid){c.step++;render();}
+  }return;
+ }
  if(a==='board-kiowa-confirm'){
   const c=stateUI.kiowaChoice;
-  if(state.developmentPending?.kind!=='kiowa-alliance'||!c||c.step!==3||!c.tribeId||!c.rancheriaId||!c.bandId)return;
-  commit({type:'DEVELOPMENT_RESOLVE_KIOWA',tribeId:c.tribeId,rancheriaId:c.rancheriaId,bandId:c.bandId,horseIds:[...c.horseIds]});return;
+  if(state.developmentPending?.kind!=='kiowa-alliance'||!c||!c.tribeId)return;
+  const ranches=state.pieces.filter(p=>p.type==='Rancheria'&&p.location===`box:${p.id}`);
+  const bands=state.pieces.filter(p=>p.type==='Band'&&p.location==='reserve'&&[1,2].includes(p.stockStrength||p.strength));
+  if(ranches.length&&(c.step!==3||!c.rancheriaId||bands.length&&!c.bandId))return;
+  commit({type:'DEVELOPMENT_RESOLVE_KIOWA',tribeId:c.tribeId,rancheriaId:ranches.length?c.rancheriaId:null,bandId:ranches.length?c.bandId:null,horseIds:ranches.length?[...c.horseIds]:[]});return;
  }
  if(a==='board-confirm-development-stock'){
   const pending=state.developmentPending;
@@ -2843,8 +2984,16 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
  }
  if(stateUI.replayIndex!==null)return;
  if(a==='focus-board-decisions'){document.querySelector('.board-turn-hud')?.scrollIntoView({block:'nearest',behavior:'smooth'});document.querySelector('.board-turn-hud .board-turn-command:not([disabled])')?.focus({preventScroll:true});return;}
- if(a==='player-panel-decisions'||a==='player-panel-events'||a==='player-panel-guided'){const target=a.replace('player-panel-','');stateUI.playerPanel=stateUI.playerPanel===target?null:target;render();return;}
- if(a==='player-panel-close'){stateUI.playerPanel=null;render();return;}
+ if(a==='player-panel-events'){stateUI.playerPanel=null;stateUI.logExpanded=true;render();return;}
+ if(a==='table-log-show-all'){stateUI.showAllLog=!stateUI.showAllLog;render();return;}
+ if(a==='player-panel-decisions'){document.querySelector('.board-turn-hud .board-turn-command:not([disabled])')?.focus({preventScroll:true});return;}
+ if(a==='player-panel-guided'){
+  stateUI.ruleDetailsOpen=!stateUI.ruleDetailsOpen;
+  render();
+  if(stateUI.ruleDetailsOpen)document.querySelector('.board-exception-details')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  return;
+ }
+ if(a==='player-panel-close'){stateUI.playerPanel=null;stateUI.ruleDetailsOpen=false;render();return;}
  if(a==='board-next-choices'||a==='board-prev-choices'){
   const prompt=nextPlayerPrompt(state);
   const count=state.activeBandId&&state.phase==='execution'&&state.operation==='Take Actions'&&!state.pending&&!state.successCheck&&!state.battlePending&&!state.developmentPending&&!state.enemyFlow&&!state.countermeasureWindow
@@ -3162,7 +3311,7 @@ const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.a
    const audit=historyObjectiveAudit(state),met=stateUI.historyVerification.met;
    stateUI.modal=null;commit({type:'RESOLVE_VICTORY',met,ack:true,objectiveNote:`Player verified ${audit.history} printed objective against the original board and active History Card.`});stateUI.historyVerification=null;return;
  }
- if(a==='director-choice'){stateUI.tabletopChoices=false;const p=nextPlayerPrompt(state),c=p.choices?.[Number(d.choiceIndex)];if(p.kind==='player'&&c?.command){if(c.command.type==='OPERATIONS_DIGITAL_ROLL'){if(confirm('Have you checked that no active printed card changes the Operations track procedure?'))commit({...c.command,ack:true});}else commit(c.command);}return;}if(a==='director-auto'){const p=nextPlayerPrompt(state);if(p.kind==='automatic'&&p.command)commit(p.command,true);return;}if(a==='select-operation'){commit({type:'SELECT_OPERATION',value:d.value});return;}
+ if(a==='director-choice'){stateUI.tabletopChoices=false;const p=nextPlayerPrompt(state),c=p.choices?.[Number(d.choiceIndex)];if(p.kind==='player'&&c?.command)commit(c.command);return;}if(a==='director-auto'){const p=nextPlayerPrompt(state);if(p.kind==='automatic'&&p.command)commit(p.command,true);return;}if(a==='select-operation'){commit({type:'SELECT_OPERATION',value:d.value});return;}
  if(a==='board-passage-retire'){commit({type:'PASSAGE_RETIRE_MAHIMIANA',mahimianaId:d.id});return;}
  if(a==='board-passage-prominent'){commit({type:'PASSAGE_PLAY_PROMINENT_HEADMAN',headmanId:d.id});return;}
  if(a==='board-passage-quanah'){commit({type:'PASSAGE_SELECT_QUANAH_EXEMPTION',mahimianaId:d.id});return;}
